@@ -63,8 +63,16 @@ def inner_prod(vec1: list, vec2: list, metric: MetricTensor):
   return powdenest(ans.simplify(), force=True)
 
 def normalize(vec: list, metric: MetricTensor):
+  """normalizes the input vector with respect to the supplied metric tensor
+
+  Args:
+    vec (list[sympy expressions]): components of the vector to be normalised
+    metric (MetricTensor): metric tensor used to define the vector norm
+
+  Returns: None
+  """
   norm = sympy.sqrt(inner_prod(vec, vec, metric))
-  return [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
+  vec = [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
 
 def calc_v(coords: list, g_fm: MetricTensor, V):
   dim = len(coords)
