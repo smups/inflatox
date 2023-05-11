@@ -33,7 +33,7 @@ def normalize(vec: list, metric: MetricTensor):
   norm = sympy.sqrt(inner_prod(vec, vec, metric))
   vec = [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
   
-def calc_hesse(coords: list, g_fm: MetricTensor, V):
+def calc_hesse(coords: list, g: MetricTensor, V):
   """returns the components of the covariant Hesse matrix in a twice-covariant
   form. Components for all pairs of the supplied coordinates are calculated for
   the scalar potential V using the supplied metric tensor.
@@ -48,7 +48,7 @@ def calc_hesse(coords: list, g_fm: MetricTensor, V):
   Args:
     coords (list[sympy symbols]): coordinates (scalar fields) with respect to
       which the components of the Hesse matrix are defined
-    g_fm (MetricTensor): metric tensor to be used to raise/lower indices and define
+    g (MetricTensor): metric tensor to be used to raise/lower indices and define
       the covariant derivative
     V (sympy expression): expression for the scalar potential of the inflaton
       fields.
@@ -58,7 +58,7 @@ def calc_hesse(coords: list, g_fm: MetricTensor, V):
   """
   dim = len(coords)
   #The connection has indices up-down-down (opposite order that we usually use)
-  conn = ChristoffelSymbols.from_metric(g_fm).tensor()
+  conn = ChristoffelSymbols.from_metric(g).tensor()
   #output components of the Hesse matrix
   Vab = [[0 for _ in range(dim)] for _ in range(dim)]
   
@@ -74,15 +74,28 @@ def calc_hesse(coords: list, g_fm: MetricTensor, V):
       Vab[a][b] = (da_dbV - gamma_ab).simplify()
   return Vab
 
-def calc_v(coords: list, g_fm: MetricTensor, V):
+def calc_v(coords: list, g: MetricTensor, V):
+  """calculates a normalized vector pointing in the direction of the gradient of
+  the supplied scalar potential
+
+  Args:
+    coords (list[sympy symbols]): coordinates (scalar fields) with respect to
+      which the potential and its gradient are defined
+    g (MetricTensor): metric tensor of the scalar manifold (used to calculate
+      covariant derivatives)
+    V (sympy expression): scalar potential
+
+  Returns:
+    list[sympy expression]: contravariant components of normalized gradient vector
+      v.
+  """
   dim = len(coords)
-  norm = (1 / sympy.sqrt(sympy.Matrix(g_fm.arr).det())).simplify()
-  
+    
   #Non-normalised components of grad V
   va = [0 for _ in range(dim)]
   for a in range(dim):
-    va[a] = powdenest((sympy.diff(V, coords[a]) * norm).simplify(), force=True)
-  return normalize(va, g_fm)
+    va[a] = powdenest((sympy.diff(V, coords[a]).simplify(), force=True)
+  return normalize(va, g)
 
 def calc_next_w(current_basis: list, guess: list, g: MetricTensor):
   """Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
