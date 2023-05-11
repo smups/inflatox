@@ -3,6 +3,36 @@ from sympy import powdenest
 from IPython.display import display
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 
+def inner_prod(vec1: list, vec2: list, metric: MetricTensor):
+  """returns the inner product of vec1 and vec2 with respect to the supplied metric
+
+  Args:
+    vec1 (list): first vector, once contravariant
+    vec2 (list): second vector, once contravariant
+    metric (MetricTensor): metric tensor, twice covariant
+
+  Returns:
+    symbolic sympy expression: inner product of vec1 with vec2 with respect to
+    the specified metric tensor
+  """
+  ans = 0
+  for a in range(len(vec1)):
+    for b in range(len(vec2)):
+      ans = ans + vec1[a]*vec2[b]*metric.arr[a][b]
+  return powdenest(ans.simplify(), force=True)
+
+def normalize(vec: list, metric: MetricTensor):
+  """normalizes the input vector with respect to the supplied metric tensor
+
+  Args:
+    vec (list[sympy expressions]): components of the vector to be normalised
+    metric (MetricTensor): metric tensor used to define the vector norm
+
+  Returns: None
+  """
+  norm = sympy.sqrt(inner_prod(vec, vec, metric))
+  vec = [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
+  
 def calc_hesse(coords: list, g_fm: MetricTensor, V):
   """returns the components of the covariant Hesse matrix in a twice-covariant
   form. Components for all pairs of the supplied coordinates are calculated for
@@ -43,36 +73,6 @@ def calc_hesse(coords: list, g_fm: MetricTensor, V):
       #set the output components
       Vab[a][b] = (da_dbV - gamma_ab).simplify()
   return Vab
-
-def inner_prod(vec1: list, vec2: list, metric: MetricTensor):
-  """returns the inner product of vec1 and vec2 with respect to the supplied metric
-
-  Args:
-    vec1 (list): first vector, once contravariant
-    vec2 (list): second vector, once contravariant
-    metric (MetricTensor): metric tensor, twice covariant
-
-  Returns:
-    symbolic sympy expression: inner product of vec1 with vec2 with respect to
-    the specified metric tensor
-  """
-  ans = 0
-  for a in range(len(vec1)):
-    for b in range(len(vec2)):
-      ans = ans + vec1[a]*vec2[b]*metric.arr[a][b]
-  return powdenest(ans.simplify(), force=True)
-
-def normalize(vec: list, metric: MetricTensor):
-  """normalizes the input vector with respect to the supplied metric tensor
-
-  Args:
-    vec (list[sympy expressions]): components of the vector to be normalised
-    metric (MetricTensor): metric tensor used to define the vector norm
-
-  Returns: None
-  """
-  norm = sympy.sqrt(inner_prod(vec, vec, metric))
-  vec = [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
 
 def calc_v(coords: list, g_fm: MetricTensor, V):
   dim = len(coords)
