@@ -31,7 +31,7 @@ def normalize(vec: list, metric: MetricTensor):
   Returns: None
   """
   norm = sympy.sqrt(inner_prod(vec, vec, metric))
-  vec = [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
+  vec[:] = [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
   
 def calc_hesse(coords: list, g: MetricTensor, V):
   """returns the components of the covariant Hesse matrix in a twice-covariant
@@ -84,21 +84,29 @@ def calc_v(coords: list, g: MetricTensor, V):
     g (MetricTensor): metric tensor of the scalar manifold (used to calculate
       covariant derivatives)
     V (sympy expression): scalar potential
+    
+  The contravariant components of the gradient of V are given by:
+    (grad V)^a(ϕ) = g^ab(ϕ) ∂_b V(ϕ)
 
   Returns:
     list[sympy expression]: contravariant components of normalized gradient vector
       v.
   """
   dim = len(coords)
-    
-  #Non-normalised components of grad V
-  va = [0 for _ in range(dim)]
+  #non-normalised components of grad V
+  v = [sympy.diff(V, φ) for φ in coords]  
+  
+  #contract v with the inverse of the metric tensor
   for a in range(dim):
-    va[a] = powdenest((sympy.diff(V, coords[a]).simplify(), force=True)
-  return normalize(va, g)
+    for b in range(dim):
+      v[a] = (v[a] + powdenest(g.inv().arr[a][b] * v[a], force=True)).simplify()
+  
+  #normalize v
+  normalize(v, g)
+  return v
 
 def calc_next_w(current_basis: list, guess: list, g: MetricTensor):
-  """Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
+  f"""Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
   an incomplete set of orthogonal basis vectors and a third vector that is linearly
   independent from the other vectors.
 
@@ -111,6 +119,13 @@ def calc_next_w(current_basis: list, guess: list, g: MetricTensor):
       the set of current basis vectors.
     g (MetricTensor): metric tensor (twice covariant) used to define inner products
       for the Gramm-Schmidt procedure
+      
+  The Gramm-Schmidt procedure starts with a(n incomplete) set of orthonormal
+  basis vectors x_i and new vector y that is linearly independent of all x_i. We
+  then simply subtract the overlap between y and each basisvector to obtain a
+  vector x_i+1 that is orthogonal to all x_i:
+    x_i+1 = y - Σ_a g_ij x^i_a y^j
+  The final step is to normalise x_i+1
 
   Returns:
     (list): list of the contravariant components of an additional basis vector
@@ -120,14 +135,35 @@ def calc_next_w(current_basis: list, guess: list, g: MetricTensor):
   dim = len(current_basis[0])
   #make sure the supplied basis is not already complete
   assert(len(current_basis) < dim)
-  ans = guess
-  for vec in current_basis:
-    overlap = inner_prod(vec, guess, g)
-    for a in range(dim):
-      ans[a] = (ans[a] - overlap*vec[a]).simplify()
-  return normalize(ans, g)
+  
+  #start with vector y
+  y = guess
+  
+  #subtract the overlap of each current basis vector from y
+  for x in current_basis:
+    #first assert that vec is actually normalised
+    #assert(sympy.Eq(inner_prod(x, x, g), 1))
+    xy = inner_prod(x, guess, g) #we have to use guess here, not y!
+    y = [(y_a - xy*x_a).simplify() for (y_a, x_a) in zip(y, x)]
+    
+  #normalize y
+  normalize(y, g)
+  return y
 
 def project_hesse(hesse_matrix: list, vec1: list, vec2: list):
+  """_summary_
+
+  Args:
+    hesse_matrix (list[list[sympy expression]]): twice-covariant components of
+      the Hesse matrix
+    vec1 (list[sympy expression]): first vector along which to project the Hesse
+      matrix
+    vec2 (list[sympy expression]): second vector along which to project the Hesse
+      matrix
+
+  Returns:
+      _type_: _description_
+  """
   dim = len(vec1)
   assert(len(vec1) == len(vec2))
   V_proj = 0
