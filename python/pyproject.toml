@@ -1,0 +1,18 @@
+[project]
+name = "inflatox"
+version = "0.1.0"
+authors = [
+  { name="Raúl Wolters", email="rawolters11@gmail.com" },
+]
+description = "A small example package"
+readme = "README.md"
+requires-python = ">=3.7<=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: EUPL License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/smups/inflatox"
+"Bug Tracker" = "https://github.com/smups/inflatox/issues"

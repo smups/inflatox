@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "cmath": "c",
+    "stdlib.h": "c"
+  }
+}
