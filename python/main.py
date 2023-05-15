@@ -3,35 +3,37 @@ from sympy import powdenest
 from IPython.display import display
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 
-def inner_prod(vec1: list, vec2: list, metric: MetricTensor):
+def inner_prod(v1: list, v2: list, g: MetricTensor):
   """returns the inner product of vec1 and vec2 with respect to the supplied metric
 
   Args:
-    vec1 (list): first vector, once contravariant
-    vec2 (list): second vector, once contravariant
-    metric (MetricTensor): metric tensor, twice covariant
+    v1 (list): first vector, once contravariant
+    v1 (list): second vector, once contravariant
+    g (MetricTensor): metric tensor, twice covariant
 
   Returns:
     symbolic sympy expression: inner product of vec1 with vec2 with respect to
     the specified metric tensor
   """
   ans = 0
-  for a in range(len(vec1)):
-    for b in range(len(vec2)):
-      ans = ans + vec1[a]*vec2[b]*metric.arr[a][b]
-  return powdenest(ans.simplify(), force=True)
+  dim = len(v1)
+  assert(dim == len(v2))
+  for a in range(dim):
+    for b in range(dim):
+      ans = ans + (v1[a] * v2[b] * g.arr[a][b])
+  return powdenest(ans, force=True).simplify()
 
-def normalize(vec: list, metric: MetricTensor):
+def normalize(vec: list, g: MetricTensor):
   """normalizes the input vector with respect to the supplied metric tensor
 
   Args:
     vec (list[sympy expressions]): components of the vector to be normalised
     metric (MetricTensor): metric tensor used to define the vector norm
 
-  Returns: None
+  Returns: normalized components of the supplied vector vec
   """
-  norm = sympy.sqrt(inner_prod(vec, vec, metric))
-  vec[:] = [powdenest((cmp / norm).simplify(), force=True) for cmp in vec]
+  norm = sympy.sqrt(inner_prod(vec, vec, g))
+  return [(cmp / norm).simplify() for cmp in vec]
   
 def calc_hesse(coords: list, g: MetricTensor, V):
   """returns the components of the covariant Hesse matrix in a twice-covariant
@@ -71,7 +73,7 @@ def calc_hesse(coords: list, g: MetricTensor, V):
       for c in range(dim):
         gamma_ab = (gamma_ab + conn[c][b][a]*sympy.diff(V, coords[c])).simplify()
       #set the output components
-      Vab[a][b] = (da_dbV - gamma_ab).simplify()
+      Vab[a][b] = powdenest((da_dbV - gamma_ab).simplify(), force=True)
   return Vab
 
 def calc_v(coords: list, g: MetricTensor, V):
@@ -99,11 +101,11 @@ def calc_v(coords: list, g: MetricTensor, V):
   #contract v with the inverse of the metric tensor
   for a in range(dim):
     for b in range(dim):
-      v[a] = (v[a] + powdenest(g.inv().arr[a][b] * v[a], force=True)).simplify()
+      v[a] = (v[a] + g.inv().arr[a][b] * v[a]).simplify()
   
   #normalize v
-  normalize(v, g)
-  return v
+  v = normalize(v, g)
+  return [powdenest(va, force=True).simplify() for va in v]
 
 def calc_next_w(current_basis: list, guess: list, g: MetricTensor):
   f"""Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
@@ -144,11 +146,11 @@ def calc_next_w(current_basis: list, guess: list, g: MetricTensor):
     #first assert that vec is actually normalised
     #assert(sympy.Eq(inner_prod(x, x, g), 1))
     xy = inner_prod(x, guess, g) #we have to use guess here, not y!
-    y = [(y_a - xy*x_a).simplify() for (y_a, x_a) in zip(y, x)]
-    
+    for a in range(dim):
+      y[a] = (y[a] - xy*x[a]).simplify()    
   #normalize y
-  normalize(y, g)
-  return y
+  y = normalize(y, g)
+  return [powdenest(ya, force=True).simplify() for ya in y]
 
 def project_hesse(hesse_matrix: list, vec1: list, vec2: list):
   """_summary_
