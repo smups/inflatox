@@ -15,7 +15,6 @@ fn main() {
     while y <= RANGE {
       let coords = &[x, y];
       let result = calc_h10(coords, &PARAMS);
-      println!("({x},{y})={result} ");
       accumulator += result;
       y += STEP;
     }

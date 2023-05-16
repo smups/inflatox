@@ -26,16 +26,14 @@ int main() {
 
   //Begin timing
   clock_t begin = clock();
-
   for (double x = range_start; x <= range_end; x += step) {
     for (double y = range_start; y <= range_end; y += step) {
       const double coords[2] = {x, y};
       double result = calc_h10(coords, params);
-      //printf("%f ", result);
       accumulator += result;
     }
   }
-
+  //End timing
   clock_t end = clock();
   double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
   printf("Elapsed: %f\n", time_spent);
