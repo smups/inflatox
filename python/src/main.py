@@ -1,8 +1,8 @@
 import sympy
 from sympy import powdenest
-from IPython import display
+from IPython.display import display, Math
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, cpu_count
 
 class SymbolicCalculation():
   
@@ -18,28 +18,37 @@ class SymbolicCalculation():
     #(1) Calculate an orthonormal basis
     print("Calculating orthonormal basis...")
     w = [self.calc_v()]
-    display(sympy.Eq(sympy.symbols(f"v_0="), w[0], evaluate=False))
+    display(Math(f"v_0={sympy.latex(w[0])}"))
     for (i, guess) in enumerate(basis):
       w.append(self.calc_next_w(w, guess))
-      display(sympy.Eq(sympy.symbols(f"v_{i+1}="), w[-1], evaluate=False))
+      display(Math(f"v_{i+1}={sympy.latex(w[i])}"))
     
     #(1b) make sure the basis is orthonormal
     for a in range(dim):
       for b in range(dim):
-        assert(sympy.Eq(1, self.inner_prod(w[a], w[b])).simplify())
+        if a == b:
+          assert(sympy.Eq(1, self.inner_prod(w[a], w[b])).simplify())
+        else:
+          assert(sympy.Eq(0, self.inner_prod(w[a], w[b])).simplify())
         
     #(2) Calculate the components of the covariant Hesse Matrix
     print("Calculating covariant Hesse matrix...")
     H = self.calc_hesse()
+    display(Math(f"H={sympy.latex(sympy.Matrix(H))}"))
     
     #(3) Project Hesse matrix
     print("Projecting the Hesse matrix on the vielbein basis...")
     def process(a:int, b:int):
-      ans = self.project_hesse(H, basis[a], basis[b])
-      display(sympy.Eq(sympy.symbols(f"H{a}{b}="), ans))
-      return ans
-
-    return Parallel(n_jobs=8)(delayed(process)(a, b) for a in range(dim) for b in range(dim))
+      return ([a, b], self.project_hesse(H, w[a], w[b]))
+    H_proj = [[0 for _ in range(dim)] for _ in range(dim)]
+    results = Parallel(n_jobs=cpu_count())(delayed(process)(a, b) for a in range(dim) for b in range(dim))
+    
+    #(3b) print projected components of the Hesse matrix
+    for (idx, component) in results:
+        a, b = idx
+        H_proj[a][b] = component
+        display(Math(f"H_{{{a}{b}}}={sympy.latex(component)}"))
+    return H_proj
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of vec1 and vec2 with respect to configured metric
@@ -174,7 +183,7 @@ class SymbolicCalculation():
     y = self.normalize(y)
     return [powdenest(ya, force=True).simplify() for ya in y]
 
-  def project_hesse(hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
+  def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
     """_summary_
 
     Args:
