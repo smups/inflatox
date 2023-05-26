@@ -11,13 +11,61 @@ class SymbolicCalculation():
   to the supplied metric on the scalar manifold.
   
   ## Usage
-    An instance of this `SymbolicCalculation` class may be constructed 
+  An instance of this `SymbolicCalculation` class may be constructed from a
+  user-defined field_metric, a potential and a list of sympy Symbols indicating
+  which symbols (used in the definition of the potential and metric) should be
+  interpreted as fields. Two different constructors can be used:
+  
+    1. `SymbolicCalculation.new()` takes a `field_metric` argument as an instance
+    of EinsteinPy's `MetricTensor` class.
+    2. `SymbolicCalculation.new_from_list()` takes a `field_metric` argument as
+    a normal python nested list of sympy expressions. This constructor is
+    especially useful when other functionality supplied by the EinsteinPy package
+    is not required.
+    
+  Calling the `.execute()` method on an instance of this (`SymbolicCalculation`)
+  with an appropriate starting point for constructing the vielbein basis will 
+  perform the calculation of the components of the covariant Hesse matrix, projected
+  onto the vielbein basis.
   """
   
   def __init__(self, fields: list[sympy.Symbol], field_metric: MetricTensor, potential: sympy.Expr):
     self.coords = fields
     self.g = field_metric
     self.V = potential
+    
+  @classmethod
+  def new(cls, fields: list[sympy.Symbol], field_metric: MetricTensor, potential: sympy.Expr):
+    """Constructs a 
+
+    ### Args
+    - `fields` (`list[sympy.Symbol]`): sympy symbols that will be interpreted as
+    fields during the symbolic calculation.
+    - field_metric (`einsteinpy.symbolic.MetricTensor`): metric tensor on the scalar
+    manifold
+    - potential (`sympy.Expr`): potential for the scalar fields
+
+    ### Returns
+    `SymbolicCalculation`
+    """
+    return cls(fields, field_metric, potential)
+  
+  @classmethod
+  def new_from_list(cls, fields: list[sympy.Symbol], field_metric: list[list[sympy.Symbol]], potential: sympy.Expr):
+    """Constructs a 
+
+    ### Args
+    - `fields` (`list[sympy.Symbol]`): sympy symbols that will be interpreted as
+    fields during the symbolic calculation.
+    - field_metric (`einsteinpy.symbolic.MetricTensor`): metric tensor on the scalar
+    manifold
+    - potential (`sympy.Expr`): potential for the scalar fields
+
+    ### Returns
+    `SymbolicCalculation`
+    """
+    metric = MetricTensor(field_metric, fields, "scalar manifold metric")
+    return cls(fields, metric, potential)
     
   def execute(self, basis: list[list[sympy.Expr]]) -> list[list[sympy.Expr]]:
     dim = len(self.coords)
@@ -62,12 +110,12 @@ class SymbolicCalculation():
     """returns the inner product of vec1 and vec2 with respect to configured metric
 
     ### Args
-      `v1` (`list[sympy.Expr]`): first vector, once contravariant
-      `v1` (`list[sympy.Expr]`): second vector, once contravariant
+    - `v1` (`list[sympy.Expr]`): first vector, once contravariant
+    - `v1` (`list[sympy.Expr]`): second vector, once contravariant
 
     ### Returns
-      `sympy.Expr`: inner product of vec1 with vec2 with respect to the
-      configured metric tensor of the current instance
+    `sympy.Expr`: inner product of vec1 with vec2 with respect to the configured
+      metric tensor of the current instance
     """
     ans = 0
     dim = len(v1)
@@ -81,10 +129,10 @@ class SymbolicCalculation():
     """normalizes the input vector with respect to the configured metric tensor
 
     ### Args
-      vec (`list[sympy.Expr]`): components of the vector to be normalised
+    vec (`list[sympy.Expr]`): components of the vector to be normalised
 
     ### Returns
-      `list[sympy.Expr]`: normalized components of the supplied vector vec with
+    `list[sympy.Expr]`: normalized components of the supplied vector vec with
       respect to the metric tensor of the current instance 
     """
     norm = sympy.sqrt(self.inner_prod(vec, vec))
@@ -104,7 +152,7 @@ class SymbolicCalculation():
       Γ_ab^c = 1/2 g^cd (∂_a g_bd + ∂_b g_ad - ∂_d g_ab)
 
     ### Returns
-      `list[list[sympy.Expr]]`: nested list of components of the Hesse matrix
+    `list[list[sympy.Expr]]`: nested list of components of the Hesse matrix
     """
     dim = len(self.coords)
     #The connection has indices up-down-down (opposite order that we usually use)
@@ -133,8 +181,7 @@ class SymbolicCalculation():
       (grad V)^a(ϕ) = g^ab(ϕ) ∂_b V(ϕ)
 
     ### Returns
-      `list[sympy.Expr]`: contravariant components of normalized gradient
-      vector v.
+    `list[sympy.Expr]`: contravariant components of normalized gradient vector v.
     """
     dim = len(self.coords)
     #non-normalised components of grad V
@@ -150,7 +197,7 @@ class SymbolicCalculation():
     return [powdenest(va, force=True).simplify() for va in v]
 
   def calc_next_w(self, current_basis: list[list[sympy.Expr]], guess: list[sympy.Expr]) -> list[sympy.Expr]:
-    f"""Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
+    """Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
     an incomplete set of orthogonal basis vectors and a third vector that is linearly
     independent from the other vectors.
 
@@ -162,7 +209,8 @@ class SymbolicCalculation():
       (incomplete) set of current basis vectors. The components of this vector
       should be given in *contravariant* form. This vector needn't be
       normalized nor orthogonal to the set of current basis vectors.
-        
+    
+    ### Precise formulation of calculated quantities
     The Gramm-Schmidt procedure starts with a(n incomplete) set of orthonormal
     basis vectors x_i and new vector y that is linearly independent of all x_i. We
     then simply subtract the overlap between y and each basisvector to obtain a
@@ -170,10 +218,10 @@ class SymbolicCalculation():
       x_i+1 = y - Σ_a g_ij x^i_a y^j
     The final step is to normalise x_i+1
 
-    Returns:
-      `list[sympy.Expr]`: list of the contravariant components of an additional
-        basis vector orthogonal to the supplied set of basis vectors, with
-        respect to the supplied metric.
+    ### Returns
+    `list[sympy.Expr]`: list of the contravariant components of an additional
+      basis vector orthogonal to the supplied set of basis vectors, with respect
+      to the supplied metric.
     """
     dim = len(current_basis[0])
     #make sure the supplied basis is not already complete
@@ -205,7 +253,7 @@ class SymbolicCalculation():
       matrix
 
     ### Returns
-      `sympy.Expr`: _description_
+    `sympy.Expr`: _description_
     """
     dim = len(vec1)
     assert(len(vec1) == len(vec2))
