@@ -5,6 +5,14 @@ from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 from joblib import Parallel, delayed, cpu_count
 
 class SymbolicCalculation():
+  """This class represents the symbolic calculation of the Hesse matrix of the
+  scalar field potential, projected on an orthonormal vielbein basis constructed
+  from the supplied potential. Both of these constructs are covariant with respect
+  to the supplied metric on the scalar manifold.
+  
+  ## Usage
+    An instance of this `SymbolicCalculation` class may be constructed 
+  """
   
   def __init__(self, fields: list[sympy.Symbol], field_metric: MetricTensor, potential: sympy.Expr):
     self.coords = fields
@@ -53,13 +61,13 @@ class SymbolicCalculation():
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of vec1 and vec2 with respect to configured metric
 
-    Args:
-      v1 (list): first vector, once contravariant
-      v1 (list): second vector, once contravariant
+    ### Args
+      `v1` (`list[sympy.Expr]`): first vector, once contravariant
+      `v1` (`list[sympy.Expr]`): second vector, once contravariant
 
-    Returns:
-      symbolic sympy expression: inner product of vec1 with vec2 with respect to
-      the configured metric tensor of the current instance
+    ### Returns
+      `sympy.Expr`: inner product of vec1 with vec2 with respect to the
+      configured metric tensor of the current instance
     """
     ans = 0
     dim = len(v1)
@@ -72,12 +80,12 @@ class SymbolicCalculation():
   def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
     """normalizes the input vector with respect to the configured metric tensor
 
-    Args:
-      vec (list[sympy expressions]): components of the vector to be normalised
+    ### Args
+      vec (`list[sympy.Expr]`): components of the vector to be normalised
 
-    Returns:
-      normalized components of the supplied vector vec with respect to the
-      metric tensor of the current instance 
+    ### Returns
+      `list[sympy.Expr]`: normalized components of the supplied vector vec with
+      respect to the metric tensor of the current instance 
     """
     norm = sympy.sqrt(self.inner_prod(vec, vec))
     return [(cmp / norm).simplify() for cmp in vec]
@@ -87,6 +95,7 @@ class SymbolicCalculation():
     form. Components for all pairs of the supplied coordinates are calculated for
     the scalar potential V using the supplied metric tensor.
     
+    ### Precise formulation of calculated quantities
     The components of the covariant Hesse matrix are defined as:
       V_ab(ϕ) = ∇_a ∇_b V(ϕ)
     This is expanded as (using Einstein notation):
@@ -94,8 +103,8 @@ class SymbolicCalculation():
     Where Γ_ab^c(ϕ) is the standard Christoffel connection defined as:
       Γ_ab^c = 1/2 g^cd (∂_a g_bd + ∂_b g_ad - ∂_d g_ab)
 
-    Returns:
-      list[list[sympy expressions]]: nested list of components of the Hesse matrix
+    ### Returns
+      `list[list[sympy.Expr]]`: nested list of components of the Hesse matrix
     """
     dim = len(self.coords)
     #The connection has indices up-down-down (opposite order that we usually use)
@@ -118,13 +127,14 @@ class SymbolicCalculation():
   def calc_v(self) -> list[sympy.Expr]:
     """calculates a normalized vector pointing in the direction of the gradient of
     the configured scalar potential of the current instance
-      
+    
+    ### Precise formulation of calculated quantities
     The contravariant components of the gradient of V are given by:
       (grad V)^a(ϕ) = g^ab(ϕ) ∂_b V(ϕ)
 
-    Returns:
-      list[sympy expression]: contravariant components of normalized gradient vector
-      v.
+    ### Returns
+      `list[sympy.Expr]`: contravariant components of normalized gradient
+      vector v.
     """
     dim = len(self.coords)
     #non-normalised components of grad V
@@ -144,14 +154,14 @@ class SymbolicCalculation():
     an incomplete set of orthogonal basis vectors and a third vector that is linearly
     independent from the other vectors.
 
-    Args:
-      current_basis (list[list[sympy expression]]): list of current *orthogonal*
-        basisvectors. The components of the vectors should be given in
-        *contravariant* form.
-      guess (list[sympy.Expr]): vector that is linearly independent from the
-        (incomplete) set of current basis vectors. The components of this vector
-        should be given in *contravariant* form. This vector needn't be
-        normalized nor orthogonal to the set of current basis vectors.
+    ### Args
+    - `current_basis` (`list[list[sympy.Expr]]`): list of current *orthogonal*
+      basisvectors. The components of the vectors should be given in
+      *contravariant* form.
+    - `guess` (`list[sympy.Expr]`): vector that is linearly independent from the
+      (incomplete) set of current basis vectors. The components of this vector
+      should be given in *contravariant* form. This vector needn't be
+      normalized nor orthogonal to the set of current basis vectors.
         
     The Gramm-Schmidt procedure starts with a(n incomplete) set of orthonormal
     basis vectors x_i and new vector y that is linearly independent of all x_i. We
@@ -161,9 +171,9 @@ class SymbolicCalculation():
     The final step is to normalise x_i+1
 
     Returns:
-      (list[sympy.Expr]): list of the contravariant components of an additional basis vector
-        orthogonal to the supplied set of basis vectors, with respect to the supplied
-        metric.
+      `list[sympy.Expr]`: list of the contravariant components of an additional
+        basis vector orthogonal to the supplied set of basis vectors, with
+        respect to the supplied metric.
     """
     dim = len(current_basis[0])
     #make sure the supplied basis is not already complete
@@ -186,16 +196,16 @@ class SymbolicCalculation():
   def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
     """_summary_
 
-    Args:
-      hesse_matrix (list[list[sympy expression]]): twice-covariant components of
-        the Hesse matrix
-      vec1 (list[sympy expression]): first vector along which to project the Hesse
-        matrix
-      vec2 (list[sympy expression]): second vector along which to project the Hesse
-        matrix
+    ### Args
+    - `hesse_matrix` (`list[list[sympy.Expr]]`): twice-covariant components of
+      the Hesse matrix
+    - `vec1` (`list[sympy.Expr]`): first vector along which to project the Hesse
+      matrix
+    - `vec2` (`list[sympy.Expr]`): second vector along which to project the Hesse
+      matrix
 
-    Returns:
-      (sympy expression): _description_
+    ### Returns
+      `sympy.Expr`: _description_
     """
     dim = len(vec1)
     assert(len(vec1) == len(vec2))
@@ -204,3 +214,8 @@ class SymbolicCalculation():
       for b in range(dim):
         V_proj = V_proj + hesse_matrix[a][b]*vec1[a]*vec2[b]
     return powdenest(V_proj.simplify(), force=True)
+  
+class Compiler():
+  
+  def __init__(self):
+    pass
