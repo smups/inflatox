@@ -404,7 +404,7 @@ class Compiler():
         
       for a in range(self.hesse.dim):
         for b in range(self.hesse.dim):
-          function_body = ccode_writer.doprint(self.hesse.cmp[a][b])
+          function_body = ccode_writer.doprint(self.hesse.cmp[a][b]).replace(')*', ') *\n    ')
           out.write(f"""
 {ty} v{a}{b}(const {ty} x[], const {ty} args[]) {{
   return {function_body};
