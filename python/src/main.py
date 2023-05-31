@@ -333,7 +333,9 @@ class CInflatoxPrinter(C99CodePrinter):
     
   def register_parameter(self, symbol: sympy.Symbol) -> str:
     """Adds symbol to the parameter dictionary"""
-    self.param_dict[super()._print_Symbol(symbol)] = f"args[{len(self.param_dict)}]"
+    sym_name = f"args[{len(self.param_dict)}]"
+    self.param_dict[super()._print_Symbol(symbol)] = sym_name
+    return sym_name
     
   def get_symbol(self, symbol: sympy.Symbol) -> str | None:
     """Returns string mapping of symbol, if there is one"""
