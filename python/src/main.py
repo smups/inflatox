@@ -4,6 +4,18 @@ from IPython.display import display, Math
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 from joblib import Parallel, delayed, cpu_count
 
+class HesseMatrix():  
+  def __init__(self, components: list[list[sympy.Expr]]):
+    self.cmp = components
+    
+  @classmethod
+  def from_list(cls, components: list[list[sympy.Expr]]):
+    cls(components)
+    
+  @classmethod
+  def from_matrix(cls, matrix: sympy.MutableMatrix):
+    raise Exception("Not implemented!")
+
 class SymbolicCalculation():
   """This class represents the symbolic calculation of the Hesse matrix of the
   scalar field potential, projected on an orthonormal vielbein basis constructed
@@ -16,12 +28,11 @@ class SymbolicCalculation():
   which symbols (used in the definition of the potential and metric) should be
   interpreted as fields. Two different constructors can be used:
   
-    1. `SymbolicCalculation.new()` takes a `field_metric` argument as an instance
+  1. `SymbolicCalculation.new()` takes a `field_metric` argument as an instance
     of EinsteinPy's `MetricTensor` class.
-    2. `SymbolicCalculation.new_from_list()` takes a `field_metric` argument as
-    a normal python nested list of sympy expressions. This constructor is
-    especially useful when other functionality supplied by the EinsteinPy package
-    is not required.
+  2. `SymbolicCalculation.new_from_list()` takes a `field_metric` argument as a
+    normal python nested list of sympy expressions. This constructor is especially
+    useful when other functionality supplied by the EinsteinPy package is not required.
     
   Calling the `.execute()` method on an instance of this (`SymbolicCalculation`)
   with an appropriate starting point for constructing the vielbein basis will 
@@ -36,7 +47,7 @@ class SymbolicCalculation():
     
   @classmethod
   def new(cls, fields: list[sympy.Symbol], field_metric: MetricTensor, potential: sympy.Expr):
-    """Constructs a 
+    """Constructs an instance of `SymbolicCalculation`
 
     ### Args
     - `fields` (`list[sympy.Symbol]`): sympy symbols that will be interpreted as
@@ -52,7 +63,7 @@ class SymbolicCalculation():
   
   @classmethod
   def new_from_list(cls, fields: list[sympy.Symbol], field_metric: list[list[sympy.Symbol]], potential: sympy.Expr):
-    """Constructs a 
+    """Constructs an instance of `SymbolicCalculation`
 
     ### Args
     - `fields` (`list[sympy.Symbol]`): sympy symbols that will be interpreted as
@@ -67,7 +78,15 @@ class SymbolicCalculation():
     metric = MetricTensor(field_metric, fields, "scalar manifold metric")
     return cls(fields, metric, potential)
     
-  def execute(self, basis: list[list[sympy.Expr]]) -> list[list[sympy.Expr]]:
+  def execute(self, basis: list[list[sympy.Expr]]) -> HesseMatrix:
+    """_summary_
+
+    ### Args:
+    `basis` (`list[list[sympy.Expr]]`): _description_
+
+    ### Returns:
+    `HesseMatrix`: _description_
+    """
     dim = len(self.coords)
     assert(len(basis) == dim - 1)
     
@@ -104,7 +123,7 @@ class SymbolicCalculation():
         a, b = idx
         H_proj[a][b] = component
         display(Math(f"H_{{{a}{b}}}={sympy.latex(component)}"))
-    return H_proj
+    return HesseMatrix(H_proj)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of vec1 and vec2 with respect to configured metric
@@ -262,8 +281,8 @@ class SymbolicCalculation():
       for b in range(dim):
         V_proj = V_proj + hesse_matrix[a][b]*vec1[a]*vec2[b]
     return powdenest(V_proj.simplify(), force=True)
-  
+
 class Compiler():
   
-  def __init__(self):
+  def __init__(self, hesse_matrix: HesseMatrix):
     pass
