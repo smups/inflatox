@@ -305,6 +305,15 @@ class SymbolicCalculation():
     return powdenest(V_proj.simplify(), force=True)
 
 class CInflatoxPrinter(C99CodePrinter):
+  """C99CodePrinter with modified `_print_Symbol` method. Converting Sympy
+  expressions with this printer will map all sympy symbols to either:
+    - `x[i]` for symbols that must be interpreted as coordinates on the scalar
+    manifold
+    - `args[i]` for other symbols
+  Which symbols should be interpreted as coordinates and which ones should not
+  can be specified with the class constructor by passing it the appropriate
+  value for the `coordinate_symbols` argument.
+  """
   
   def __init__(self, coordinate_symbols: list[sympy.Symbol], settings=None):
     super().__init__(settings)
@@ -315,15 +324,26 @@ class CInflatoxPrinter(C99CodePrinter):
     self.param_dict = {}
     
   def _print_Symbol(self, expr):
-    sym_name = super()._print_Symbol(expr)
+    """Modified _print_Symbol function that maps sympy symbols to argument indices"""
+    sym_name = self.get_symbol(expr)
+    if sym_name is not None:
+      return sym_name
+    else:
+      return self.register_parameter(expr)
+    
+  def register_parameter(self, symbol: sympy.Symbol) -> str:
+    """Adds symbol to the parameter dictionary"""
+    self.param_dict[super()._print_Symbol(symbol)] = f"args[{len(self.param_dict)}]"
+    
+  def get_symbol(self, symbol: sympy.Symbol) -> str | None:
+    """Returns string mapping of symbol, if there is one"""
+    sym_name = super()._print_Symbol(symbol)
     if self.coord_dict.get(sym_name) is not None:
       return self.coord_dict[sym_name]
     elif self.param_dict.get(sym_name) is not None:
       return self.param_dict[sym_name]
     else:
-      next_name = f"args[{len(self.param_dict)}]"
-      self.param_dict[sym_name] = next_name
-      return next_name
+      return None
 
 class Compiler():
   
