@@ -13,9 +13,14 @@ from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 from joblib import Parallel, delayed, cpu_count
 
 class HesseMatrix():  
-  def __init__(self, components: list[list[sympy.Expr]], model_name: str|None):
+  def __init__(self,
+    components: list[list[sympy.Expr]],
+    coordinates: list[sympy.Symbol],
+    model_name: str|None
+  ):
     self.cmp = components
     self.dim = len(components[0])
+    self.coordinates = coordinates
     self.model_name = model_name if model_name is not None else "generic model"
     if len(components[0]) != len(components):
       raise Exception('The Hesse Matrix is square; the provided list was not (number of columns != number of rows)')
@@ -141,7 +146,7 @@ class SymbolicCalculation():
         a, b = idx
         H_proj[a][b] = component
         display(Math(f"H_{{{a}{b}}}={sympy.latex(component)}"))
-    return HesseMatrix(H_proj, self.model_name)
+    return HesseMatrix(H_proj, self.coords, self.model_name)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of vec1 and vec2 with respect to configured metric
@@ -332,9 +337,13 @@ class Compiler():
     self.output_file = open(output_path, 'x')
   
   def __init__(self, hesse_matrix: HesseMatrix, precision: Literal['single', 'double', 'quad'] = 'double'):
-    self.output_file = tempfile.NamedTemporaryFile(mode='wt', delete=False)
-    self.hesse = hesse_matrix.cmp
-    self.dim = hesse_matrix.dim
+    self.output_file = tempfile.NamedTemporaryFile(
+      mode='wt',
+      delete=False,
+      suffix='.c',
+      prefix='inflx_autoc_'
+      )
+    self.hesse = hesse_matrix
     self.precision = precision
     self.set_compiler()
     self.set_preamble(hesse_matrix.model_name)
@@ -348,11 +357,11 @@ class Compiler():
       elif self.precision == 'quad':
         ty = 'long double'
         
-      for a in range(self.dim):
-        for b in range(self.dim):
-          function_body = ccode(self.hesse[a][b])
+      for a in range(self.hesse.dim):
+        for b in range(self.hesse.dim):
+          function_body = ccode(self.hesse.cmp[a][b])
           out.write(f"""
-{ty} v{a}{b}(const {ty} [x], const {ty} [args]) {{
+{ty} v{a}{b}(const {ty} x[], const {ty} args[]) {{
   return {function_body};
 }}
 """
