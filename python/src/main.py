@@ -7,7 +7,7 @@ from typing import Literal
 
 import sympy
 from sympy import powdenest
-from sympy.printing import ccode
+from sympy.printing.c import C99CodePrinter
 from IPython.display import display, Math
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 from joblib import Parallel, delayed, cpu_count
@@ -304,6 +304,27 @@ class SymbolicCalculation():
         V_proj = V_proj + hesse_matrix[a][b]*vec1[a]*vec2[b]
     return powdenest(V_proj.simplify(), force=True)
 
+class CInflatoxPrinter(C99CodePrinter):
+  
+  def __init__(self, coordinate_symbols: list[sympy.Symbol], settings=None):
+    super().__init__(settings)
+    coord_dict = {}
+    for (i, symbol) in enumerate(coordinate_symbols):
+      coord_dict[super()._print_Symbol(symbol)] = f'x[{i}]'
+    self.coord_dict = coord_dict
+    self.param_dict = {}
+    
+  def _print_Symbol(self, expr):
+    sym_name = super()._print_Symbol(expr)
+    if self.coord_dict.get(sym_name) is not None:
+      return self.coord_dict[sym_name]
+    elif self.param_dict.get(sym_name) is not None:
+      return self.param_dict[sym_name]
+    else:
+      next_name = f"args[{len(self.param_dict)}]"
+      self.param_dict[sym_name] = next_name
+      return next_name
+
 class Compiler():
   
   @classmethod
@@ -357,9 +378,11 @@ class Compiler():
       elif self.precision == 'quad':
         ty = 'long double'
         
+      ccode_writer = CInflatoxPrinter(self.hesse.coordinates)
+        
       for a in range(self.hesse.dim):
         for b in range(self.hesse.dim):
-          function_body = ccode(self.hesse.cmp[a][b])
+          function_body = ccode_writer.doprint(self.hesse.cmp[a][b])
           out.write(f"""
 {ty} v{a}{b}(const {ty} x[], const {ty} args[]) {{
   return {function_body};
