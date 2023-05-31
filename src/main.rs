@@ -1,4 +1,4 @@
-pub mod bindings;
+pub mod hesse_bindings;
 
 fn main() {
   
