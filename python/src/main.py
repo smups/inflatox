@@ -410,8 +410,6 @@ class Compiler:
 #include<math.h>
 #include<stdint.h>
 
-//Number of fields (dimensionality of the scalar manifold)
-const uint32_t DIM = {self.hesse.dim}; 
 """
   
   def __init__(self,
@@ -477,9 +475,16 @@ const uint32_t DIM = {self.hesse.dim};
 }}
 """
           )
-      #update symbol dictionary
-      self.symbol_dict = ccode_writer.coord_dict
-      self.symbol_dict.update(ccode_writer.param_dict)
+      #print global constants
+      out.write(f"""
+//Number of fields (dimensionality of the scalar manifold)
+const uint32_t DIM = {self.hesse.dim};
+//Number of parameters
+const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
+""")
+    #update symbol dictionary
+    self.symbol_dict = ccode_writer.coord_dict
+    self.symbol_dict.update(ccode_writer.param_dict)
     
   def _c_compile_and_link_inner(self):
     """Compiles and links the generated C source as a platform-specific shared lib"""
