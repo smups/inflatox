@@ -347,7 +347,11 @@ class CInflatoxPrinter(C99CodePrinter):
     else:
       return None
 
-class Compiler():
+class CompilationArtifact:
+  def __init__(self, symbol_dictionary: dict, shared_object_path: str):
+    pass
+
+class Compiler:
   
   @classmethod
   def set_compiler(cls, compiler_path: str|None = None, linker_path: str|None = None):
@@ -363,8 +367,15 @@ class Compiler():
       default_compiler.set_executables(compiler=compiler_path)
     if linker_path is not None:
       default_compiler.set_executables(linker_exe=linker_path)
+    default_compiler
     cls.compiler = default_compiler
     
+  @classmethod
+  def compiler_options(cls):
+    compiler_type = cls.compiler.compiler_type
+    if compiler_type == 'unix':
+      return ['-O3','-Wall','-Werror','-fpic'], []
+        
   compiler = None
 
   def set_preamble(self, model_name: str):
@@ -375,20 +386,21 @@ class Compiler():
 
 #include<math.h>
 """
-
-  def set_output_file(self, output_path: str):
-    self.output_file = open(output_path, 'x')
   
-  def __init__(self, hesse_matrix: HesseMatrix, precision: Literal['single', 'double', 'quad'] = 'double'):
-    self.output_file = tempfile.NamedTemporaryFile(
+  def __init__(self,
+    hesse_matrix: HesseMatrix,
+    precision: Literal['single', 'double', 'quad'] = 'double',
+    output_path: str|None = None
+  ):
+    self.output_file = open(output_path) if output_path is not None else tempfile.NamedTemporaryFile(
       mode='wt',
       delete=False,
       suffix='.c',
       prefix='inflx_autoc_'
-      )
+    )
+    if Compiler.compiler is None: Compiler.set_compiler()
     self.hesse = hesse_matrix
     self.precision = precision
-    self.set_compiler()
     self.set_preamble(hesse_matrix.model_name)
     
   def generate_c_file(self):
@@ -399,7 +411,7 @@ class Compiler():
         ty = 'float'
       elif self.precision == 'quad':
         ty = 'long double'
-        
+
       ccode_writer = CInflatoxPrinter(self.hesse.coordinates)
         
       for a in range(self.hesse.dim):
@@ -411,3 +423,33 @@ class Compiler():
 }}
 """
           )
+      #update symbol dictionary
+      self.symbol_dict = ccode_writer.coord_dict
+      self.symbol_dict.update(ccode_writer.param_dict)
+    
+  def c_compile_and_link_inner(self):
+    source_path = f'{self.output_file.name}'
+    libname = os.path.basename(source_path)[:-2]
+    shared_obj_path = self.compiler.library_filename(
+      libname, 'shared', output_dir=tempfile.tempdir
+    )
+    
+    #Compile the generated source file
+    pre_opts, post_opts = self.compiler_options()
+    obj_path = self.compiler.compile(
+      [source_path],
+      output_dir='/',
+      extra_preargs=pre_opts,
+      extra_postargs=post_opts
+    )
+    
+    #Link the generated source file
+    self.compiler.link_shared_lib(
+      obj_path,
+      libname,
+      output_dir=tempfile.tempdir
+    )
+    
+    print(libname, source_path, obj_path[0], shared_obj_path)
+    
+  def compile(self):
