@@ -408,6 +408,10 @@ class Compiler:
 // System info: {sys_version}
 
 #include<math.h>
+#include<stdint.h>
+
+//Number of fields (dimensionality of the scalar manifold)
+const uint32_t DIM = {self.hesse.dim}; 
 """
   
   def __init__(self,
