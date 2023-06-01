@@ -16,22 +16,16 @@ class HesseMatrix():
   def __init__(self,
     components: list[list[sympy.Expr]],
     coordinates: list[sympy.Symbol],
+    potential: sympy.Expr,
     model_name: str|None
   ):
     self.cmp = components
     self.dim = len(components[0])
     self.coordinates = coordinates
+    self.potential = potential
     self.model_name = model_name if model_name is not None else "generic model"
     if len(components[0]) != len(components):
       raise Exception('The Hesse Matrix is square; the provided list was not (number of columns != number of rows)')
-    
-  @classmethod
-  def from_list(cls, components: list[list[sympy.Expr]], model_name: str|None = None):
-    cls(components)
-    
-  @classmethod
-  def from_matrix(cls, matrix: sympy.MutableMatrix):
-    raise Exception("Not implemented!")
 
 class SymbolicCalculation():
   """This class represents the symbolic calculation of the Hesse matrix of the
@@ -146,7 +140,7 @@ class SymbolicCalculation():
         a, b = idx
         H_proj[a][b] = component
         display(Math(f"H_{{{a}{b}}}={sympy.latex(component)}"))
-    return HesseMatrix(H_proj, self.coords, self.model_name)
+    return HesseMatrix(H_proj, self.coords, self.V, self.model_name)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of vec1 and vec2 with respect to configured metric
@@ -414,7 +408,6 @@ class Compiler:
   
   def __init__(self,
     hesse_matrix: HesseMatrix,
-    precision: Literal['single', 'double', 'quad'] = 'double',
     output_path: str|None = None,
     cleanup: bool = True
   ):
@@ -434,8 +427,6 @@ class Compiler:
     ### Args
     - `hesse_matrix` (HesseMatrix): HesseMatrix object that will be turned into
       C-code and compiled.
-    - `precision` (Literal['single', 'double', 'quad], optional): precision of
-      floating-point numbers used in compiled artifact. Defaults to 'double'.
     - `output_path` (str | None, optional): output path of compilation artifacts.
       Will auto-select the platform-defined temporary folder if option is set to
       `None`. Defaults to `None`.
@@ -450,39 +441,47 @@ class Compiler:
     )
     if Compiler.compiler is None: Compiler._set_compiler()
     self.hesse = hesse_matrix
-    self.precision = precision
     self._set_preamble(hesse_matrix.model_name)
     self.cleanup = cleanup
     
   def _generate_c_file(self):
     """Generates C source file from Hesse matrix specified by the constructor"""
+    #(1) Initialise C-code printer
+    ccode_writer = CInflatoxPrinter(self.hesse.coordinates)
+    
     with self.output_file as out:
+      #(2) Write preamble
       out.write(self.c_code_preamble)
-      ty = 'double'
-      if self.precision == 'single':
-        ty = 'float'
-      elif self.precision == 'quad':
-        ty = 'long double'
-
-      ccode_writer = CInflatoxPrinter(self.hesse.coordinates)
-        
+      
+      #(3) Write potential
+      potential_body = ccode_writer.doprint(self.hesse.potential.replace(')*', ') *\n    '))
+      out.write(f"""
+double V(const double x[], const double args[]) {{
+  return {potential_body};
+}}
+"""
+      )
+      
+      #(4) Write all the components of the Hesse matrix
       for a in range(self.hesse.dim):
         for b in range(self.hesse.dim):
           function_body = ccode_writer.doprint(self.hesse.cmp[a][b]).replace(')*', ') *\n    ')
           out.write(f"""
-{ty} v{a}{b}(const {ty} x[], const {ty} args[]) {{
+double v{a}{b}(const double x[], const double args[]) {{
   return {function_body};
 }}
 """
           )
-      #print global constants
+          
+      #(5) Write global constants
       out.write(f"""
 //Number of fields (dimensionality of the scalar manifold)
 const uint32_t DIM = {self.hesse.dim};
 //Number of parameters
 const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
 """)
-    #update symbol dictionary
+      
+    #(6) Update symbol dictionary
     self.symbol_dict = ccode_writer.coord_dict
     self.symbol_dict.update(ccode_writer.param_dict)
     
