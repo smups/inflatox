@@ -122,12 +122,15 @@ class SymbolicCalculation():
     assert(len(basis) == dim - 1)
     
     #(1) Calculate an orthonormal basis
+    #(1a)...starting with a vector parallel to the potential gradient
     print("Calculating orthonormal basis...")
     w = [self.calc_v()]
-    display(Math(f"v_0={sympy.latex(w[0])}"))
+    display(Math(f"v={sympy.latex(w[0])}"))
+    
+    #(1b) followed by other gramm-schmidt produced vectors
     for (i, guess) in enumerate(basis):
-      w.append(self.calc_next_w(w, guess))
-      display(Math(f"v_{i+1}={sympy.latex(w[i])}"))
+      w.append(self.gramm_schmidt(w, guess))
+      display(Math(f"w_{i+1}={sympy.latex(w[-1])}"))
     
     #(1b) make sure the basis is orthonormal
     for a in range(dim):
@@ -153,6 +156,8 @@ class SymbolicCalculation():
     for (idx, component) in results:
         a, b = idx
         H_proj[a][b] = component
+        if a == 0: a = 'v'
+        if b == 0: b = 'v'
         display(Math(f"H_{{{a}{b}}}={sympy.latex(component)}"))
     return HesseMatrix(H_proj, self.coords, self.V, self.model_name)
    
@@ -246,7 +251,7 @@ class SymbolicCalculation():
     v = self.normalize(v)
     return [powdenest(va, force=True).simplify() for va in v]
 
-  def calc_next_w(self, current_basis: list[list[sympy.Expr]], guess: list[sympy.Expr]) -> list[sympy.Expr]:
+  def gramm_schmidt(self, current_basis: list[list[sympy.Expr]], guess: list[sympy.Expr]) -> list[sympy.Expr]:
     """Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
     an incomplete set of orthogonal basis vectors and a third vector that is linearly
     independent from the other vectors.
@@ -279,16 +284,16 @@ class SymbolicCalculation():
     
     #start with vector y
     y = guess
-    #subtract the overlap of each current basis vector from y
+    
+    #subtract the overlap of each current basis with the guessed vector from y
     for x in current_basis:
       #first assert that vec is actually normalised
-      #assert(sympy.Eq(inner_prod(x, x, g), 1))
-      xy = self.inner_prod(x, guess) #we have to use guess here, not y!
+      assert(sympy.Eq(self.inner_prod(x, x), 1))
+      xy = self.inner_prod(x, guess)
       for a in range(dim):
         y[a] = (y[a] - xy*x[a]).simplify()    
-    #normalize y
-    y = self.normalize(y)
-    return [powdenest(ya, force=True).simplify() for ya in y]
+    #normalize and return y
+    return [powdenest(ya, force=True).simplify() for ya in self.normalize(y)]
 
   def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
     """_summary_
