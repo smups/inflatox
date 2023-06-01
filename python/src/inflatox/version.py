@@ -16,17 +16,4 @@
 #
 #  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
 #  licensee subject to Dutch law as per article 15 of the EUPL.
-
-from .compiler import (
-  CompilationArtifact,
-  Compiler
-)
-
-from .symbolic import (
-  HesseMatrix,
-  SymbolicCalculation
-)
-
-__all__ = [
-  'CompilationArtifact', 'Compiler', 'HesseMatrix', 'SymbolicCalculation'
-]
+__version__ = '0.1.0'
