@@ -396,7 +396,7 @@ class Compiler:
     """Sets the appropriate compiler flags based on the current platform"""
     compiler_type = cls.compiler.compiler_type
     if compiler_type == 'unix':
-      return ['-O3','-Wall','-Werror','-fpic', '-l', '-march=native'], []
+      return ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native'], ['-O3', '-fpic', '-lm', '-march=native']
         
   compiler = None
 
@@ -495,19 +495,19 @@ const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
     )
     
     #(2) Compile the generated source file
-    pre_opts, post_opts = self._compiler_options()
+    compiler_args, linker_args = self._compiler_options()
     obj_path = self.compiler.compile(
       [source_path],
       output_dir='/',
-      extra_preargs=pre_opts,
-      extra_postargs=post_opts
+      extra_preargs=compiler_args
     )
     
     #(3) Link the generated source filewill
     self.compiler.link_shared_lib(
       obj_path,
       libname,
-      output_dir=tempfile.tempdir
+      output_dir=tempfile.tempdir,
+      extra_preargs=linker_args
     )
     
     #(R) Path to all generated artifacts
