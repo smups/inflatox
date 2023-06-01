@@ -5,8 +5,9 @@ use ndarray as nd;
 type HdylibFn<'a> = libloading::Symbol::<'a, unsafe extern fn (*const f64, *const f64) -> f64>;
 type HdylibStatic<'a> = libloading::Symbol::<'a, *const u32>;
 
-const SYM_DIM: &[u8; 3] = b"DIM";
-const PARAM_DIM: &[u8; 11] = b"N_PARAMTERS";
+const SYM_DIM_SYM: &[u8; 3] = b"DIM";
+const PARAM_DIM_SYM: &[u8; 11] = b"N_PARAMTERS";
+const POTENTIAL_SYM: &[u8; 1] = b"V";
 
 pub struct HesseDylib {
   lib: libloading::Library,
@@ -20,11 +21,11 @@ impl HesseDylib {
       libloading::Library::new(path)?
     };
     let hesse_dim: u32 = unsafe {
-      let symbol: HdylibStatic = lib.get(SYM_DIM)?;
+      let symbol: HdylibStatic = lib.get(SYM_DIM_SYM)?;
       **symbol
     };
     let n_param: u32 = unsafe {
-      let symbol: HdylibStatic = lib.get(PARAM_DIM)?;
+      let symbol: HdylibStatic = lib.get(PARAM_DIM_SYM)?;
       **symbol
     };
     Ok( HesseDylib { lib, f_dim: hesse_dim, n_param })
@@ -48,13 +49,15 @@ impl HesseDylib {
 
 pub struct HesseNd<'a> {
   lib: &'a HesseDylib,
-  fns: nd::Array2<HdylibFn<'a>>
+  potential: unsafe extern fn (*const f64, *const f64) -> f64,
+  components: nd::Array2<HdylibFn<'a>>
 }
 
 impl<'a>HesseNd<'a> {
   pub fn new(lib: &'a HesseDylib) -> Result<Self, libloading::Error> {
     let dim = nd::Dim([lib.get_dim(), lib.get_dim()]);
     let mut array: nd::Array2<MaybeUninit<HdylibFn>> = nd::Array2::uninit(dim);
+    let potential = unsafe { **lib.get_symbol::<HdylibFn>(POTENTIAL_SYM).unwrap() };
 
     array.indexed_iter_mut().for_each(|(idx, uninit)| {
       let raw_symbol = &[
@@ -66,13 +69,13 @@ impl<'a>HesseNd<'a> {
       uninit.write(symbol);
     });
 
-    Ok(HesseNd { lib, fns: unsafe { array.assume_init() } })
+    Ok(HesseNd { lib, potential, components: unsafe { array.assume_init() } })
   }
 
   pub fn calc_hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
     assert!(x.len() == self.lib.get_dim());
     assert!(p.len() == self.lib.get_n_params());
-    self.fns.mapv(|func| unsafe {
+    self.components.mapv(|func| unsafe {
       func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
     })
   }
@@ -80,6 +83,7 @@ impl<'a>HesseNd<'a> {
 
 pub struct Hesse2D<'a> {
   lib: &'a HesseDylib,
+  potential: unsafe extern fn (*const f64, *const f64) -> f64,
   fns: [HdylibFn<'a>; 4]
 }
 
@@ -90,9 +94,20 @@ impl<'a> Hesse2D<'a> {
       let v01: HdylibFn = lib.get_symbol(b"v01")?;
       let v10: HdylibFn = lib.get_symbol(b"v10")?;
       let v11: HdylibFn = lib.get_symbol(b"v11")?;
+      let potential = **lib.get_symbol::<HdylibFn>(POTENTIAL_SYM).unwrap();
 
-      Ok(Hesse2D { lib, fns: [v00, v01, v10, v11] })
+      Ok(Hesse2D { lib, potential, fns: [v00, v01, v10, v11] })
     }
+  }
+
+  #[inline(always)]
+  pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
+    assert!(x.len() == self.lib.get_dim());
+    assert!(p.len() == self.lib.get_n_params());
+    unsafe { (self.potential)(
+      x as *const [f64] as *const f64,
+      p as *const [f64] as *const f64
+    )}
   }
 
   #[inline]
