@@ -3,7 +3,6 @@ import tempfile
 import distutils.ccompiler as ccomp
 from datetime import datetime
 from sys import version as sys_version
-from typing import Literal
 
 import sympy
 from sympy import powdenest
@@ -357,7 +356,9 @@ class CompilationArtifact:
       return self.symbol_dictionary[sym_name]
     
   def print_sym_lookup_table(self):
-    print(self.symbol_dictionary)
+    print('[Symbol Dictionary]')
+    for (old, new) in self.symbol_dictionary.items():
+      print(f'{old} -> {new}')
 
 class Compiler:
   """This class wraps the native platform C-compiler. It can be used to generate,
