@@ -288,6 +288,7 @@ name = "inflatox"
 version = "0.1.0"
 dependencies = [
  "bindgen",
+ "libc",
  "libloading 0.8.0",
  "ndarray",
  "ndarray-linalg",

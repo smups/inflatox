@@ -396,7 +396,7 @@ class Compiler:
     """Sets the appropriate compiler flags based on the current platform"""
     compiler_type = cls.compiler.compiler_type
     if compiler_type == 'unix':
-      return ['-O3','-Wall','-Werror','-fpic', '-march=native'], []
+      return ['-O3','-Wall','-Werror','-fpic', '-l', '-march=native'], []
         
   compiler = None
 
