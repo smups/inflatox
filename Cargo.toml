@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ndarray = "0.15"
+ndarray = { version = "0.15", features = ['rayon'] }
 ndarray-linalg = { version = "0.16", features = ['openblas-system'] }
 num-traits = "0.2"
 rayon = "1"
