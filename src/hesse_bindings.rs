@@ -1,4 +1,6 @@
-use std::ffi::OsStr;
+use std::{ffi::OsStr, mem::MaybeUninit};
+
+use ndarray as nd;
 
 type HdylibFn<'a> = libloading::Symbol::<'a, unsafe extern fn (*const f64, *const f64) -> f64>;
 type HdylibStatic<'a> = libloading::Symbol::<'a, *const u32>;
@@ -41,6 +43,38 @@ impl HesseDylib {
   #[inline]
   pub const fn get_n_params(&self) -> usize {
     self.n_param as usize
+  }
+}
+
+pub struct HesseNd<'a> {
+  lib: &'a HesseDylib,
+  fns: nd::Array2<HdylibFn<'a>>
+}
+
+impl<'a>HesseNd<'a> {
+  pub fn new(lib: &'a HesseDylib) -> Result<Self, libloading::Error> {
+    let dim = nd::Dim([lib.get_dim(), lib.get_dim()]);
+    let mut array: nd::Array2<MaybeUninit<HdylibFn>> = nd::Array2::uninit(dim);
+
+    array.indexed_iter_mut().for_each(|(idx, uninit)| {
+      let raw_symbol = &[
+        b'v',
+        char::from_digit(idx.0 as u32, 10).unwrap() as u32 as u8,
+        char::from_digit(idx.1 as u32, 10).unwrap() as u32 as u8
+      ];
+      let symbol: HdylibFn = unsafe { lib.get_symbol(raw_symbol).unwrap() };
+      uninit.write(symbol);
+    });
+
+    Ok(HesseNd { lib, fns: unsafe { array.assume_init() } })
+  }
+
+  pub fn calc_hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
+    assert!(x.len() == self.lib.get_dim());
+    assert!(p.len() == self.lib.get_n_params());
+    self.fns.mapv(|func| unsafe {
+      func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
+    })
   }
 }
 
