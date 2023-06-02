@@ -2,10 +2,11 @@ mod hesse_bindings;
 use hesse_bindings::*;
 
 use ndarray as nd;
+use ndarray_linalg::FactorizeInto;
 use rayon::prelude::*;
 
 fn main() {
-  let lib = InflatoxDylib::new("/tmp/libinflx_autoc_majrfb8z.so").unwrap();
+  let lib = InflatoxDylib::new("/tmp/libinflx_autoc_d9w6fwe4.so").unwrap();
   println!("{}-{}", lib.get_dim(), lib.get_n_params());
   let hesse_2d = Hesse2D::new(&lib).unwrap();
   let p = &[10.0, 20.0, 30.0, 10.0];
@@ -34,12 +35,17 @@ fn calc_anguelova(h: &Hesse2D, p: &[f64]) {
   let grid_spacing = 1E-2;
   let offst = (size / 2) as f64 * -grid_spacing;
 
-  let mut field_space = nd::Array2::zeros([size, size]);  
-  field_space
-    .indexed_iter_mut()
-    .par_bridge()
-    .map(|(idx, val)| ([idx.0 as f64 * grid_spacing + offst, idx.1 as f64 * grid_spacing + offst], val))
-    .for_each(|(x, val)| *val = anguelova(h, &x, p));
+  let field_space = nd::Array2::from_shape_fn([size, size], |idx| 
+    [idx.0 as f64 * grid_spacing + offst, idx.1 as f64 * grid_spacing + offst]
+  );
+  let mut out = nd::Array::zeros([size, size]);
 
-  println!("{field_space:?}");
+  nd::Zip::from(out.view_mut())
+    .and(field_space.view())
+    .into_par_iter()
+    .for_each(|(val, x)| {
+      *val = anguelova(h, x, p)
+    });
+  
+  println!("{out:?}");
 }

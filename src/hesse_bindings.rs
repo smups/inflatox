@@ -2,7 +2,8 @@ use std::{ffi::OsStr, mem::MaybeUninit};
 
 use ndarray as nd;
 
-type HdylibFn<'a> = libloading::Symbol::<'a, unsafe extern fn (*const f64, *const f64) -> f64>;
+type ExFn = unsafe extern fn (*const f64, *const f64) -> f64;
+type HdylibFn<'a> = libloading::Symbol::<'a, ExFn>;
 type HdylibStaticInt<'a> = libloading::Symbol::<'a, *const u32>;
 type HdyLibStaticArr<'a> = libloading::Symbol<'a, *const [u16; 3]>;
 
@@ -50,14 +51,14 @@ impl InflatoxDylib {
 
 pub struct HesseNd<'a> {
   lib: &'a InflatoxDylib,
-  potential: unsafe extern fn (*const f64, *const f64) -> f64,
-  components: nd::Array2<HdylibFn<'a>>
+  potential: ExFn,
+  components: nd::Array2<ExFn>
 }
 
 impl<'a>HesseNd<'a> {
   pub fn new(lib: &'a InflatoxDylib) -> Result<Self, libloading::Error> {
     let dim = nd::Dim([lib.get_dim(), lib.get_dim()]);
-    let mut array: nd::Array2<MaybeUninit<HdylibFn>> = nd::Array2::uninit(dim);
+    let mut array: nd::Array2<MaybeUninit<ExFn>> = nd::Array2::uninit(dim);
     let potential = unsafe { **lib.get_symbol::<HdylibFn>(POTENTIAL_SYM).unwrap() };
 
     array.indexed_iter_mut().for_each(|(idx, uninit)| {
@@ -66,7 +67,7 @@ impl<'a>HesseNd<'a> {
         char::from_digit(idx.0 as u32, 10).unwrap() as u32 as u8,
         char::from_digit(idx.1 as u32, 10).unwrap() as u32 as u8
       ];
-      let symbol: HdylibFn = unsafe { lib.get_symbol(raw_symbol).unwrap() };
+      let symbol = unsafe { **lib.get_symbol::<HdylibFn>(raw_symbol).unwrap() };
       uninit.write(symbol);
     });
 
@@ -94,8 +95,8 @@ impl<'a>HesseNd<'a> {
 
 pub struct Hesse2D<'a> {
   lib: &'a InflatoxDylib,
-  potential: unsafe extern fn (*const f64, *const f64) -> f64,
-  fns: [unsafe extern fn (*const f64, *const f64) -> f64; 4]
+  potential: ExFn,
+  fns: [ExFn; 4]
 }
 
 impl<'a> Hesse2D<'a> {
