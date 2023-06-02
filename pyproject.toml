@@ -1,0 +1,27 @@
+[project]
+name = "inflatox"
+version = "0.1.0"
+authors = [
+  { name="Raúl Wolters", email="rawolters11@gmail.com" },
+]
+description = "A small example package"
+readme = "README.md"
+requires-python = ">=3.7"
+license = "EUPL"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3"
+]
+dependencies = ["cffi"]
+
+[project.urls]
+"Homepage" = "https://github.com/smups/inflatox"
+"Bug Tracker" = "https://github.com/smups/inflatox/issues"
+
+[build-system]
+requires = ["maturin>=0.14,<0.15", "cffi"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "python"
+module-name = "inflatox.libinflx_rs"

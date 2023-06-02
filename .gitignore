@@ -1,1 +1,5 @@
 /target
+/.venv
+/.vscode
+/python/inflatox/__pycache__
+/python/inflatox/*.so

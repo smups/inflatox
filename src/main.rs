@@ -2,7 +2,6 @@ mod hesse_bindings;
 use hesse_bindings::*;
 
 use ndarray as nd;
-use ndarray_linalg::FactorizeInto;
 use rayon::prelude::*;
 
 fn main() {
