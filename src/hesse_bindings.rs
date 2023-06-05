@@ -1,9 +1,7 @@
 use std::mem::MaybeUninit;
 
 use ndarray as nd;
-use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArrayDyn};
 use pyo3::{prelude::*, exceptions::{PyIOError, PySystemError}};
-use rayon::prelude::*;
 
 use crate::inflatox_version::InflatoxVersion;
 
@@ -49,40 +47,10 @@ pub(crate) fn convert_start_stop(
     raise_shape_err(format!("start_stop array should have 2 rows and as many columns as there are fields ({}). Got start_stop with shape {:?}", n_fields, start_stop.shape()))?;
   }
   let start_stop = start_stop
-    .axis_iter(nd::Axis(1))
+    .axis_iter(nd::Axis(0))
     .map(|start_stop| [start_stop[0], start_stop[1]])
     .collect::<Vec<_>>();
   Ok(start_stop)
-}
-
-#[pyfunction]
-pub(crate) fn calc_potential(
-  lib: PyRef<InflatoxPyDyLib>,
-  p: PyReadonlyArray1<f64>,
-  mut x: PyReadwriteArrayDyn<f64>,
-  start_stop: PyReadonlyArray2<f64>
-) -> PyResult<()> {
-
-  //(0) Concert p and x to nd-arrays
-  let h = HesseNd::new(&lib.0);
-  let p = p.as_array();
-  let x = x.as_array_mut();
-  let start_stop = start_stop.as_array();
-
-  //(1) Make sure that the dimensionalities work out
-  if p.shape() != &[h.get_n_params()] {
-    raise_shape_err(format!("expected {} parameters, got {}", h.get_n_params(), p.shape().len()))?;
-  }
-  let p = p.as_slice().unwrap();
-  if x.shape().len() != h.get_n_fields() {
-    raise_shape_err(format!("field-space array should have as many axes as there are fields ({}). Got array with {} axes instead!", h.get_n_fields(), x.shape().len()))?;
-  }
-  
-
-  //(2) Convert start-stop ranges for the axes to a vec of [f64; 2]
-  let start_stop = convert_start_stop(start_stop, h.get_n_fields())?;
-
-  todo!()
 }
 
 impl InflatoxDylib {

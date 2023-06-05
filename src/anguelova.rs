@@ -6,6 +6,7 @@ use rayon::prelude::*;
 
 use crate::hesse_bindings::{InflatoxPyDyLib, HesseNd, Hesse2D, raise_shape_err, convert_start_stop, InflatoxDylib};
 
+#[cfg(feature = "pyo3_extension_module")]
 #[pyfunction]
 pub(crate) fn anguelova(
   lib: PyRef<InflatoxPyDyLib>,
@@ -53,10 +54,18 @@ pub(crate) fn anguelova_raw(
   start_stop: &[[f64; 2]]
 ) {
   //(1) Convert start-stop ranges
-  let x_spacing = (start_stop[0][1] - start_stop[0][0]) / x.shape()[0] as f64;
-  let x_ofst = start_stop[0][0] as f64 * x_spacing;
-  let y_spacing = (start_stop[1][1] - start_stop[1][0]) / x.shape()[1] as f64;
-  let y_ofst = start_stop[1][0] as f64 * y_spacing;
+  let (x_spacing, x_ofst) = {
+    let x_start = start_stop[0][0];
+    let x_stop = start_stop[0][1];
+    let x_spacing = (x_stop - x_start) / x.shape()[0] as f64;
+    (x_spacing, x_start)
+  };
+  let (y_spacing, y_ofst) = {
+    let y_start = start_stop[1][0];
+    let y_stop = start_stop[1][1];
+    let y_spacing = (y_stop - y_start) / x.shape()[1] as f64;
+    (y_spacing, y_start)
+  };
 
   //(2) Fill output array
   nd::Zip::indexed(x)
@@ -68,15 +77,15 @@ pub(crate) fn anguelova_raw(
     ))
     //(2b) evaluate consistency condition at every field-space point
     .for_each(|(ref x, val)| *val = {
-      let lhs = 3.0 * h.potential(x, p) * (h.v00(x, p) / h.v01(x, p).powi(2)).powi(2);
-      let rhs = h.v11(x, p);
+      let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p).powi(2)).powi(2);
+      let rhs = h.v11(x, p) / h.potential(x, p);
       lhs - rhs
     });
 }
 
 #[test]
 fn anguelova_performance() {
-  let n = 100_000;
+  let n = 10_000;
   let mut out = nd::Array2::zeros((n,n));
   let start_stop = [
     [-1000.0, 1000.0],
