@@ -21,8 +21,11 @@
 
 #Internal imports
 from .compiler import CompilationArtifact
+from .libinflx_rs import open_inflx_dylib
 
 class InflationCondition():
 
   def __init__(self, compiled_artefact: CompilationArtifact):
     self.artefact = compiled_artefact
+    self.dylib = open_inflx_dylib(compiled_artefact.shared_object_path)
+    

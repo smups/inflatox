@@ -79,9 +79,19 @@ class CompilationArtifact:
   
   symbol_printer = C99CodePrinter()
   
-  def __init__(self, symbol_dictionary: dict, shared_object_path: str):
+  def __init__(
+    self,
+    symbol_dictionary: dict,
+    shared_object_path: str,
+    auto_cleanup: bool = True
+  ):
     self.symbol_dictionary = symbol_dictionary
     self.shared_object_path = shared_object_path
+    self.auto_cleanup = auto_cleanup
+    
+  def __del__(self):
+    #Delete compilation artefact
+    if self.auto_cleanup: os.remove(self.shared_object_path)
 
   def symbol_lookup(self, symbol: sympy.Symbol) -> str|None:
     sym_name = self.symbol_printer._print_Symbol(symbol)
