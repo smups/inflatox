@@ -1,4 +1,4 @@
-#[derive(Clone, Eq, Ord)]
+#[derive(Clone, Copy, Eq, Ord)]
 #[repr(transparent)]
 pub(crate) struct InflatoxVersion([u16; 3]);
 
