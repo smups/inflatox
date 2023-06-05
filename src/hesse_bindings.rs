@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, mem::MaybeUninit, ops::Deref};
+use std::mem::MaybeUninit;
 
 use ndarray as nd;
 use pyo3::{prelude::*, exceptions::PyIOError};
@@ -24,12 +24,12 @@ pub struct InflatoxDylib {
 
 #[pyclass]
 /// Python wrapper for `InflatoxDyLib`
-struct InflatoxPyDyLib {
+pub(crate) struct InflatoxPyDyLib {
   inner: InflatoxDylib
 }
 
 #[pyfunction]
-fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
+pub(crate) fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
   //(1) Open the compilation artefact
   let lib = unsafe {
     libloading::Library::new(lib_path)

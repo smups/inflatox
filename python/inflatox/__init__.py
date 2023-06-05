@@ -27,11 +27,9 @@ from .symbolic import (
   SymbolicCalculation
 )
 
-from .libinflx_rs import (
-  sum_as_string
-)
+from . import libinflx_rs
 
 __all__ = [
   'CompilationArtifact', 'Compiler', 'HesseMatrix', 'SymbolicCalculation',
-  'sum_as_string'
+  'libinflx_rs'
 ]
