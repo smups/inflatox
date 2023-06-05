@@ -23,6 +23,6 @@
 from .compiler import CompilationArtifact
 
 class InflationCondition():
-  
+
   def __init__(self, compiled_artefact: CompilationArtifact):
     self.artefact = compiled_artefact
