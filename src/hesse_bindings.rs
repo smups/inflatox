@@ -1,7 +1,9 @@
 use std::mem::MaybeUninit;
 
 use ndarray as nd;
-use pyo3::{prelude::*, exceptions::PyIOError};
+use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArrayDyn};
+use pyo3::{prelude::*, exceptions::{PyIOError, PySystemError}};
+use rayon::prelude::*;
 
 use crate::inflatox_version::InflatoxVersion;
 
@@ -25,9 +27,7 @@ pub struct InflatoxDylib {
 
 #[pyclass]
 /// Python wrapper for `InflatoxDyLib`
-pub(crate) struct InflatoxPyDyLib {
-  inner: InflatoxDylib
-}
+pub(crate) struct InflatoxPyDyLib(pub InflatoxDylib);
 
 #[pyfunction]
 pub(crate) fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
@@ -40,25 +40,76 @@ pub(crate) fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
   //(2) Get number of fields, parameters and the inflatox version this artefact
   //was compiled for
   let n_fields = unsafe { ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM)
-    .map_err(|err| pyo3::exceptions::PySystemError::new_err(format!("Could not find symbol {SYM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {SYM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
   };
   let n_param = unsafe { ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM)
-    .map_err(|err| pyo3::exceptions::PySystemError::new_err(format!("Could not find symbol {PARAM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {PARAM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
   };
   let inflatox_version = unsafe { *lib.get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
-    .map_err(|err| pyo3::exceptions::PySystemError::new_err(format!("Could not find symbol {INFLATOX_VERSION_SYM:#?} in {lib_path}. Error: \"{err}\"")))
+    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {INFLATOX_VERSION_SYM:#?} in {lib_path}. Error: \"{err}\"")))
     .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
   };
   let potential = unsafe { **lib.get::<HdylibFn>(POTENTIAL_SYM)
-    .map_err(|err| pyo3::exceptions::PySystemError::new_err(format!("Could not find symbol {POTENTIAL_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {POTENTIAL_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
   };
 
   //(3) Check that the artefact was built with the correct version of inflatox
   if inflatox_version != super::V_INFLX {
-    Err(pyo3::exceptions::PySystemError::new_err(format!("Cannot load Inflatox Compilation Artefact compiled for Inflatox {inflatox_version} using current Inflatox installation ({})", super::V_INFLX)))
+    return Err(PySystemError::new_err(format!("Cannot load Inflatox Compilation Artefact compiled for Inflatox {inflatox_version} using current Inflatox installation ({})", super::V_INFLX)))
   } else {
-    Ok(InflatoxPyDyLib { inner: InflatoxDylib { lib, n_fields, n_param, potential, inflatox_version } })
+    Ok(InflatoxPyDyLib(InflatoxDylib { lib, n_fields, n_param, potential, inflatox_version } ))
   }
+}
+
+pub(crate) fn raise_shape_err<T>(err: String) -> PyResult<T> {
+  Err(super::ShapeError::new_err(err))
+}
+
+pub(crate) fn convert_start_stop(
+  start_stop: nd::ArrayView2<f64>,
+  n_fields: usize
+) -> PyResult<Vec<[f64; 2]>> {
+  if start_stop.shape().len() != 2
+  || start_stop.shape()[1] != n_fields
+  || start_stop.shape()[0] != 2
+  {
+    raise_shape_err(format!("start_stop array should have 2 rows and as many columns as there are fields ({}). Got start_stop with shape {:?}", n_fields, start_stop.shape()))?;
+  }
+  let start_stop = start_stop
+    .axis_iter(nd::Axis(1))
+    .map(|start_stop| [start_stop[0], start_stop[1]])
+    .collect::<Vec<_>>();
+  Ok(start_stop)
+}
+
+#[pyfunction]
+pub(crate) fn calc_potential(
+  lib: PyRef<InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArrayDyn<f64>,
+  start_stop: PyReadonlyArray2<f64>
+) -> PyResult<()> {
+
+  //(0) Concert p and x to nd-arrays
+  let h = HesseNd::new(&lib.0);
+  let p = p.as_array();
+  let x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(1) Make sure that the dimensionalities work out
+  if p.shape() != &[h.get_n_params()] {
+    raise_shape_err(format!("expected {} parameters, got {}", h.get_n_params(), p.shape().len()))?;
+  }
+  let p = p.as_slice().unwrap();
+  if x.shape().len() != h.get_n_fields() {
+    raise_shape_err(format!("field-space array should have as many axes as there are fields ({}). Got array with {} axes instead!", h.get_n_fields(), x.shape().len()))?;
+  }
+  
+
+  //(2) Convert start-stop ranges for the axes to a vec of [f64; 2]
+  let start_stop = convert_start_stop(start_stop, h.get_n_fields())?;
+
+  todo!()
 }
 
 impl InflatoxDylib {
@@ -79,7 +130,7 @@ impl InflatoxDylib {
   }
 
   #[inline]
-  pub const fn get_dim(&self) -> usize {
+  pub const fn get_n_fields(&self) -> usize {
     self.n_fields as usize
   }
 
@@ -97,6 +148,7 @@ impl InflatoxDylib {
   pub(crate) const fn get_inflatox_version_raw(&self) -> &InflatoxVersion {
     &self.inflatox_version
   }
+
 }
 
 pub struct HesseNd<'a> {
@@ -105,8 +157,8 @@ pub struct HesseNd<'a> {
 }
 
 impl<'a>HesseNd<'a> {
-  pub fn new(lib: &'a InflatoxDylib) -> Result<Self, libloading::Error> {
-    let dim = nd::Dim([lib.get_dim(), lib.get_dim()]);
+  pub fn new(lib: &'a InflatoxDylib) -> Self {
+    let dim = nd::Dim([lib.get_n_fields(), lib.get_n_fields()]);
     let mut array: nd::Array2<MaybeUninit<ExFn>> = nd::Array2::uninit(dim);
 
     array.indexed_iter_mut().for_each(|(idx, uninit)| {
@@ -119,21 +171,30 @@ impl<'a>HesseNd<'a> {
       uninit.write(symbol);
     });
 
-    Ok(HesseNd { lib, components: unsafe { array.assume_init() } })
-  }
-
-  #[inline(always)]
-  pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
-    self.lib.potential(x, p)
+    HesseNd { lib, components: unsafe { array.assume_init() } }
   }
 
   pub fn hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
-    assert!(x.len() == self.lib.get_dim());
+    assert!(x.len() == self.lib.get_n_fields());
     assert!(p.len() == self.lib.get_n_params());
     self.components.mapv(|func| unsafe {
       func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
     })
   }
+
+  #[inline]
+  pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 { self.lib.potential(x, p) }
+  #[inline]
+  pub const fn get_n_fields(&self) -> usize { self.lib.get_n_fields() }
+  #[inline]
+  pub const fn get_n_params(&self) -> usize { self.lib.get_n_params() }
+  #[inline]
+  pub fn get_inflatox_version(&self) -> String { self.lib.get_inflatox_version() }
+  #[inline]
+  pub(crate) const fn get_inflatox_version_raw(&self) -> &InflatoxVersion {
+    self.lib.get_inflatox_version_raw()
+  }
+
 }
 
 pub struct Hesse2D<'a> {
@@ -142,26 +203,18 @@ pub struct Hesse2D<'a> {
 }
 
 impl<'a> Hesse2D<'a> {
-  pub fn new(lib: &'a InflatoxDylib) -> Result<Self, libloading::Error> {
-    unsafe {
-      let v00 = **lib.get_symbol::<HdylibFn>(b"v00")?;
-      let v01 = **lib.get_symbol::<HdylibFn>(b"v01")?;
-      let v10 = **lib.get_symbol::<HdylibFn>(b"v10")?;
-      let v11 = **lib.get_symbol::<HdylibFn>(b"v11")?;
-      let potential = **lib.get_symbol::<HdylibFn>(POTENTIAL_SYM).unwrap();
-
-      Ok(Hesse2D { lib, fns: [v00, v01, v10, v11] })
-    }
-  }
-
-  #[inline(always)]
-  pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
-    self.lib.potential(x, p)
+  pub fn new(nd: HesseNd<'a>) -> Self {
+    assert!(nd.lib.get_n_fields() == 2);
+    let v00 = *nd.components.get((0,0)).unwrap();
+    let v01 = *nd.components.get((1,0)).unwrap();
+    let v10 = *nd.components.get((0,1)).unwrap();
+    let v11 = *nd.components.get((1,1)).unwrap();
+    Hesse2D { lib: nd.lib, fns: [v00, v01, v10, v11] }
   }
 
   #[inline]
   pub fn v00(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_dim());
+    assert!(x.len() == self.lib.get_n_fields());
     assert!(p.len() == self.lib.get_n_params());
     unsafe { self.fns[0](
       x as *const [f64] as *const f64,
@@ -171,7 +224,7 @@ impl<'a> Hesse2D<'a> {
 
   #[inline]
   pub fn v01(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_dim());
+    assert!(x.len() == self.lib.get_n_fields());
     assert!(p.len() == self.lib.get_n_params());
     unsafe { self.fns[1](
       x as *const [f64] as *const f64,
@@ -181,7 +234,7 @@ impl<'a> Hesse2D<'a> {
 
   #[inline]
   pub fn v10(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_dim());
+    assert!(x.len() == self.lib.get_n_fields());
     assert!(p.len() == self.lib.get_n_params());
     unsafe { self.fns[2](
       x as *const [f64] as *const f64,
@@ -191,11 +244,24 @@ impl<'a> Hesse2D<'a> {
 
   #[inline]
   pub fn v11(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_dim());
+    assert!(x.len() == self.lib.get_n_fields());
     assert!(p.len() == self.lib.get_n_params());
     unsafe { self.fns[3](
       x as *const [f64] as *const f64,
       p as *const [f64] as *const f64
     )}
+  }
+
+  #[inline]
+  pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 { self.lib.potential(x, p) }
+  #[inline]
+  pub const fn get_n_fields(&self) -> usize { self.lib.get_n_fields() }
+  #[inline]
+  pub const fn get_n_params(&self) -> usize { self.lib.get_n_params() }
+  #[inline]
+  pub fn get_inflatox_version(&self) -> String { self.lib.get_inflatox_version() }
+  #[inline]
+  pub(crate) const fn get_inflatox_version_raw(&self) -> &InflatoxVersion {
+    self.lib.get_inflatox_version_raw()
   }
 }

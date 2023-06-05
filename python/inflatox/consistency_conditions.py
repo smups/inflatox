@@ -18,6 +18,7 @@
 #  licensee subject to Dutch law as per article 15 of the EUPL.
 
 #External imports
+import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact

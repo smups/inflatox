@@ -27,9 +27,15 @@ from .symbolic import (
   SymbolicCalculation
 )
 
+from . import consistency_conditions
+
 from . import libinflx_rs
 
 __all__ = [
-  'CompilationArtifact', 'Compiler', 'HesseMatrix', 'SymbolicCalculation',
-  'libinflx_rs'
+  'CompilationArtifact',
+  'Compiler',
+  'HesseMatrix',
+  'SymbolicCalculation',
+  'libinflx_rs',
+  'consistency_conditions'
 ]
