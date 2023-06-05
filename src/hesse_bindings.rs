@@ -1,6 +1,9 @@
-use std::{ffi::OsStr, mem::MaybeUninit};
+use std::{ffi::OsStr, mem::MaybeUninit, ops::Deref};
 
 use ndarray as nd;
+use pyo3::{prelude::*, exceptions::PyIOError};
+
+use crate::inflatox_version::InflatoxVersion;
 
 type ExFn = unsafe extern fn (*const f64, *const f64) -> f64;
 type HdylibFn<'a> = libloading::Symbol::<'a, ExFn>;
@@ -14,19 +17,47 @@ const INFLATOX_VERSION_SYM: &[u8; 7] = b"VERSION";
 
 pub struct InflatoxDylib {
   lib: libloading::Library,
-  f_dim: u32,
+  n_fields: u32,
   n_param: u32,
-  inflatox_version: [u16; 3]
+  inflatox_version: InflatoxVersion
+}
+
+#[pyclass]
+/// Python wrapper for `InflatoxDyLib`
+struct InflatoxPyDyLib {
+  inner: InflatoxDylib
+}
+
+#[pyfunction]
+fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
+  //(1) Open the compilation artefact
+  let lib = unsafe {
+    libloading::Library::new(lib_path)
+      .map_err(|err| PyIOError::new_err(format!("Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{err}\"")))?
+  };
+
+  //(2) Get number of fields, parameters and the inflatox version this artefact
+  //was compiled for
+  let n_fields = unsafe { ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM)
+    .map_err(|err| pyo3::exceptions::PySystemError::new_err(format!("Could not find symbol {SYM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+  };
+  let n_param = unsafe { ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM)
+    .map_err(|err| pyo3::exceptions::PySystemError::new_err(format!("Could not find symbol {PARAM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+  };
+  let inflatox_version = unsafe { *lib.get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
+    .map_err(|err| pyo3::exceptions::PySystemError::new_err(format!("Could not find symbol {INFLATOX_VERSION_SYM:#?} in {lib_path}. Error: \"{err}\"")))
+    .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
+  };
+
+  //(3) Check that the artefact was built with the correct version of inflatox
+  if inflatox_version != super::V_INFLX {
+    Err(pyo3::exceptions::PySystemError::new_err(format!("Cannot load Inflatox Compilation Artefact compiled for Inflatox {inflatox_version} using current Inflatox installation ({})", super::V_INFLX)))
+  } else {
+    Ok(InflatoxPyDyLib { inner: InflatoxDylib { lib, n_fields, n_param, inflatox_version } })
+  }
 }
 
 impl InflatoxDylib {
-  pub fn new<P: AsRef<OsStr>>(path: P) -> Result<Self, libloading::Error> {
-    let lib = unsafe { libloading::Library::new(path)? };
-    let f_dim = unsafe { ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM)? };
-    let n_param = unsafe { ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM)? };
-    let inflatox_version = unsafe { ***lib.get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)? };
-    Ok( InflatoxDylib { lib, f_dim, n_param, inflatox_version })
-  }
 
   #[inline]
   pub unsafe fn get_symbol<T>(&self, symbol: &[u8]) -> Result<libloading::Symbol<T>, libloading::Error> {
@@ -35,7 +66,7 @@ impl InflatoxDylib {
 
   #[inline]
   pub const fn get_dim(&self) -> usize {
-    self.f_dim as usize
+    self.n_fields as usize
   }
 
   #[inline]
@@ -44,7 +75,12 @@ impl InflatoxDylib {
   }
 
   #[inline]
-  pub const fn get_inflatox_version(&self) -> &[u16; 3] {
+  pub fn get_inflatox_version(&self) -> String {
+    format!("{}", self.inflatox_version)
+  }
+
+  #[inline]
+  pub(crate) const fn get_inflatox_version_raw(&self) -> &InflatoxVersion {
     &self.inflatox_version
   }
 }
