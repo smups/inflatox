@@ -4,7 +4,7 @@ use numpy::{PyReadwriteArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::{InflatoxPyDyLib, HesseNd, Hesse2D, raise_shape_err, convert_start_stop};
+use crate::hesse_bindings::{InflatoxPyDyLib, HesseNd, Hesse2D, raise_shape_err, convert_start_stop, InflatoxDylib};
 
 #[pyfunction]
 pub(crate) fn anguelova(
@@ -72,4 +72,19 @@ pub(crate) fn anguelova_raw(
       let rhs = h.v11(x, p);
       lhs - rhs
     });
+}
+
+#[test]
+fn anguelova_performance() {
+  let n = 100_000;
+  let mut out = nd::Array2::zeros((n,n));
+  let start_stop = [
+    [-1000.0, 1000.0],
+    [-1000.0, 1000.0]
+  ];
+  let lib = InflatoxDylib::open("/tmp/libinflx_autoc_z1lc1jur.so").unwrap();
+  let h = Hesse2D::new(HesseNd::new(&lib));
+  let p = &[12.0, 3.0, 4.0, -12.0];
+  anguelova_raw(h, out.view_mut(), p, &start_stop);
+  println!("{out:?}");
 }
