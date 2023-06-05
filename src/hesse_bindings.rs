@@ -31,34 +31,7 @@ pub(crate) struct InflatoxPyDyLib(pub InflatoxDylib);
 
 #[pyfunction]
 pub(crate) fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
-  //(1) Open the compilation artefact
-  let lib = unsafe {
-    libloading::Library::new(lib_path)
-      .map_err(|err| PyIOError::new_err(format!("Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{err}\"")))?
-  };
-
-  //(2) Get number of fields, parameters and the inflatox version this artefact
-  //was compiled for
-  let n_fields = unsafe { ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM)
-    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {SYM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
-  };
-  let n_param = unsafe { ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM)
-    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {PARAM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
-  };
-  let inflatox_version = unsafe { *lib.get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
-    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {INFLATOX_VERSION_SYM:#?} in {lib_path}. Error: \"{err}\"")))
-    .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
-  };
-  let potential = unsafe { **lib.get::<HdylibFn>(POTENTIAL_SYM)
-    .map_err(|err| PySystemError::new_err(format!("Could not find symbol {POTENTIAL_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
-  };
-
-  //(3) Check that the artefact was built with the correct version of inflatox
-  if inflatox_version != super::V_INFLX {
-    return Err(PySystemError::new_err(format!("Cannot load Inflatox Compilation Artefact compiled for Inflatox {inflatox_version} using current Inflatox installation ({})", super::V_INFLX)))
-  } else {
-    Ok(InflatoxPyDyLib(InflatoxDylib { lib, n_fields, n_param, potential, inflatox_version } ))
-  }
+  Ok(InflatoxPyDyLib(InflatoxDylib::open(lib_path)?))
 }
 
 pub(crate) fn raise_shape_err<T>(err: String) -> PyResult<T> {
@@ -113,6 +86,37 @@ pub(crate) fn calc_potential(
 }
 
 impl InflatoxDylib {
+
+  pub(crate) fn open(lib_path: &str) -> PyResult<Self> {
+    //(1) Open the compilation artefact
+    let lib = unsafe {
+      libloading::Library::new(lib_path)
+        .map_err(|err| PyIOError::new_err(format!("Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{err}\"")))?
+    };
+
+    //(2) Get number of fields, parameters and the inflatox version this artefact
+    //was compiled for
+    let n_fields = unsafe { ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM)
+      .map_err(|err| PySystemError::new_err(format!("Could not find symbol {SYM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+    };
+    let n_param = unsafe { ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM)
+      .map_err(|err| PySystemError::new_err(format!("Could not find symbol {PARAM_DIM_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+    };
+    let inflatox_version = unsafe { *lib.get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
+      .map_err(|err| PySystemError::new_err(format!("Could not find symbol {INFLATOX_VERSION_SYM:#?} in {lib_path}. Error: \"{err}\"")))
+      .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
+    };
+    let potential = unsafe { **lib.get::<HdylibFn>(POTENTIAL_SYM)
+      .map_err(|err| PySystemError::new_err(format!("Could not find symbol {POTENTIAL_SYM:#?} in {lib_path}. Error: \"{err}\"")))?
+    };
+
+    //(3) Check that the artefact was built with the correct version of inflatox
+    if inflatox_version != super::V_INFLX {
+      return Err(PySystemError::new_err(format!("Cannot load Inflatox Compilation Artefact compiled for Inflatox {inflatox_version} using current Inflatox installation ({})", super::V_INFLX)))
+    } else {
+      Ok(InflatoxDylib { lib, n_fields, n_param, potential, inflatox_version } )
+    }
+  }
 
   #[inline(always)]
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
