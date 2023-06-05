@@ -156,7 +156,7 @@ pub struct HesseNd<'a> {
   components: nd::Array2<ExFn>
 }
 
-impl<'a>HesseNd<'a> {
+impl<'a> HesseNd<'a> {
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     let dim = nd::Dim([lib.get_n_fields(), lib.get_n_fields()]);
     let mut array: nd::Array2<MaybeUninit<ExFn>> = nd::Array2::uninit(dim);
