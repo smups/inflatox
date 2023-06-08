@@ -215,6 +215,10 @@ class SymbolicCalculation():
       V_ab(ϕ) = ∇_a (∂_b V(ϕ)) = ∂_a ∂_b V(ϕ) - Γ_ab^c(ϕ) ∂_c V(ϕ)
     Where Γ_ab^c(ϕ) is the standard Christoffel connection defined as:
       Γ_ab^c = 1/2 g^cd (∂_a g_bd + ∂_b g_ad - ∂_d g_ab)
+      
+    ### Simplification
+    If the simplification depth is set to 2 or higher, this function will
+    simplify its output before returning.
 
     ### Returns
     `list[list[sympy.Expr]]`: nested list of components of the Hesse matrix
@@ -228,13 +232,22 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         #Calculate ∂_a ∂_b V(ϕ)
-        da_dbV = sympy.diff(self.V, self.coords[b], self.coords[a]).simplify()
+        da_dbV = sympy.diff(self.V, self.coords[b], self.coords[a])
+        if self.simp >= 3: da_dbV = da_dbV.simplify()
+        
         #Calculate the contraction Γ_ab^c(ϕ) ∂_c V(ϕ)
         gamma_ab = 0
         for c in range(dim):
-          gamma_ab = (gamma_ab + conn[c][b][a]*sympy.diff(self.V, self.coords[c])).simplify()
+          # Calculate ∂_c V(ϕ)
+          Vc = sympy.diff(self.V, self.coords[c])
+          if self.simp >= 3: Vc = Vc.simplify()
+          
+          # Calculate the full thing
+          gamma_ab = gamma_ab + conn[c][b][a] * Vc
+        
         #set the output components
-        Vab[a][b] = powdenest((da_dbV - gamma_ab).simplify(), force=True)
+        cmp = da_dbV - gamma_ab
+        Vab[a][b] = powdenest(cmp.simplify(), force=True) if self.simp >= 2 else cmp
     return Vab
 
   def calc_v(self) -> list[sympy.Expr]:
