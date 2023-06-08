@@ -18,11 +18,11 @@ create_exception!(libinflx_rs, ShapeError, PyException);
 /// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
 /// import the module.
 fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
-    pymod.add_class::<InflatoxPyDyLib>()?;
-    pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
-    pymod.add_function(wrap_pyfunction!(anguelova::anguelova, pymod)?)?;
+  pymod.add_class::<InflatoxPyDyLib>()?;
+  pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::anguelova, pymod)?)?;
 
-    //Register exceptions
-    pymod.add("DimensionalityError", py.get_type::<ShapeError>())?;
-    Ok(())
+  //Register exceptions
+  pymod.add("DimensionalityError", py.get_type::<ShapeError>())?;
+  Ok(())
 }

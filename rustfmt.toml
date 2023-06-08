@@ -1,0 +1,28 @@
+#  Copyright© 2023 Raúl Wolters(1)
+#
+#  This file is part of inflatox.
+#
+#  inflatox is free software: you can redistribute it and/or modify it under
+#  the terms of the European Union Public License version 1.2 or later, as
+#  published by the European Commission.
+#
+#  inflatox is distributed in the hope that it will be useful, but WITHOUT ANY
+#  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+#  A PARTICULAR PURPOSE. See the European Union Public License for more details.
+#
+#  You should have received a copy of the EUPL in an/all official language(s) of
+#  the European Union along with inflatox.  If not, see 
+#  <https://ec.europa.eu/info/european-union-public-licence_en/>.
+#
+#  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
+#  licensee subject to Dutch law as per article 15 of the EUPL.
+
+# Why 2 space tabs? Rust requires so much indentation that 4 space tabs often
+# restrict the length of code that fits on one line.
+#
+# 2 space tabs are not a formal requirement for rustfmt, crate authors can use
+# whatever they like, as long as they do so through configuring rustfmt
+tab_spaces = 2
+
+#allow for one-liners to take up a full line
+use_small_heuristics = "Max"
