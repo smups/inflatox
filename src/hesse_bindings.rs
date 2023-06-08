@@ -2,6 +2,8 @@ use std::mem::MaybeUninit;
 
 use ndarray as nd;
 use pyo3::{prelude::*, exceptions::{PyIOError, PySystemError}};
+#[cfg(feature = "pyo3_extension_module")]
+use numpy::PyReadonlyArray1;
 
 use crate::inflatox_version::InflatoxVersion;
 
@@ -26,6 +28,37 @@ pub struct InflatoxDylib {
 #[pyclass]
 /// Python wrapper for `InflatoxDyLib`
 pub(crate) struct InflatoxPyDyLib(pub InflatoxDylib);
+
+#[cfg(feature = "pyo3_extension_module")]
+#[pymethods]
+impl InflatoxPyDyLib {
+  fn potential(
+    &self,
+    x: PyReadonlyArray1<f64>,
+    p : PyReadonlyArray1<f64>
+  ) -> PyResult<f64> {
+    //(0) Convert the PyArrays to nd::Arrays
+    let p = p.as_array();
+    let x = x.as_array();
+
+    //(3) Make sure that the number of supplied fields matches the number
+    //specified by the dynamic lib
+    if x.shape() != &[self.0.n_fields as usize] {
+      raise_shape_err(format!("expected a {}D array as field-space coordinate. Found array with shape {:?}", self.0.n_fields, x.shape()))?;
+    }
+    let x = x.as_slice().unwrap();
+
+    //(3) Make sure that the number of supplied model parameters matches the number
+    //specified by the dynamic lib
+    if p.shape() != &[self.0.n_param as usize] {
+      raise_shape_err(format!("expected a {}D as parameters set. Found array with shape {:?}", self.0.n_param, p.shape()))?;
+    }
+    let p = p.as_slice().unwrap();
+
+    //(4) Calculate
+    Ok(self.0.potential(x, p))
+  }
+}
 
 #[pyfunction]
 pub(crate) fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
