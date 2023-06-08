@@ -312,7 +312,7 @@ class SymbolicCalculation():
         y[a] = y[a] - xy * x[a]
     #normalize and return y
     y = self.normalize(y)
-    return [ya.simplify() for ya in] if self.simp >= 2 else y
+    return [ya.simplify() for ya in y] if self.simp >= 2 else y
 
   def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
     """_summary_
