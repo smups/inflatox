@@ -132,7 +132,27 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
 
     ### Returns
-      `np.array`: _description_
+    `np.array`: Difference between left-hand-side and right-hand-side of
+    Anguelova & Lazaroiu consistency condition: 3(V_vv / V_vw)^2 - V_ww / V
+      
+    ### Example
+    Run and plot the consistency condition
+    ```python
+    from inflatox.consistency_conditions import AnguelovaLazaroiuCondition
+    from matplotlib import pyplot as plt
+    anguelova = AnguelovaLazaroiuCondition(comp_artefact)
+
+    #calculate condition
+    args = np.array([3.4e-10, 5e-16, 2.5e-3, 1.0])
+    x = np.array([2.0, 2.0])
+    extent = (-1e-3, 1e-3, -1e-3, 1e-3)
+    array = anguelova.evaluate(args, *extent)
+    
+    #plot result
+    plt.imshow(array, extent=extent)
+    plt.colorbar()
+    plt.show()
+    ```
     """
     #set-up args for anguelova's condition
     x = np.zeros((N_x0, N_x1))
