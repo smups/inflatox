@@ -263,11 +263,11 @@ class SymbolicCalculation():
     
     #(3) Project Hesse matrix
     def process(a:int, b:int):
-      out = 0
-      for a in range(dim):
-        for b in range(dim):
-          out = out + H[a][b] * w[a] * w[b]
-      return ([a, b], powdenest(out.simplify(), force=True) if self.simp >= 1 else out)
+      Hab = 0
+      for x in range(dim):
+        for y in range(dim):
+          Hab = Hab + H[x][y] * w[a][x] * w[b][y]
+      return ([a, b], powdenest(Hab.simplify(), force=True) if self.simp >= 1 else Hab)
   
     print("Projecting the Hesse matrix on the vielbein basis...")
     H_proj = [[0 for _ in range(dim)] for _ in range(dim)]
@@ -302,7 +302,7 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         ans = ans + (v1[a] * v2[b] * self.g.arr[a][b])
-    return powdenest(ans, force=True).simplify() if self.simp >= 4 else ans
+    return ans.simplify() if self.simp >= 4 else ans
 
   def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
     """normalizes the input vector with respect to the configured metric tensor
@@ -394,7 +394,7 @@ class SymbolicCalculation():
     
     #normalize v
     v = self.normalize(v)
-    return [va.simplify() for va in v] if self.simp >= 2 else v
+    return [powdenest(va.simplify(), force=True) for va in v] if self.simp >= 2 else v
 
   def gramm_schmidt(self, current_basis: list[list[sympy.Expr]], guess: list[sympy.Expr]) -> list[sympy.Expr]:
     """Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
@@ -441,7 +441,7 @@ class SymbolicCalculation():
         y[a] = y[a] - xy * x[a]
     #normalize and return y
     y = self.normalize(y)
-    return [ya.simplify() for ya in y] if self.simp >= 2 else y
+    return [powdenest(ya.simplify(), force=True) for ya in y] if self.simp >= 2 else y
 
   def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
     """This function calculates the projection of the Hesse matrix along the two
