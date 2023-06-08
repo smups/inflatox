@@ -69,12 +69,14 @@ class SymbolicCalculation():
       fields: list[sympy.Symbol],
       field_metric: MetricTensor,
       potential: sympy.Expr,
-      model_name: str|None = None
+      model_name: str|None = None,
+      simplification_depth: int = 4
     ):
     self.coords = fields
     self.g = field_metric
     self.V = potential
     self.model_name = model_name
+    self.simp = simplification_depth
     
   @classmethod
   def new(cls, fields: list[sympy.Symbol], field_metric: MetricTensor, potential: sympy.Expr):
@@ -167,6 +169,10 @@ class SymbolicCalculation():
     ### Args
     - `v1` (`list[sympy.Expr]`): first vector, once contravariant
     - `v1` (`list[sympy.Expr]`): second vector, once contravariant
+    
+    ### Simplification
+    If the simplification depth is set to 4 or higher, this function will
+    simplify its output before returning.
 
     ### Returns
     `sympy.Expr`: inner product of vec1 with vec2 with respect to the configured
@@ -178,7 +184,7 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         ans = ans + (v1[a] * v2[b] * self.g.arr[a][b])
-    return powdenest(ans, force=True).simplify()
+    return powdenest(ans, force=True).simplify() if self.simp >= 4 else ans
 
   def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
     """normalizes the input vector with respect to the configured metric tensor
