@@ -286,6 +286,10 @@ class SymbolicCalculation():
     vector x_i+1 that is orthogonal to all x_i:
       x_i+1 = y - Σ_a g_ij x^i_a y^j
     The final step is to normalise x_i+1
+    
+    ### Simplification
+    If the simplification depth is set to 2 or higher, this function will
+    simplify its output before returning.
 
     ### Returns
     `list[sympy.Expr]`: list of the contravariant components of an additional
@@ -302,12 +306,13 @@ class SymbolicCalculation():
     #subtract the overlap of each current basis with the guessed vector from y
     for x in current_basis:
       #first assert that vec is actually normalised
-      assert(sympy.Eq(self.inner_prod(x, x), 1))
+      assert(sympy.Eq(self.inner_prod(x, x), 1).simplify())
       xy = self.inner_prod(x, guess)
       for a in range(dim):
-        y[a] = (y[a] - xy*x[a]).simplify()    
+        y[a] = y[a] - xy * x[a]
     #normalize and return y
-    return [powdenest(ya, force=True).simplify() for ya in self.normalize(y)]
+    y = self.normalize(y)
+    return [ya.simplify() for ya in] if self.simp >= 2 else y
 
   def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
     """_summary_
