@@ -328,7 +328,8 @@ class SymbolicCalculation():
     return [ya.simplify() for ya in y] if self.simp >= 2 else y
 
   def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
-    """_summary_
+    """This function calculates the projection of the Hesse matrix along the two
+    supplied vectors.
 
     ### Args
     - `hesse_matrix` (`list[list[sympy.Expr]]`): twice-covariant components of
@@ -337,9 +338,20 @@ class SymbolicCalculation():
       matrix
     - `vec2` (`list[sympy.Expr]`): second vector along which to project the Hesse
       matrix
+      
+    ### Precise formulation of calculated quantities
+    The output V12 is given by
+      V12 = H_ab v1^a v2^b
+    Where v1 is the first input vector, v2 the second one and H_ab are the
+    twice covariant components of the Hesse matrix. No metrics are required for
+    this operation.
+      
+    ### Simplification
+    If the simplification depth is set to 2 or higher, this function will
+    simplify its output before returning.
 
     ### Returns
-    `sympy.Expr`: _description_
+    `sympy.Expr`: returns the inner product of H with vec1 and vec2
     """
     dim = len(vec1)
     assert(len(vec1) == len(vec2))
@@ -347,4 +359,4 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         V_proj = V_proj + hesse_matrix[a][b]*vec1[a]*vec2[b]
-    return powdenest(V_proj.simplify(), force=True)
+    return powdenest(V_proj.simplify(), force=True) if self.simp >= 2 else V_proj
