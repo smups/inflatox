@@ -63,6 +63,22 @@ class SymbolicCalculation():
   with an appropriate starting point for constructing the vielbein basis will 
   perform the calculation of the components of the covariant Hesse matrix, projected
   onto the vielbein basis.
+  
+  ### Simplification depth
+  When constructing this class, the simplification depth has to be set. The
+  simplification depth represents how often intermediate answers will be
+  simplified. Intermediate simplifications can take a lot of time, but may
+  produce prettier and more human readable output.
+  
+  Currently there are five levels, where each level enables all the previous 
+  simplifications as well as the bulleted additional ones:
+    - (0) No simplification
+    - (1) Only simplify the final output of the calculation
+    - (2) Simplify the output of nested functions before returning.
+    - (3) Simplify the output of twice nested functions before returning.
+    - (>=4) Simplify all intermediate steps.
+  It can be beneficial to play around with this setting to see which level works
+  best.
   """
   
   def __init__(self,
@@ -94,17 +110,25 @@ class SymbolicCalculation():
     silent: bool = False,
     assertions: bool = True,
   ):
-    """Constructs an instance of `SymbolicCalculation`
+    """Constructor for `SymbolicCalculation`
 
     ### Args
-    - `fields` (`list[sympy.Symbol]`): sympy symbols that will be interpreted as
-    fields during the symbolic calculation.
-    - field_metric (`einsteinpy.symbolic.MetricTensor`): metric tensor on the scalar
-    manifold
-    - potential (`sympy.Expr`): potential for the scalar fields
+    - `fields` (`list[sympy.Symbol]`): list of sympy symbols that should be
+      interpreted as fields (coordinates on the scalar manifold).
+    - `field_metric` (`MetricTensor`): metric tensor on the scalar manifold
+    - `potential` (`sympy.Expr`): potential of the scalar field theory
+    - `model_name` (`str | None`, *optional*): Name of the model (potential +
+      scalar manifold geometry). Used for printing. Defaults to None.
+    - `simplification_depth` (`int`, *optional*): Set the simplification depth
+      for the calculation. See class documentation. Defaults to 4.
+    - `silent` (`bool`, *optional*): If True, no console output will be produced
+      during the calculation. Defaults to False.
+    - `assertions` (`bool`, *optional*): If False, expensive intermediate
+      assertions will be disabled. Defaults to True.
 
     ### Returns
-    `SymbolicCalculation`
+    `SymbolicCalculation`: object that can be used to perform the symbolic
+    calculation by calling the `.execute()` method.  
     """
     return cls(
       fields,
@@ -127,17 +151,26 @@ class SymbolicCalculation():
     silent: bool = False,
     assertions: bool = True
   ):
-    """Constructs an instance of `SymbolicCalculation`
+    """Constructor for `SymbolicCalculation`
 
     ### Args
-    - `fields` (`list[sympy.Symbol]`): sympy symbols that will be interpreted as
-    fields during the symbolic calculation.
-    - field_metric (`einsteinpy.symbolic.MetricTensor`): metric tensor on the scalar
-    manifold
-    - potential (`sympy.Expr`): potential for the scalar fields
+    - `fields` (`list[sympy.Symbol]`): list of sympy symbols that should be
+      interpreted as fields (coordinates on the scalar manifold).
+    - `field_metric` (`list[list[sympy.Symbol]]`): metric tensor on the scalar
+      manifold.
+    - `potential` (`sympy.Expr`): potential of the scalar field theory
+    - `model_name` (`str | None`, *optional*): Name of the model (potential +
+      scalar manifold geometry). Used for printing. Defaults to None.
+    - `simplification_depth` (`int`, *optional*): Set the simplification depth
+      for the calculation. See class documentation. Defaults to 4.
+    - `silent` (`bool`, *optional*): If True, no console output will be produced
+      during the calculation. Defaults to False.
+    - `assertions` (`bool`, *optional*): If False, expensive intermediate
+      assertions will be disabled. Defaults to True.
 
     ### Returns
-    `SymbolicCalculation`
+    `SymbolicCalculation`: object that can be used to perform the symbolic
+    calculation by calling the `.execute()` method.  
     """
     return cls(
       fields,
