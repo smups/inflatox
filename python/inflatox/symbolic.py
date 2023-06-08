@@ -120,7 +120,7 @@ class SymbolicCalculation():
     model_name: str|None = None,
     simplification_depth: int = 4,
     silent: bool = False,
-    assertions: bool = True,
+    assertions: bool = False,
   ):
     """Constructor for `SymbolicCalculation`
 
@@ -136,7 +136,7 @@ class SymbolicCalculation():
     - `silent` (`bool`, *optional*): If True, no console output will be produced
       during the calculation. Defaults to False.
     - `assertions` (`bool`, *optional*): If False, expensive intermediate
-      assertions will be disabled. Defaults to True.
+      assertions will be disabled. Defaults to False.
 
     ### Returns
     `SymbolicCalculation`: object that can be used to perform the symbolic
@@ -161,7 +161,7 @@ class SymbolicCalculation():
     model_name: str|None = None,
     simplification_depth: int = 4,
     silent: bool = False,
-    assertions: bool = True
+    assertions: bool = False
   ):
     """Constructor for `SymbolicCalculation`
 
@@ -178,7 +178,7 @@ class SymbolicCalculation():
     - `silent` (`bool`, *optional*): If True, no console output will be produced
       during the calculation. Defaults to False.
     - `assertions` (`bool`, *optional*): If False, expensive intermediate
-      assertions will be disabled. Defaults to True.
+      assertions will be disabled. Defaults to False.
 
     ### Returns
     `SymbolicCalculation`: object that can be used to perform the symbolic
