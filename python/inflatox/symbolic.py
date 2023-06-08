@@ -71,7 +71,8 @@ class SymbolicCalculation():
     potential: sympy.Expr,
     model_name: str,
     simplification_depth: int,
-    silent: bool
+    silent: bool,
+    assertions: bool,
   ):
     """Internal constructor"""
     self.coords = fields
@@ -80,6 +81,7 @@ class SymbolicCalculation():
     self.model_name = model_name
     self.simp = simplification_depth
     self.silent = silent
+    self.assertions = assertions
     
   @classmethod
   def new(
@@ -89,7 +91,8 @@ class SymbolicCalculation():
     potential: sympy.Expr,
     model_name: str|None = None,
     simplification_depth: int = 4,
-    silent: bool = False
+    silent: bool = False,
+    assertions: bool = True,
   ):
     """Constructs an instance of `SymbolicCalculation`
 
@@ -109,7 +112,8 @@ class SymbolicCalculation():
       potential,
       model_name if model_name is not None else "generic model",
       simplification_depth,
-      silent
+      silent,
+      assertions
     )
   
   @classmethod
@@ -120,7 +124,8 @@ class SymbolicCalculation():
     potential: sympy.Expr,
     model_name: str|None = None,
     simplification_depth: int = 4,
-    silent: bool = False
+    silent: bool = False,
+    assertions: bool = True
   ):
     """Constructs an instance of `SymbolicCalculation`
 
@@ -140,7 +145,8 @@ class SymbolicCalculation():
       potential,
       model_name if model_name is not None else "generic model",
       simplification_depth,
-      silent
+      silent,
+      assertions
     )
     
   def print(self, msg: str) -> None:
@@ -197,12 +203,13 @@ class SymbolicCalculation():
       self.display(w[-1], lhs=f'w_{i+1}')
     
     #(1b) make sure the basis is orthonormal
-    for a in range(dim):
-      for b in range(dim):
-        if a == b:
-          assert(sympy.Eq(1, self.inner_prod(w[a], w[b])).simplify())
-        else:
-          assert(sympy.Eq(0, self.inner_prod(w[a], w[b])).simplify())
+    if self.assertions:
+      for a in range(dim):
+        for b in range(dim):
+          if a == b:
+            assert(sympy.Eq(1, self.inner_prod(w[a], w[b])).simplify())
+          else:
+            assert(sympy.Eq(0, self.inner_prod(w[a], w[b])).simplify())
         
     #(2) Calculate the components of the covariant Hesse Matrix
     print("Calculating covariant Hesse matrix...")
@@ -247,7 +254,6 @@ class SymbolicCalculation():
     """
     ans = 0
     dim = len(v1)
-    assert(dim == len(v2))
     for a in range(dim):
       for b in range(dim):
         ans = ans + (v1[a] * v2[b] * self.g.arr[a][b])
@@ -385,8 +391,6 @@ class SymbolicCalculation():
     
     #subtract the overlap of each current basis with the guessed vector from y
     for x in current_basis:
-      #first assert that vec is actually normalised
-      assert(sympy.Eq(self.inner_prod(x, x), 1).simplify())
       xy = self.inner_prod(x, guess)
       for a in range(dim):
         y[a] = y[a] - xy * x[a]
@@ -421,7 +425,6 @@ class SymbolicCalculation():
     `sympy.Expr`: returns the inner product of H with vec1 and vec2
     """
     dim = len(vec1)
-    assert(len(vec1) == len(vec2))
     V_proj = 0
     for a in range(dim):
       for b in range(dim):
