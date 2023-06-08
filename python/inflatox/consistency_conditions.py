@@ -25,7 +25,15 @@ import numpy as np
 from .compiler import CompilationArtifact
 from .libinflx_rs import (open_inflx_dylib, anguelova)
 
+#Limit exports to these items
+__all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
+
 class InflationCondition():
+  """Base-class for all inflation conditions. Provides native methods to evaluate
+  the potential and projected Hesse matrix. This base-class may be extended either
+  by using these native methods, or by including your own native code that hooks
+  into the Rust API or C ABI.
+  """
 
   def __init__(self, compiled_artefact: CompilationArtifact):
     self.artefact = compiled_artefact
@@ -63,6 +71,25 @@ class InflationCondition():
     return self.dylib.hesse(x, args)
 
 class AnguelovaLazaroiuCondition(InflationCondition):
+  """This class extends the generic `InflationCondition` with the potential
+  consistency condition from Anguelova and Lazaroiu 2022 paper
+  (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL) inflationary models.
+
+  ### Usage
+  To construct an instance of this class, a `CompilationArtefact` is required.
+  Such an artifact can be obtained by running an instance of `inflatox.Compiler`
+  with a specific model (fieldspace metric + scalar potential). For more info on
+  how to use the `Compiler`, see its documentation.
+  
+  After obtaining the compiled artefact by calling the `.compile()` method on the
+  `Compiler` instance, the artefact can be used to construct an instance of this
+  class. The artefact contains all the necessary information to evaluate the
+  consistency condition.
+  
+  To run evaluate the consistency condition for various model parameters and
+  regions of field-space, use the `.evaluate()` method on an instance of this class
+  with the appropriate methods. For more info, see the `.evaluate()` method.
+  """
   
   def __init__(self, compiled_artefact: CompilationArtifact):
     super().__init__(compiled_artefact)
@@ -117,3 +144,4 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     #evaluate and return
     anguelova(self.dylib, args, x, start_stop)
     return x
+  
