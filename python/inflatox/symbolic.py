@@ -112,13 +112,29 @@ class SymbolicCalculation():
     return cls(fields, metric, potential)
     
   def execute(self, basis: list[list[sympy.Expr]]) -> HesseMatrix:
-    """_summary_
+    """Performs fully symbolic calculation of the components of the covariant
+    Hesse matrix of the potential with respect to the metric (both set during
+    construction of an instance of this class), which are then projected onto an
+    orthonormal vielbein basis using the Gramm-Schmidt procedure from:
+      1. the gradient of the potential
+      2. the list of vectors supplied by the caller of this function
+    The details of this procedure are specified in the documentation of the
+    individual methods of this class.
 
-    ### Args:
-    `basis` (`list[list[sympy.Expr]]`): _description_
+    ### Args
+    `basis` (`list[list[sympy.Expr]]`): list of vectors to be used to calculate
+      an orthonormal vielbein basis onto which the components of the Hesse matrix
+      will be projected. The supplied vectors *do not* have to be orthogonal, but
+      they *must be* linearly independent.
+    
+    ### Simplification
+    If the simplification depth is set to 1 or higher, this function will
+    simplify its output before returning. See the docs of the constructor of this
+    class for more info.
 
-    ### Returns:
-    `HesseMatrix`: _description_
+    ### Returns
+    `HesseMatrix`: object containing the components of the projected Hesse matrix,
+      as well as information about the model that was used to calculate said components. 
     """
     dim = len(self.coords)
     assert(len(basis) == dim - 1)
@@ -148,9 +164,14 @@ class SymbolicCalculation():
     display(Math(f"H={sympy.latex(sympy.Matrix(H))}"))
     
     #(3) Project Hesse matrix
-    print("Projecting the Hesse matrix on the vielbein basis...")
     def process(a:int, b:int):
-      return ([a, b], self.project_hesse(H, w[a], w[b]))
+      out = 0
+      for a in range(dim):
+        for b in range(dim):
+          out = out + H[a][b] * w[a] * w[b]
+      return ([a, b], powdenest(out.simplify(), force=True) if self.simp >= 1 else out)
+  
+    print("Projecting the Hesse matrix on the vielbein basis...")
     H_proj = [[0 for _ in range(dim)] for _ in range(dim)]
     results = Parallel(n_jobs=cpu_count())(delayed(process)(a, b) for a in range(dim) for b in range(dim))
     
@@ -347,7 +368,7 @@ class SymbolicCalculation():
     this operation.
       
     ### Simplification
-    If the simplification depth is set to 2 or higher, this function will
+    If the simplification depth is set to 1 or higher, this function will
     simplify its output before returning.
 
     ### Returns
@@ -359,4 +380,4 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         V_proj = V_proj + hesse_matrix[a][b]*vec1[a]*vec2[b]
-    return powdenest(V_proj.simplify(), force=True) if self.simp >= 2 else V_proj
+    return powdenest(V_proj.simplify(), force=True) if self.simp >= 1 else V_proj
