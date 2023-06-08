@@ -244,6 +244,10 @@ class SymbolicCalculation():
     ### Precise formulation of calculated quantities
     The contravariant components of the gradient of V are given by:
       (grad V)^a(ϕ) = g^ab(ϕ) ∂_b V(ϕ)
+      
+    ### Simplification
+    If the simplification depth is set to 2 or higher, this function will
+    simplify its output before returning.
 
     ### Returns
     `list[sympy.Expr]`: contravariant components of normalized gradient vector v.
@@ -255,11 +259,11 @@ class SymbolicCalculation():
     #contract v with the inverse of the metric tensor
     for a in range(dim):
       for b in range(dim):
-        v[a] = (v[a] + self.g.inv().arr[a][b] * v[a]).simplify()
+        v[a] = v[a] + self.g.inv().arr[a][b] * v[a]
     
     #normalize v
     v = self.normalize(v)
-    return [powdenest(va, force=True).simplify() for va in v]
+    return [va.simplify() for va in v] if self.simp >= 2 else v
 
   def gramm_schmidt(self, current_basis: list[list[sympy.Expr]], guess: list[sympy.Expr]) -> list[sympy.Expr]:
     """Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
