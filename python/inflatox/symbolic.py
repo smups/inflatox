@@ -191,13 +191,17 @@ class SymbolicCalculation():
 
     ### Args
     vec (`list[sympy.Expr]`): components of the vector to be normalised
+    
+    ### Simplification
+    If the simplification depth is set to 3 or higher, this function will
+    simplify its output before returning.
 
     ### Returns
     `list[sympy.Expr]`: normalized components of the supplied vector vec with
       respect to the metric tensor of the current instance 
     """
     norm = sympy.sqrt(self.inner_prod(vec, vec))
-    return [(cmp / norm).simplify() for cmp in vec]
+    return [(cmp / norm).simplify() if self.simp >= 3 else cmp / norm for cmp in vec] 
     
   def calc_hesse(self) -> list[list[sympy.Expr]]:
     """returns the components of the covariant Hesse matrix in a twice-covariant
