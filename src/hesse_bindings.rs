@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use ndarray as nd;
 use pyo3::{prelude::*, exceptions::{PyIOError, PySystemError}};
 #[cfg(feature = "pyo3_extension_module")]
-use numpy::{PyReadonlyArray1, PyArray2};
+use numpy::{PyReadonlyArrayDyn, PyArray2};
 
 use crate::inflatox_version::InflatoxVersion;
 
@@ -23,95 +23,6 @@ pub struct InflatoxDylib {
   n_param: u32,
   potential: ExFn,
   inflatox_version: InflatoxVersion,
-}
-
-#[pyclass]
-/// Python wrapper for `InflatoxDyLib`
-pub(crate) struct InflatoxPyDyLib(pub InflatoxDylib);
-
-#[cfg(feature = "pyo3_extension_module")]
-#[pymethods]
-impl InflatoxPyDyLib {
-  fn potential(
-    &self,
-    x: PyReadonlyArray1<f64>,
-    p : PyReadonlyArray1<f64>
-  ) -> PyResult<f64> {
-    //(0) Convert the PyArrays to nd::Arrays
-    let p = p.as_array();
-    let x = x.as_array();
-
-    //(3) Make sure that the number of supplied fields matches the number
-    //specified by the dynamic lib
-    if x.shape() != &[self.0.n_fields as usize] {
-      raise_shape_err(format!("expected a {}D array as field-space coordinate. Found array with shape {:?}", self.0.n_fields, x.shape()))?;
-    }
-    let x = x.as_slice().unwrap();
-
-    //(3) Make sure that the number of supplied model parameters matches the number
-    //specified by the dynamic lib
-    if p.shape() != &[self.0.n_param as usize] {
-      raise_shape_err(format!("expected a {}D as parameters set. Found array with shape {:?}", self.0.n_param, p.shape()))?;
-    }
-    let p = p.as_slice().unwrap();
-
-    //(4) Calculate
-    Ok(self.0.potential(x, p))
-  }
-
-  fn hesse<'py>(
-    &self,
-    py: Python<'py>,
-    x: PyReadonlyArray1<f64>,
-    p : PyReadonlyArray1<f64>
-  ) -> PyResult<&'py PyArray2<f64>> {
-    //(0) Convert the PyArrays to nd::Arrays
-    let p = p.as_array();
-    let x = x.as_array();
-
-    //(3) Make sure that the number of supplied fields matches the number
-    //specified by the dynamic lib
-    if x.shape() != &[self.0.n_fields as usize] {
-      raise_shape_err(format!("expected a {}D array as field-space coordinate. Found array with shape {:?}", self.0.n_fields, x.shape()))?;
-    }
-    let x = x.as_slice().unwrap();
-
-    //(3) Make sure that the number of supplied model parameters matches the number
-    //specified by the dynamic lib
-    if p.shape() != &[self.0.n_param as usize] {
-      raise_shape_err(format!("expected a {}D as parameters set. Found array with shape {:?}", self.0.n_param, p.shape()))?;
-    }
-    let p = p.as_slice().unwrap();
-
-    //(4) Calculate
-    Ok(PyArray2::from_owned_array(py, HesseNd::new(&self.0).hesse(x, p)))
-  }
-}
-
-#[pyfunction]
-pub(crate) fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
-  Ok(InflatoxPyDyLib(InflatoxDylib::open(lib_path)?))
-}
-
-pub(crate) fn raise_shape_err<T>(err: String) -> PyResult<T> {
-  Err(super::ShapeError::new_err(err))
-}
-
-pub(crate) fn convert_start_stop(
-  start_stop: nd::ArrayView2<f64>,
-  n_fields: usize
-) -> PyResult<Vec<[f64; 2]>> {
-  if start_stop.shape().len() != 2
-  || start_stop.shape()[1] != n_fields
-  || start_stop.shape()[0] != 2
-  {
-    raise_shape_err(format!("start_stop array should have 2 rows and as many columns as there are fields ({}). Got start_stop with shape {:?}", n_fields, start_stop.shape()))?;
-  }
-  let start_stop = start_stop
-    .axis_iter(nd::Axis(0))
-    .map(|start_stop| [start_stop[0], start_stop[1]])
-    .collect::<Vec<_>>();
-  Ok(start_stop)
 }
 
 impl InflatoxDylib {
@@ -182,6 +93,95 @@ impl InflatoxDylib {
     &self.inflatox_version
   }
 
+}
+
+#[pyclass]
+/// Python wrapper for `InflatoxDyLib`
+pub(crate) struct InflatoxPyDyLib(pub InflatoxDylib);
+
+#[pyfunction]
+pub(crate) fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
+  Ok(InflatoxPyDyLib(InflatoxDylib::open(lib_path)?))
+}
+
+#[cfg(feature = "pyo3_extension_module")]
+#[pymethods]
+impl InflatoxPyDyLib {
+  fn potential(
+    &self,
+    x: PyReadonlyArrayDyn<f64>,
+    p : PyReadonlyArrayDyn<f64>
+  ) -> PyResult<f64> {
+    //(0) Convert the PyArrays to nd::Arrays
+    let p = p.as_array();
+    let x = x.as_array();
+
+    //(3) Make sure that the number of supplied fields matches the number
+    //specified by the dynamic lib
+    if x.shape() != &[self.0.n_fields as usize] {
+      raise_shape_err(format!("expected a 1D array with {} elements as field-space coordinates. Found array with shape {:?}", self.0.n_fields, x.shape()))?;
+    }
+    let x = x.as_slice().unwrap();
+
+    //(3) Make sure that the number of supplied model parameters matches the number
+    //specified by the dynamic lib
+    if p.shape() != &[self.0.n_param as usize] {
+      raise_shape_err(format!("expected a 1D array with {} elements as parameters set. Found array with shape {:?}", self.0.n_param, p.shape()))?;
+    }
+    let p = p.as_slice().unwrap();
+
+    //(4) Calculate
+    Ok(self.0.potential(x, p))
+  }
+
+  fn hesse<'py>(
+    &self,
+    py: Python<'py>,
+    x: PyReadonlyArrayDyn<f64>,
+    p : PyReadonlyArrayDyn<f64>
+  ) -> PyResult<&'py PyArray2<f64>> {
+    //(0) Convert the PyArrays to nd::Arrays
+    let p = p.as_array();
+    let x = x.as_array();
+
+    //(3) Make sure that the number of supplied fields matches the number
+    //specified by the dynamic lib
+    if x.shape() != &[self.0.n_fields as usize] {
+      raise_shape_err(format!("expected a 1D array with {} elements as field-space coordinates. Found array with shape {:?}", self.0.n_fields, x.shape()))?;
+    }
+    let x = x.as_slice().unwrap();
+
+    //(3) Make sure that the number of supplied model parameters matches the number
+    //specified by the dynamic lib
+    if p.shape() != &[self.0.n_param as usize] {
+      raise_shape_err(format!("expected a 1D array with {} elements as parameters set. Found array with shape {:?}", self.0.n_param, p.shape()))?;
+    }
+    let p = p.as_slice().unwrap();
+
+    //(4) Calculate
+    Ok(PyArray2::from_owned_array(py, HesseNd::new(&self.0).hesse(x, p)))
+  }
+}
+
+pub(crate) fn raise_shape_err<T>(err: String) -> PyResult<T> {
+  Err(super::ShapeError::new_err(err))
+}
+
+pub(crate) fn convert_start_stop(
+  start_stop: nd::ArrayView2<f64>,
+  n_fields: usize
+) -> PyResult<Vec<[f64; 2]>> {
+  if start_stop.shape().len() != 2
+  || start_stop.shape()[1] != n_fields
+  || start_stop.shape()[0] != 2
+  {
+    raise_shape_err(format!("start_stop array should have 2 rows and as many columns as there are fields ({}). Got start_stop with shape {:?}", n_fields, start_stop.shape()))?;
+  }
+  let start_stop = start_stop
+    .axis_iter(nd::Axis(0))
+    .map(|start_stop| [start_stop[0], start_stop[1]])
+    .collect::<Vec<_>>();
+  Ok(start_stop)
 }
 
 pub struct HesseNd<'a> {
