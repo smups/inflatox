@@ -27,6 +27,9 @@ from sympy import powdenest
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 
 class HesseMatrix():
+  """Class containing the components of the projected Hesse matrix, as well as
+  information about the model that was used to calculate said components.
+  """
   def __init__(self,
     components: list[list[sympy.Expr]],
     coordinates: list[sympy.Symbol],
@@ -40,6 +43,15 @@ class HesseMatrix():
     self.model_name = model_name
     if len(components[0]) != len(components):
       raise Exception('The Hesse Matrix is square; the provided list was not (number of columns != number of rows)')
+    
+  def __str__(self):
+    return f"""[Hesse Matrix]
+    dimensionality: {self.dim} field(s)
+    model name: {self.model_name}
+    coordinates: {[display(f) for f in self.coordinates]}
+    potential: {display(self.potential)}
+    components: {display(sympy.Matrix(self.cmp))}
+    """
 
 class SymbolicCalculation():
   """This class represents the symbolic calculation of the Hesse matrix of the
