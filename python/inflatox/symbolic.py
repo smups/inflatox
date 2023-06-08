@@ -26,18 +26,18 @@ import sympy
 from sympy import powdenest
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 
-class HesseMatrix():  
+class HesseMatrix():
   def __init__(self,
     components: list[list[sympy.Expr]],
     coordinates: list[sympy.Symbol],
     potential: sympy.Expr,
-    model_name: str|None
+    model_name: str
   ):
     self.cmp = components
     self.dim = len(components[0])
     self.coordinates = coordinates
     self.potential = potential
-    self.model_name = model_name if model_name is not None else "generic model"
+    self.model_name = model_name
     if len(components[0]) != len(components):
       raise Exception('The Hesse Matrix is square; the provided list was not (number of columns != number of rows)')
 
@@ -66,20 +66,31 @@ class SymbolicCalculation():
   """
   
   def __init__(self,
-      fields: list[sympy.Symbol],
-      field_metric: MetricTensor,
-      potential: sympy.Expr,
-      model_name: str|None = None,
-      simplification_depth: int = 4
-    ):
+    fields: list[sympy.Symbol],
+    field_metric: MetricTensor,
+    potential: sympy.Expr,
+    model_name: str,
+    simplification_depth: int,
+    silent: bool
+  ):
+    """Internal constructor"""
     self.coords = fields
     self.g = field_metric
     self.V = potential
     self.model_name = model_name
     self.simp = simplification_depth
+    self.silent = silent
     
   @classmethod
-  def new(cls, fields: list[sympy.Symbol], field_metric: MetricTensor, potential: sympy.Expr):
+  def new(
+    cls,
+    fields: list[sympy.Symbol],
+    field_metric: MetricTensor,
+    potential: sympy.Expr,
+    model_name: str|None = None,
+    simplification_depth: int = 4,
+    silent: bool = False
+  ):
     """Constructs an instance of `SymbolicCalculation`
 
     ### Args
@@ -92,10 +103,25 @@ class SymbolicCalculation():
     ### Returns
     `SymbolicCalculation`
     """
-    return cls(fields, field_metric, potential)
+    return cls(
+      fields,
+      field_metric,
+      potential,
+      model_name if model_name is not None else "generic model",
+      simplification_depth,
+      silent
+    )
   
   @classmethod
-  def new_from_list(cls, fields: list[sympy.Symbol], field_metric: list[list[sympy.Symbol]], potential: sympy.Expr):
+  def new_from_list(
+    cls,
+    fields: list[sympy.Symbol],
+    field_metric: list[list[sympy.Symbol]],
+    potential: sympy.Expr,
+    model_name: str|None = None,
+    simplification_depth: int = 4,
+    silent: bool = False
+  ):
     """Constructs an instance of `SymbolicCalculation`
 
     ### Args
@@ -108,8 +134,14 @@ class SymbolicCalculation():
     ### Returns
     `SymbolicCalculation`
     """
-    metric = MetricTensor(field_metric, fields, "scalar manifold metric")
-    return cls(fields, metric, potential)
+    return cls(
+      fields,
+      MetricTensor(field_metric, fields, "scalar manifold metric"),
+      potential,
+      model_name if model_name is not None else "generic model",
+      simplification_depth,
+      silent
+    )
     
   def execute(self, basis: list[list[sympy.Expr]]) -> HesseMatrix:
     """Performs fully symbolic calculation of the components of the covariant
