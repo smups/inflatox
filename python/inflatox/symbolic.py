@@ -143,6 +143,20 @@ class SymbolicCalculation():
       silent
     )
     
+  def print(self, msg: str) -> None:
+    """prints msg to stdout if self.silent is not True"""
+    if not self.silent: print(msg)
+    
+  def display(self, expr: sympy.Expr, lhs: str|None = None) -> None:
+    """displays sympy expression if self.silent is not True. If lhs is not None,
+    the result will be formatted as
+      lhs = expr
+    """
+    if not self.silent and lhs is not None:
+      display(Math(f"{lhs}={sympy.latex(expr)}"))
+    elif not self.silent:
+      display(expr)
+    
   def execute(self, basis: list[list[sympy.Expr]]) -> HesseMatrix:
     """Performs fully symbolic calculation of the components of the covariant
     Hesse matrix of the potential with respect to the metric (both set during
@@ -173,14 +187,14 @@ class SymbolicCalculation():
     
     #(1) Calculate an orthonormal basis
     #(1a)...starting with a vector parallel to the potential gradient
-    print("Calculating orthonormal basis...")
+    self.print("Calculating orthonormal basis...")
     w = [self.calc_v()]
-    display(Math(f"v={sympy.latex(w[0])}"))
+    self.display(w[0], lhs='v')
     
     #(1b) followed by other gramm-schmidt produced vectors
     for (i, guess) in enumerate(basis):
       w.append(self.gramm_schmidt(w, guess))
-      display(Math(f"w_{i+1}={sympy.latex(w[-1])}"))
+      self.display(w[-1], lhs=f'w_{i+1}')
     
     #(1b) make sure the basis is orthonormal
     for a in range(dim):
@@ -193,7 +207,7 @@ class SymbolicCalculation():
     #(2) Calculate the components of the covariant Hesse Matrix
     print("Calculating covariant Hesse matrix...")
     H = self.calc_hesse()
-    display(Math(f"H={sympy.latex(sympy.Matrix(H))}"))
+    self.display(sympy.Matrix(H), lhs='H')
     
     #(3) Project Hesse matrix
     def process(a:int, b:int):
@@ -213,7 +227,7 @@ class SymbolicCalculation():
         H_proj[a][b] = component
         if a == 0: a = 'v'
         if b == 0: b = 'v'
-        display(Math(f"H_{{{a}{b}}}={sympy.latex(component)}"))
+        self.display(component, lhs=f'H_{{{a}{b}}}')
     return HesseMatrix(H_proj, self.coords, self.V, self.model_name)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
