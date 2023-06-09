@@ -58,6 +58,12 @@ impl std::fmt::Display for InflatoxVersion {
   }
 }
 
+impl std::fmt::Debug for InflatoxVersion {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{self}")
+  }
+}
+
 impl InflatoxVersion {
   pub const fn new(inner: [u16; 3]) -> Self {
     InflatoxVersion(inner)
