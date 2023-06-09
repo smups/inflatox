@@ -31,7 +31,7 @@ use pyo3::{
 
 use crate::inflatox_version::InflatoxVersion;
 
-type ExFn = unsafe extern "C" fn(*const f64, *const f64) -> f64;
+type ExFn = unsafe extern fn (*const f64, *const f64) -> f64;
 type HdylibFn<'a> = libloading::Symbol<'a, ExFn>;
 type HdylibStaticInt<'a> = libloading::Symbol<'a, *const u32>;
 type HdyLibStaticArr<'a> = libloading::Symbol<'a, *const [u16; 3]>;
@@ -45,8 +45,7 @@ pub struct InflatoxDylib {
   lib: libloading::Library,
   n_fields: u32,
   n_param: u32,
-  potential: ExFn,
-  inflatox_version: InflatoxVersion,
+  potential: ExFn
 }
 
 impl InflatoxDylib {
@@ -95,10 +94,10 @@ impl InflatoxDylib {
     };
 
     //(3) Check that the artefact was built with the correct version of inflatox
-    if inflatox_version != super::V_INFLX {
-      return Err(PySystemError::new_err(format!("Cannot load Inflatox Compilation Artefact compiled for Inflatox {inflatox_version} using current Inflatox installation ({})", super::V_INFLX)));
+    if inflatox_version != super::V_INFLX_ABI {
+      return Err(PySystemError::new_err(format!("Cannot load Inflatox Compilation Artefact compiled for Inflatox {inflatox_version} using current Inflatox installation ({})", super::V_INFLX_ABI)));
     } else {
-      Ok(InflatoxDylib { lib, n_fields, n_param, potential, inflatox_version })
+      Ok(InflatoxDylib { lib, n_fields, n_param, potential })
     }
   }
 
@@ -127,15 +126,6 @@ impl InflatoxDylib {
     self.n_param as usize
   }
 
-  #[inline]
-  pub fn get_inflatox_version(&self) -> String {
-    format!("{}", self.inflatox_version)
-  }
-
-  #[inline]
-  pub(crate) const fn get_inflatox_version_raw(&self) -> &InflatoxVersion {
-    &self.inflatox_version
-  }
 }
 
 #[pyclass]
@@ -266,22 +256,17 @@ impl<'a> HesseNd<'a> {
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
     self.lib.potential(x, p)
   }
+
   #[inline]
   pub const fn get_n_fields(&self) -> usize {
     self.lib.get_n_fields()
   }
+
   #[inline]
   pub const fn get_n_params(&self) -> usize {
     self.lib.get_n_params()
   }
-  #[inline]
-  pub fn get_inflatox_version(&self) -> String {
-    self.lib.get_inflatox_version()
-  }
-  #[inline]
-  pub(crate) const fn get_inflatox_version_raw(&self) -> &InflatoxVersion {
-    self.lib.get_inflatox_version_raw()
-  }
+
 }
 
 pub struct Hesse2D<'a> {
@@ -331,20 +316,15 @@ impl<'a> Hesse2D<'a> {
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
     self.lib.potential(x, p)
   }
+  
   #[inline]
   pub const fn get_n_fields(&self) -> usize {
     self.lib.get_n_fields()
   }
+  
   #[inline]
   pub const fn get_n_params(&self) -> usize {
     self.lib.get_n_params()
   }
-  #[inline]
-  pub fn get_inflatox_version(&self) -> String {
-    self.lib.get_inflatox_version()
-  }
-  #[inline]
-  pub(crate) const fn get_inflatox_version_raw(&self) -> &InflatoxVersion {
-    self.lib.get_inflatox_version_raw()
-  }
+
 }

@@ -28,16 +28,15 @@ use inflatox_version::InflatoxVersion;
 
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
-pub(crate) const V_INFLX: InflatoxVersion = InflatoxVersion::new([0, 1, 0]);
+/// Version of Inflatox ABI that this crate is compatible with
+pub(crate) const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([0, 1, 0]);
 
 //Register errors
 create_exception!(libinflx_rs, ShapeError, PyException);
 
 #[cfg(feature = "pyo3_extension_module")]
 #[pymodule]
-/// A Python module implemented in Rust. The name of this function must match
-/// the `lib.name` setting in the `Cargo.toml`, else Python will not be able to
-/// import the module.
+/// PyO3 wrapper for libinflx_rs rust api
 fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
