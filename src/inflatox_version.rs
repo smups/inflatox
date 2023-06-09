@@ -23,7 +23,7 @@
 #[repr(transparent)]
 /// Data structure representing the inflatox version number. This version must
 /// match between the python package and compiled artefact.
-pub(crate) struct InflatoxVersion([u16; 3]);
+pub struct InflatoxVersion([u16; 3]);
 
 impl std::ops::Index<usize> for InflatoxVersion {
   type Output = u16;

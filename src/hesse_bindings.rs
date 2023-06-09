@@ -59,14 +59,14 @@ impl InflatoxDylib {
     //(1) Open the compilation artefact
     let lib = unsafe {
       libloading::Library::new(lib_path)
-      .map_err(|err| Error::IoErr { lib_path: libp_string, msg: format!("{err}") })?
+      .map_err(|err| Error::IoErr { lib_path: libp_string.clone(), msg: format!("{err}") })?
     };
 
     //(2) Check if the artefact is compatible with our version of libinflx
     let inflatox_version = unsafe {
       *lib
         .get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
-        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string, symbol: INFLATOX_VERSION_SYM.to_vec() })
+        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: INFLATOX_VERSION_SYM.to_vec() })
         .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
     };
     if inflatox_version != crate::V_INFLX_ABI {
@@ -76,18 +76,18 @@ impl InflatoxDylib {
     //(3) Get number of fields and number of parameters
     let n_fields = unsafe {
       ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM)
-        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string, symbol: SYM_DIM_SYM.to_vec() })?
+        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: SYM_DIM_SYM.to_vec() })?
     };
 
     let n_param = unsafe {
       ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM)
-      .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string, symbol: PARAM_DIM_SYM.to_vec() })?
+      .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: PARAM_DIM_SYM.to_vec() })?
     };
     
     //(4) Get potential and hesse components
     let potential = unsafe {
       **lib.get::<HdylibFn>(POTENTIAL_SYM)
-        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string, symbol: POTENTIAL_SYM.to_vec() })?
+        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: POTENTIAL_SYM.to_vec() })?
     };
     let components = Self::get_components(&lib, &libp_string, n_fields as usize)?;
 
