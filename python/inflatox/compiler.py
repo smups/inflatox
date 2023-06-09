@@ -76,6 +76,20 @@ class CInflatoxPrinter(C99CodePrinter):
       return None
 
 class CompilationArtifact:
+  """Class representing the output of the `Compiler`. It contains all information
+  necessary to access the compiled artefact.
+  
+  ### Compiler symbols
+  The `Compiler` class maps all sympy symbols found in the expressions for the
+  potential and projected Hesse matrix to arguments of two numpy arrays:
+    - `x` for the scalar fields themselves
+    - `args` for all other symbols (model parameters)
+  All functions and classes that make use of this `CompilerArtefact` class will
+  most likely require the user to supply `x` and `args` as numpy arrays. Therefore,
+  one must know which sympy symbols were mapped to which position in the `x` and
+  `args` arrays. The `CompilationArtifact` class provides two methods for this:
+  `symbol_lookup` and `print_sym_table`. See their documentation for more details.
+  """
   
   symbol_printer = C99CodePrinter()
   
@@ -94,6 +108,17 @@ class CompilationArtifact:
     if self.auto_cleanup: os.remove(self.shared_object_path)
 
   def symbol_lookup(self, symbol: sympy.Symbol) -> str|None:
+    """returns the compiled symbol for the supplied sympy symbol, if the sympy
+    symbol is known. `None` otherwise. See class docs for more info on compiled
+    symbols.
+
+    ### Args
+    `symbol` (`sympy.Symbol`): sympy symbol to be converted.
+
+    ### Returns
+    `str|None`: name of the supplied symbol (either `args[n]` or `x[n]`), or
+    `None` if the symbol is unknown.
+    """
     sym_name = self.symbol_printer._print_Symbol(symbol)
     if not isinstance(sym_name, str):
       return None
@@ -101,6 +126,9 @@ class CompilationArtifact:
       return self.symbol_dictionary[sym_name]
     
   def print_sym_lookup_table(self):
+    """prints full mapping of all known sympy symbols and their corresponding
+    compiled symbols. See class docs for more info on compiled symbols.
+    """
     print('[Symbol Dictionary]')
     for (old, new) in self.symbol_dictionary.items():
       print(f'{old} -> {new}')
