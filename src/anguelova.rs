@@ -86,7 +86,7 @@ pub(crate) fn anguelova_raw(
     //(2b) evaluate consistency condition at every field-space point
     .for_each(|(ref x, val)| {
       *val = {
-        let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p).powi(2)).powi(2);
+        let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2);
         let rhs = h.v11(x, p) / h.potential(x, p);
         lhs - rhs
       }
