@@ -29,7 +29,7 @@ use hesse_bindings::InflatoxDylib;
 
 #[cfg(feature = "pyo3_extension_module")]
 use numpy::{PyArray2, PyReadonlyArrayDyn};
-use pyo3::{create_exception, exceptions::{PyException, PyIOError, PySystemError}, prelude::*};
+use pyo3::{create_exception, exceptions::PyException, prelude::*};
 use ndarray as nd;
 
 /// Version of Inflatox ABI that this crate is compatible with

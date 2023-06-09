@@ -180,13 +180,13 @@ pub struct Hesse2D<'a> {
 }
 
 impl<'a> Hesse2D<'a> {
-  pub fn new(nd: HesseNd<'a>) -> Self {
-    assert!(nd.lib.get_n_fields() == 2);
-    let v00 = *nd.components.get((0, 0)).unwrap();
-    let v01 = *nd.components.get((1, 0)).unwrap();
-    let v10 = *nd.components.get((0, 1)).unwrap();
-    let v11 = *nd.components.get((1, 1)).unwrap();
-    Hesse2D { lib: nd.lib, fns: [v00, v01, v10, v11] }
+  pub fn new(lib: &'a InflatoxDylib) -> Self {
+    assert!(lib.get_n_fields() == 2);
+    let v00 = *lib.components.get((0, 0)).unwrap();
+    let v01 = *lib.components.get((1, 0)).unwrap();
+    let v10 = *lib.components.get((0, 1)).unwrap();
+    let v11 = *lib.components.get((1, 1)).unwrap();
+    Hesse2D { lib, fns: [v00, v01, v10, v11] }
   }
 
   #[inline]
