@@ -23,9 +23,9 @@ use crate::inflatox_version::InflatoxVersion;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibInflxRsErr {
-  IoErr { lib_path: String, msg: String},
+  IoErr { lib_path: String, msg: String },
   MissingSymbolErr { symbol: Vec<u8>, lib_path: String },
-  VersionErr(InflatoxVersion)
+  VersionErr(InflatoxVersion),
 }
 
 impl std::fmt::Display for LibInflxRsErr {
@@ -43,11 +43,11 @@ impl std::error::Error for LibInflxRsErr {}
 
 impl From<LibInflxRsErr> for pyo3::PyErr {
   fn from(err: LibInflxRsErr) -> Self {
-    use LibInflxRsErr::*;
     use pyo3::exceptions::{PyIOError, PySystemError};
+    use LibInflxRsErr::*;
     match err {
       IoErr { .. } => PyIOError::new_err(format!("{err}")),
-      MissingSymbolErr { .. } | VersionErr(_) => PySystemError::new_err(format!("{err}"))
+      MissingSymbolErr { .. } | VersionErr(_) => PySystemError::new_err(format!("{err}")),
     }
   }
 }

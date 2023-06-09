@@ -77,12 +77,7 @@ pub(crate) fn anguelova_py(
   Ok(())
 }
 
-pub fn anguelova(
-  h: Hesse2D,
-  x: nd::ArrayViewMut2<f64>,
-  p: &[f64],
-  start_stop: &[[f64; 2]],
-) {
+pub fn anguelova(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
   //(1) Convert start-stop ranges
   let (x_spacing, x_ofst) = {
     let x_start = start_stop[0][0];

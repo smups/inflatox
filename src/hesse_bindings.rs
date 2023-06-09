@@ -19,13 +19,13 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
-use std::{mem::MaybeUninit, ffi::OsStr};
+use std::{ffi::OsStr, mem::MaybeUninit};
 
 use ndarray as nd;
 
 use crate::inflatox_version::InflatoxVersion;
 
-type ExFn = unsafe extern fn (*const f64, *const f64) -> f64;
+type ExFn = unsafe extern "C" fn(*const f64, *const f64) -> f64;
 type HdylibFn<'a> = libloading::Symbol<'a, ExFn>;
 type HdylibStaticInt<'a> = libloading::Symbol<'a, *const u32>;
 type HdyLibStaticArr<'a> = libloading::Symbol<'a, *const [u16; 3]>;
@@ -43,62 +43,69 @@ pub struct InflatoxDylib {
   n_fields: u32,
   n_param: u32,
   potential: ExFn,
-  components: nd::Array2<ExFn>
+  components: nd::Array2<ExFn>,
 }
 
 impl InflatoxDylib {
-
   /// Try to open an Inflatox compilation artefact at file location `lib_path`.
   /// Returns an error if compilation artefact is incomplete, invalid, or built
   /// for a different inflatox ABI.
   pub(crate) fn open<P: AsRef<OsStr>>(lib_path: P) -> Result<Self> {
-
     //(0) Convert library path to something more usable
     let libp_string = lib_path.as_ref().to_string_lossy().to_string();
 
     //(1) Open the compilation artefact
     let lib = unsafe {
       libloading::Library::new(lib_path)
-      .map_err(|err| Error::IoErr { lib_path: libp_string.clone(), msg: format!("{err}") })?
+        .map_err(|err| Error::IoErr { lib_path: libp_string.clone(), msg: format!("{err}") })?
     };
 
     //(2) Check if the artefact is compatible with our version of libinflx
     let inflatox_version = unsafe {
       *lib
         .get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
-        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: INFLATOX_VERSION_SYM.to_vec() })
+        .map_err(|err| Error::MissingSymbolErr {
+          lib_path: libp_string.clone(),
+          symbol: INFLATOX_VERSION_SYM.to_vec(),
+        })
         .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
     };
     if inflatox_version != crate::V_INFLX_ABI {
-      return Err(Error::VersionErr(inflatox_version))
-    } 
+      return Err(Error::VersionErr(inflatox_version));
+    }
 
     //(3) Get number of fields and number of parameters
     let n_fields = unsafe {
-      ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM)
-        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: SYM_DIM_SYM.to_vec() })?
+      ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM).map_err(|err| Error::MissingSymbolErr {
+        lib_path: libp_string.clone(),
+        symbol: SYM_DIM_SYM.to_vec(),
+      })?
     };
 
     let n_param = unsafe {
-      ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM)
-      .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: PARAM_DIM_SYM.to_vec() })?
+      ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM).map_err(|err| Error::MissingSymbolErr {
+        lib_path: libp_string.clone(),
+        symbol: PARAM_DIM_SYM.to_vec(),
+      })?
     };
-    
+
     //(4) Get potential and hesse components
     let potential = unsafe {
-      **lib.get::<HdylibFn>(POTENTIAL_SYM)
-        .map_err(|err| Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: POTENTIAL_SYM.to_vec() })?
+      **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|err| Error::MissingSymbolErr {
+        lib_path: libp_string.clone(),
+        symbol: POTENTIAL_SYM.to_vec(),
+      })?
     };
     let components = Self::get_components(&lib, &libp_string, n_fields as usize)?;
 
     //(R) Return the fully constructed obj
-    Ok(InflatoxDylib { lib, n_fields, n_param, potential, components})
+    Ok(InflatoxDylib { lib, n_fields, n_param, potential, components })
   }
 
   fn get_components(
     lib: &libloading::Library,
     lib_path: &str,
-    n_fields: usize
+    n_fields: usize,
   ) -> Result<nd::Array2<ExFn>> {
     let dim = nd::Dim([n_fields, n_fields]);
     let mut array: nd::Array2<MaybeUninit<ExFn>> = nd::Array2::uninit(dim);
@@ -110,8 +117,10 @@ impl InflatoxDylib {
         char::from_digit(idx.1 as u32, 10).unwrap() as u32 as u8,
       ];
       let symbol = unsafe {
-        **lib.get::<HdylibFn>(raw_symbol)
-          .map_err(|err| Error::MissingSymbolErr { lib_path: lib_path.to_string(), symbol: raw_symbol.to_vec() })?
+        **lib.get::<HdylibFn>(raw_symbol).map_err(|err| Error::MissingSymbolErr {
+          lib_path: lib_path.to_string(),
+          symbol: raw_symbol.to_vec(),
+        })?
       };
       uninit.write(symbol);
     }
@@ -122,7 +131,7 @@ impl InflatoxDylib {
   #[inline(always)]
   /// Calculate scalar potential at field-space coordinates `x`, with model
   /// parameters `p`.
-  /// 
+  ///
   /// # Panics
   /// This function panics if `x.len()` does not equal the number of fields of
   /// the loaded model. Similarly, if `p.len()` does not equal the number of
@@ -136,7 +145,7 @@ impl InflatoxDylib {
   #[inline(always)]
   /// Calculate projected Hesse matrix at field-space coordinates `x`, with model
   /// parameters `p`.
-  /// 
+  ///
   /// # Panics
   /// This function panics if `x.len()` does not equal the number of fields of
   /// the loaded model. Similarly, if `p.len()` does not equal the number of
@@ -171,7 +180,6 @@ impl InflatoxDylib {
   pub const fn get_n_params(&self) -> usize {
     self.n_param as usize
   }
-
 }
 
 pub struct Hesse2D<'a> {
@@ -226,10 +234,9 @@ impl<'a> Hesse2D<'a> {
   pub const fn get_n_fields(&self) -> usize {
     self.lib.get_n_fields()
   }
-  
+
   #[inline]
   pub const fn get_n_params(&self) -> usize {
     self.lib.get_n_params()
   }
-
 }

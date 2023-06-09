@@ -20,17 +20,17 @@
 */
 
 mod anguelova;
+pub mod err;
 mod hesse_bindings;
 mod inflatox_version;
-pub mod err;
 
-use inflatox_version::InflatoxVersion;
 use hesse_bindings::InflatoxDylib;
+use inflatox_version::InflatoxVersion;
 
+use ndarray as nd;
 #[cfg(feature = "pyo3_extension_module")]
 use numpy::{PyArray2, PyReadonlyArrayDyn};
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
-use ndarray as nd;
 
 /// Version of Inflatox ABI that this crate is compatible with
 pub(crate) const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([0, 1, 0]);
@@ -85,7 +85,6 @@ pub(crate) fn convert_start_stop(
 #[cfg(feature = "pyo3_extension_module")]
 #[pymethods]
 impl InflatoxPyDyLib {
-
   fn potential(&self, x: PyReadonlyArrayDyn<f64>, p: PyReadonlyArrayDyn<f64>) -> PyResult<f64> {
     //(0) Convert the PyArrays to nd::Arrays
     let p = p.as_array();
