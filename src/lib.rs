@@ -22,11 +22,15 @@
 mod anguelova;
 mod hesse_bindings;
 mod inflatox_version;
+pub mod err;
 
-use hesse_bindings::{open_inflx_dylib, InflatoxPyDyLib};
 use inflatox_version::InflatoxVersion;
+use hesse_bindings::InflatoxDylib;
 
-use pyo3::{create_exception, exceptions::PyException, prelude::*};
+#[cfg(feature = "pyo3_extension_module")]
+use numpy::{PyArray2, PyReadonlyArrayDyn};
+use pyo3::{create_exception, exceptions::{PyException, PyIOError, PySystemError}, prelude::*};
+use ndarray as nd;
 
 /// Version of Inflatox ABI that this crate is compatible with
 pub(crate) const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([0, 1, 0]);
@@ -45,4 +49,99 @@ fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   //Register exceptions
   pymod.add("DimensionalityError", py.get_type::<ShapeError>())?;
   Ok(())
+}
+
+#[pyclass]
+/// Python wrapper for `InflatoxDyLib`
+struct InflatoxPyDyLib(pub InflatoxDylib);
+
+#[pyfunction]
+fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
+  Ok(InflatoxPyDyLib(InflatoxDylib::open(lib_path)?))
+}
+
+/// Utility function to easily raise a shape error.
+pub(crate) fn raise_shape_err<T>(err: String) -> PyResult<T> {
+  Err(ShapeError::new_err(err))
+}
+
+pub(crate) fn convert_start_stop(
+  start_stop: nd::ArrayView2<f64>,
+  n_fields: usize,
+) -> PyResult<Vec<[f64; 2]>> {
+  if start_stop.shape().len() != 2
+    || start_stop.shape()[1] != n_fields
+    || start_stop.shape()[0] != 2
+  {
+    raise_shape_err(format!("start_stop array should have 2 rows and as many columns as there are fields ({}). Got start_stop with shape {:?}", n_fields, start_stop.shape()))?;
+  }
+  let start_stop = start_stop
+    .axis_iter(nd::Axis(0))
+    .map(|start_stop| [start_stop[0], start_stop[1]])
+    .collect::<Vec<_>>();
+  Ok(start_stop)
+}
+
+#[cfg(feature = "pyo3_extension_module")]
+#[pymethods]
+impl InflatoxPyDyLib {
+
+  fn potential(&self, x: PyReadonlyArrayDyn<f64>, p: PyReadonlyArrayDyn<f64>) -> PyResult<f64> {
+    //(0) Convert the PyArrays to nd::Arrays
+    let p = p.as_array();
+    let x = x.as_array();
+
+    //(3) Make sure that the number of supplied fields matches the number
+    //specified by the dynamic lib
+    if x.shape() != &[self.0.get_n_fields() as usize] {
+      raise_shape_err(format!("expected a 1D array with {} elements as field-space coordinates. Found array with shape {:?}", self.0.get_n_fields(), x.shape()))?;
+    }
+    let x = x.as_slice().unwrap();
+
+    //(3) Make sure that the number of supplied model parameters matches the number
+    //specified by the dynamic lib
+    if p.shape() != &[self.0.get_n_params() as usize] {
+      raise_shape_err(format!(
+        "expected a 1D array with {} elements as parameters set. Found array with shape {:?}",
+        self.0.get_n_params(),
+        p.shape()
+      ))?;
+    }
+    let p = p.as_slice().unwrap();
+
+    //(4) Calculate
+    Ok(self.0.potential(x, p))
+  }
+
+  fn hesse<'py>(
+    &self,
+    py: Python<'py>,
+    x: PyReadonlyArrayDyn<f64>,
+    p: PyReadonlyArrayDyn<f64>,
+  ) -> PyResult<&'py PyArray2<f64>> {
+    //(0) Convert the PyArrays to nd::Arrays
+    let p = p.as_array();
+    let x = x.as_array();
+
+    //(3) Make sure that the number of supplied fields matches the number
+    //specified by the dynamic lib
+    if x.shape() != &[self.0.get_n_fields() as usize] {
+      raise_shape_err(format!("expected a 1D array with {} elements as field-space coordinates. Found array with shape {:?}", self.0.get_n_fields(), x.shape()))?;
+    }
+    let x = x.as_slice().unwrap();
+
+    //(3) Make sure that the number of supplied model parameters matches the number
+    //specified by the dynamic lib
+    if p.shape() != &[self.0.get_n_params() as usize] {
+      raise_shape_err(format!(
+        "expected a 1D array with {} elements as parameters set. Found array with shape {:?}",
+        self.0.get_n_params(),
+        p.shape()
+      ))?;
+    }
+    let p = p.as_slice().unwrap();
+
+    //(4) Calculate
+    Ok(PyArray2::from_owned_array(py, self.0.hesse(x, p)))
+  }
 }
