@@ -396,7 +396,11 @@ class SymbolicCalculation():
     v = self.normalize(v)
     return [powdenest(va.simplify(), force=True) for va in v] if self.simp >= 2 else v
 
-  def gramm_schmidt(self, current_basis: list[list[sympy.Expr]], guess: list[sympy.Expr]) -> list[sympy.Expr]:
+  def gramm_schmidt(
+    self, 
+    current_basis: list[list[sympy.Expr]],
+    guess: list[sympy.Expr]
+  ) -> list[sympy.Expr]:
     """Use the Gramm-Schmidt procedure to find a new orthogonal basis vector given
     an incomplete set of orthogonal basis vectors and a third vector that is linearly
     independent from the other vectors.
@@ -443,7 +447,12 @@ class SymbolicCalculation():
     y = self.normalize(y)
     return [powdenest(ya.simplify(), force=True) for ya in y] if self.simp >= 2 else y
 
-  def project_hesse(self, hesse_matrix: list[list[sympy.Expr]], vec1: list[sympy.Expr], vec2: list[sympy.Expr]) -> sympy.Expr:
+  def project_hesse(
+    self,
+    hesse_matrix: list[list[sympy.Expr]],
+    vec1: list[sympy.Expr],
+    vec2: list[sympy.Expr]
+  ) -> sympy.Expr:
     """This function calculates the projection of the Hesse matrix along the two
     supplied vectors.
 
