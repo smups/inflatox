@@ -23,7 +23,7 @@ import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import (open_inflx_dylib, anguelova)
+from .libinflx_rs import (open_inflx_dylib, anguelova_py)
 
 #Limit exports to these items
 __all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
@@ -162,6 +162,6 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     ])
     
     #evaluate and return
-    anguelova(self.dylib, args, x, start_stop)
+    anguelova_py(self.dylib, args, x, start_stop)
     return x
   
