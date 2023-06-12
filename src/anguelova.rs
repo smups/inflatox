@@ -24,36 +24,34 @@ use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::{
-  convert_start_stop, raise_shape_err, Hesse2D, HesseNd, InflatoxDylib, InflatoxPyDyLib,
-};
+use crate::hesse_bindings::Hesse2D;
 
 #[cfg(feature = "pyo3_extension_module")]
 #[pyfunction]
-pub(crate) fn anguelova(
-  lib: PyRef<InflatoxPyDyLib>,
+pub(crate) fn anguelova_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
 ) -> PyResult<()> {
   //(0) Convert the PyArrays to nd::Arrays
-  let h = HesseNd::new(&lib.0);
+  let lib = &lib.0;
   let p = p.as_array();
   let x = x.as_array_mut();
   let start_stop = start_stop.as_array();
 
   //(1) Make sure we have a two field model
-  if !h.get_n_fields() == 2 {
-    raise_shape_err(format!(
+  if !lib.get_n_fields() == 2 {
+    crate::raise_shape_err(format!(
       "the Anguelova consistency condition requires a 2-field model. Received a {}-field model.",
-      h.get_n_fields()
+      lib.get_n_fields()
     ))?;
   }
-  let h = Hesse2D::new(h);
+  let h = Hesse2D::new(lib);
 
   //(2) Make sure the field-space array is actually 2d
   if x.shape().len() != 2 {
-    raise_shape_err(format!(
+    crate::raise_shape_err(format!(
       "expected a 2D field-space array. Found array with shape {:?}",
       x.shape()
     ))?;
@@ -62,7 +60,7 @@ pub(crate) fn anguelova(
   //(3) Make sure that the number of supplied model parameters matches the number
   //specified by the dynamic lib
   if p.shape() != &[h.get_n_params()] {
-    raise_shape_err(format!(
+    crate::raise_shape_err(format!(
       "model expected {} parameters, got {}",
       h.get_n_params(),
       p.shape().len()
@@ -71,20 +69,15 @@ pub(crate) fn anguelova(
   let p = p.as_slice().unwrap();
 
   //(4) Convert start-stop
-  let start_stop = convert_start_stop(start_stop, 2)?;
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(5) evaluate anguelova's condition
-  anguelova_raw(h, x, p, &start_stop);
+  anguelova(h, x, p, &start_stop);
 
   Ok(())
 }
 
-pub(crate) fn anguelova_raw(
-  h: Hesse2D,
-  x: nd::ArrayViewMut2<f64>,
-  p: &[f64],
-  start_stop: &[[f64; 2]],
-) {
+pub fn anguelova(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
   //(1) Convert start-stop ranges
   let (x_spacing, x_ofst) = {
     let x_start = start_stop[0][0];
@@ -116,12 +109,13 @@ pub(crate) fn anguelova_raw(
 
 #[test]
 fn anguelova_performance() {
+  use crate::InflatoxDylib;
   let n = 10_000;
   let mut out = nd::Array2::zeros((n, n));
   let start_stop = [[-1000.0, 1000.0], [-1000.0, 1000.0]];
   let lib = InflatoxDylib::open("/tmp/libinflx_autoc_z1lc1jur.so").unwrap();
-  let h = Hesse2D::new(HesseNd::new(&lib));
+  let h = Hesse2D::new(&lib);
   let p = &[12.0, 3.0, 4.0, -12.0];
-  anguelova_raw(h, out.view_mut(), p, &start_stop);
+  anguelova(h, out.view_mut(), p, &start_stop);
   println!("{out:?}");
 }

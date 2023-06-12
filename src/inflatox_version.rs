@@ -21,7 +21,9 @@
 
 #[derive(Clone, Copy, Eq, Ord)]
 #[repr(transparent)]
-pub(crate) struct InflatoxVersion([u16; 3]);
+/// Data structure representing the inflatox version number. This version must
+/// match between the python package and compiled artefact.
+pub struct InflatoxVersion([u16; 3]);
 
 impl std::ops::Index<usize> for InflatoxVersion {
   type Output = u16;
@@ -53,6 +55,12 @@ impl PartialEq for InflatoxVersion {
 impl std::fmt::Display for InflatoxVersion {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "v{}.{}.{}", self[0], self[1], self[2])
+  }
+}
+
+impl std::fmt::Debug for InflatoxVersion {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{self}")
   }
 }
 
