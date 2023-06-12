@@ -45,3 +45,4 @@ build-backend = "maturin"
 python-source = "python"
 module-name = "inflatox.libinflx_rs"
 features = ["pyo3_extension_module"]
+rustc-args = ["-C", "link-arg=-lm"]
