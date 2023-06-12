@@ -102,7 +102,7 @@ pub fn anguelova(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &
       *val = {
         let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2);
         let rhs = h.v11(x, p) / h.potential(x, p);
-        (lhs / rhs) - 1.0
+        ((lhs / rhs) - 1.0).abs()
       }
     });
 }
