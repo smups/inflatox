@@ -30,7 +30,7 @@ description = "rust backend of the inflatox python package"
 keywords = ["physics", "cosmology", "inflation"]
 categories = ["science"]
 exclude = [
-  ".venv/", ".vscode/", "notebooks/", "python/",
+  ".venv/", ".vscode/", "notebooks/", "python/", "logos",
   "pyproject.toml", "rustfmt.toml", ".gitignore"
 ]
 
