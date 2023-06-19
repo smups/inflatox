@@ -1,0 +1,1 @@
+![inflatox_banner](https://raw.githubusercontent.com/smups/inflatox/dev/logos/banner.png)

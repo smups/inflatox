@@ -19,10 +19,18 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
+#![doc(
+  html_logo_url = "https://raw.githubusercontent.com/smups/inflatox/dev/logos/logo.png?raw=true"
+)]
+
 mod anguelova;
-pub mod err;
-mod hesse_bindings;
 mod inflatox_version;
+
+pub mod err;
+pub mod hesse_bindings;
+pub mod consistency_conditions {
+  pub use crate::anguelova::anguelova;
+}
 
 use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
