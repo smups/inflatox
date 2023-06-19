@@ -187,7 +187,7 @@ class SymbolicCalculation():
     """
     return cls(
       fields,
-      MetricTensor(field_metric, fields, "scalar manifold metric"),
+      MetricTensor(field_metric, fields, name="scalar manifold metric"),
       potential,
       model_name if model_name is not None else "generic model",
       simplification_depth,
