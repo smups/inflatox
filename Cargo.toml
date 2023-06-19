@@ -21,6 +21,10 @@
 name = "inflatox"
 version = "0.1.0"
 edition = "2021"
+exclude = [
+  ".venv/", ".vscode/", "notebooks/", "python/",
+  "pyproject.toml", "rustfmt.toml", ".gitignore"
+]
 
 [lib]
 name = "inflatox"
@@ -41,6 +45,4 @@ default = ["pyo3_extension_module"]
 pyo3_extension_module = ["pyo3/extension-module"]
 
 [build]
-rustflags = [
-  "-C", "link-arg=-lm"
-]
+rustflags = ["-C", "link-arg=-lm"]
