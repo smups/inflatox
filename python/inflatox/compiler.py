@@ -107,7 +107,7 @@ class CompilationArtifact:
     #Delete compilation artifact
     if self.auto_cleanup: os.remove(self.shared_object_path)
 
-  def symbol_lookup(self, symbol: sympy.Symbol) -> str|None:
+  def lookup_symbol(self, symbol: sympy.Symbol) -> str|None:
     """returns the compiled symbol (string) for the supplied sympy symbol,
     if the sympy symbol is known, `None` otherwise. See class docs for more
     info on compiled symbols.
