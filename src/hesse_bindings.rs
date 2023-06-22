@@ -22,6 +22,7 @@
 use std::{ffi::OsStr, mem::MaybeUninit};
 
 use ndarray as nd;
+use rayon::prelude::*;
 
 use crate::inflatox_version::InflatoxVersion;
 
@@ -140,6 +141,34 @@ impl InflatoxDylib {
     assert!(x.len() == self.n_fields as usize);
     assert!(p.len() == self.n_param as usize);
     unsafe { (self.potential)(x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+  }
+
+  /// Calculate scalar potential all field-space coordinates in the array `x`,
+  /// with model parameters `p`. The physical range that the elements in `x`
+  /// represent can be specified by passing the start_stop array.
+  ///
+  /// # Panics
+  /// This function panics if `x.shape().len()` does not equal the number of
+  /// fields of the loaded model. Similarly, if `p.len()` does not equal the
+  /// number of model parameters, this function will panic.
+  pub fn potential_array(&self, mut x: nd::ArrayViewMutD<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
+    assert!(x.shape().len() == self.n_fields as usize);
+    assert!(p.len() == self.n_param as usize);
+    //(1) Convert start-stop ranges
+    let (spacings, offsets) = start_stop
+      .iter()
+      .zip(x.shape().iter())
+      .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
+      .unzip::<_, _, Vec<_>, Vec<_>>();
+    let mut field_vec = Vec::with_capacity(x.shape().len());
+
+    for (idx, val) in x.indexed_iter_mut() {
+      field_vec.clear();
+      field_vec.extend(
+        (0..self.n_fields as usize).into_iter().map(|i| idx[i] as f64 * spacings[i] + offsets[i]),
+      );
+      *val = unsafe { (&self.potential)(field_vec.as_ptr(), p.as_ptr()) };
+    }
   }
 
   #[inline(always)]
