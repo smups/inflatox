@@ -97,10 +97,14 @@ class CompilationArtifact:
     self,
     symbol_dictionary: dict,
     shared_object_path: str,
+    n_fields: int,
+    n_parameters: int,
     auto_cleanup: bool = True
   ):
     self.symbol_dictionary = symbol_dictionary
     self.shared_object_path = shared_object_path
+    self.n_fields = n_fields
+    self.n_parameters = n_parameters
     self.auto_cleanup = auto_cleanup
     
   def __del__(self):
@@ -323,5 +327,11 @@ const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
       os.remove(obj_path)
     
     #(R) return compilation artifact
-    return CompilationArtifact(self.symbol_dict, dylib_path)
+    return CompilationArtifact(
+      self.symbol_dict,
+      dylib_path,
+      self.hesse.dim,
+      len(self.symbol_dict) - self.hesse.dim,
+      auto_cleanup=self.cleanup
+    )
   
