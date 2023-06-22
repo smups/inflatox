@@ -54,6 +54,41 @@ class InflationCondition():
     """
     return self.dylib.potential(x, args)
   
+  def calc_V_array(self,
+    args: list[float] | np.ndarray[float],
+    start: list[float] | np.ndarray[float],
+    stop: list[float] | np.ndarray[float],
+    N: list[int] | None = None
+  ) -> np.ndarray[float]:
+    """constructs an array of field space coordinates and fills it with the
+    value of the scalar potential at those field space coordinates.
+    The start and stop values of each axis in field-space can be specified with
+    the `start` and `stop` arguments. The number of samples along each axis can
+    be set with the `N` argument. It defaults to `8000` per axis.
+
+    ### Args
+    - `args` (`list[float] | np.ndarray[float]`): values of the model-dependent
+    parameters. See `CompilationArtifact.print_sym_lookup_table()` for an
+    overview of which sympy symbols were mapped to which args index.
+    - `start` (`list[float] | np.ndarray[float]`): list of minimum values for
+    each axis of the to-be-constructed array in field space.
+    - `stop` (`list[float] | np.ndarray[float]`): list of maximum values for each
+    axis of the to-be-constructed array in field space.
+    - `N` (`list[int] | None`, optional): _description_. list of the number of
+    samples along each axis in field space. If set to `None`, 8000 samples will
+    be used along each axis.
+
+    ### Returns
+    `np.ndarray[float]`: value of scalar potential at specified field-space
+    coordinates
+    """
+    n_fields = self.artifact.n_fields
+    start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
+    N = N if N is not None else np.array([8000 for _ in range(n_fields)])
+    x = np.zeros(N)
+    self.dylib.potential_array(x, args, start_stop)
+    return x
+  
   def calc_H(self, x: np.array, args: np.array) -> np.array:
     """calculates the projected covariant Hesse matrix at field-space
     coordinates `x` with model-specific parameters `args`.
@@ -93,14 +128,14 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     super().__init__(compiled_artifact)
     
   def evaluate(self,
-    args: np.array,
+    args: np.ndarray[float],
     x0_start: float,
     x0_stop: float,
     x1_start: float,
     x1_stop: float,
     N_x0: int = 10_000,
     N_x1: int = 10_000
-  ) -> np.array:
+  ) -> np.ndarray[float]:
     """Evaluates the potential consistency condition from Anguelova and Lazaroiu
     2022 paper (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL)
     inflationary models.
