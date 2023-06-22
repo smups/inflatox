@@ -36,8 +36,9 @@ use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
+use numpy::PyReadonlyArray2;
 #[cfg(feature = "pyo3_extension_module")]
-use numpy::{PyArray2, PyReadonlyArrayDyn};
+use numpy::{PyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn};
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 /// Version of Inflatox ABI that this crate is compatible with
@@ -118,6 +119,47 @@ impl InflatoxPyDyLib {
 
     //(4) Calculate
     Ok(self.0.potential(x, p))
+  }
+
+  fn potential_array(
+    &self,
+    mut x: PyReadwriteArrayDyn<f64>,
+    p: PyReadonlyArrayDyn<f64>,
+    start_stop: PyReadonlyArray2<f64>,
+  ) -> PyResult<()> {
+    //(0) Convert the PyArrays to nd::Arrays
+    let p = p.as_array();
+    let x = x.as_array_mut();
+    let start_stop = start_stop.as_array();
+
+    //(1) Make sure that the number of supplied fields matches the number
+    //specified by the dynamic lib
+    if x.shape().len() != self.0.get_n_fields() as usize {
+      raise_shape_err(format!(
+        "expected an array with {} axes as field-space coordinates. Found array with shape {:?}",
+        self.0.get_n_fields(),
+        x.shape()
+      ))?;
+    }
+
+    //(2) Convert start_stop array
+    let start_stop = convert_start_stop(start_stop.view(), self.0.get_n_fields())?;
+
+    //(3) Make sure that the number of supplied model parameters matches the number
+    //specified by the dynamic lib
+    if p.shape() != &[self.0.get_n_params() as usize] {
+      raise_shape_err(format!(
+        "expected a 1D array with {} elements as parameters set. Found array with shape {:?}",
+        self.0.get_n_params(),
+        p.shape()
+      ))?;
+    }
+    let p = p.as_slice().unwrap();
+
+    //(4) Evaluate the potential
+    self.0.potential_array(x, p, &start_stop);
+
+    Ok(())
   }
 
   fn hesse<'py>(
