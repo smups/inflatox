@@ -20,6 +20,7 @@
 #System imports
 import os
 import tempfile
+import textwrap
 import distutils.ccompiler as ccomp
 from datetime import datetime
 from sys import version as sys_version
@@ -233,7 +234,13 @@ class Compiler:
       out.write(self.c_code_preamble)
       
       #(3) Write potential
-      potential_body = ccode_writer.doprint(self.hesse.potential).replace(')*', ') *\n    ')
+      potential_body = textwrap.fill(
+        ccode_writer.doprint(self.hesse.potential).replace(', ', ','),
+        width=80,
+        tabsize=4,
+        break_long_words=False,
+        break_on_hyphens=False
+      ).replace('\n', '\n    ')
       out.write(f"""
 double V(const double x[], const double args[]) {{
   return {potential_body};
