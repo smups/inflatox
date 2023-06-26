@@ -90,27 +90,10 @@ class SymbolicCalculation():
     - (2) Simplify the output of nested functions before returning.
     - (3) Simplify the output of twice nested functions before returning.
     - (>=4) Simplify all intermediate steps.
+    - (>=5) Extra expensive simplification of final output
   It can be beneficial to play around with this setting to see which level works
   best.
   """
-  
-  def __init__(self,
-    fields: list[sympy.Symbol],
-    field_metric: MetricTensor,
-    potential: sympy.Expr,
-    model_name: str,
-    simplification_depth: int,
-    silent: bool,
-    assertions: bool,
-  ):
-    """Internal constructor"""
-    self.coords = fields
-    self.g = field_metric
-    self.V = potential
-    self.model_name = model_name
-    self.simp = simplification_depth
-    self.silent = silent
-    self.assertions = assertions
     
   @classmethod
   def new(
@@ -194,6 +177,28 @@ class SymbolicCalculation():
       silent,
       assertions
     )
+  
+  def __init__(self,
+    fields: list[sympy.Symbol],
+    field_metric: MetricTensor,
+    potential: sympy.Expr,
+    model_name: str,
+    simplification_depth: int,
+    silent: bool,
+    assertions: bool,
+  ):
+    """Internal constructor"""
+    self.coords = fields
+    self.g = field_metric
+    self.V = potential
+    self.model_name = model_name
+    self.simp = simplification_depth
+    self.silent = silent
+    self.assertions = assertions
+    
+  def simplify(self, expr: sympy.Expr) -> sympy.Expr:
+    """simplifies expression"""
+    return expr.nsimplify().collect(self.coords).expand().powsimp()
     
   def print(self, msg: str) -> None:
     """prints msg to stdout if self.silent is not True"""
@@ -268,7 +273,7 @@ class SymbolicCalculation():
       for x in range(dim):
         for y in range(dim):
           Hab = Hab + H[x][y] * w[a][x] * w[b][y]
-      return ([a, b], powdenest(Hab.simplify(), force=True) if self.simp >= 1 else Hab)
+      return ([a, b], powdenest(Hab.simplify(), force=True) if self.simp >= 5 else Hab)
   
     print("Projecting the Hesse matrix on the vielbein basis...")
     H_proj = [[0 for _ in range(dim)] for _ in range(dim)]
@@ -303,7 +308,7 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         ans = ans + (v1[a] * v2[b] * self.g.arr[a][b])
-    return ans.simplify() if self.simp >= 4 else ans
+    return self.simplify(ans) if self.simp >= 4 else ans
 
   def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
     """normalizes the input vector with respect to the configured metric tensor.
@@ -320,7 +325,7 @@ class SymbolicCalculation():
       respect to the metric tensor of the current instance.
     """
     norm = sympy.sqrt(self.inner_prod(vec, vec))
-    return [(cmp / norm).simplify() if self.simp >= 3 else cmp / norm for cmp in vec] 
+    return [self.simplify(cmp / norm) if self.simp >= 3 else cmp / norm for cmp in vec] 
     
   def calc_hesse(self) -> list[list[sympy.Expr]]:
     """returns the components of the covariant Hesse matrix in a twice-covariant
@@ -359,14 +364,14 @@ class SymbolicCalculation():
         for c in range(dim):
           # Calculate ∂_c V(ϕ)
           Vc = sympy.diff(self.V, self.coords[c])
-          if self.simp >= 3: Vc = Vc.simplify()
+          if self.simp >= 3: Vc = self.simplify(Vc)
           
           # Calculate the full thing
           gamma_ab = gamma_ab + conn[c][b][a] * Vc
         
         #set the output components
         cmp = da_dbV - gamma_ab
-        Vab[a][b] = powdenest(cmp.simplify(), force=True) if self.simp >= 2 else cmp
+        Vab[a][b] = self.simplify(cmp) if self.simp >= 2 else cmp
     return Vab
 
   def calc_v(self) -> list[sympy.Expr]:
@@ -395,7 +400,7 @@ class SymbolicCalculation():
     
     #normalize v
     v = self.normalize(v)
-    return [powdenest(va.simplify(), force=True) for va in v] if self.simp >= 2 else v
+    return [self.simplify(va) for va in v] if self.simp >= 2 else v
 
   def gramm_schmidt(
     self, 
@@ -446,7 +451,7 @@ class SymbolicCalculation():
         y[a] = y[a] - xy * x[a]
     #normalize and return y
     y = self.normalize(y)
-    return [powdenest(ya.simplify(), force=True) for ya in y] if self.simp >= 2 else y
+    return [self.simplify(ya) for ya in y] if self.simp >= 2 else y
 
   def project_hesse(
     self,
@@ -484,4 +489,4 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         V_proj = V_proj + hesse_matrix[a][b]*v1[a]*v2[b]
-    return powdenest(V_proj.simplify(), force=True) if self.simp >= 1 else V_proj
+    return self.simplify(V_proj) if self.simp >= 1 else V_proj
