@@ -341,4 +341,3 @@ const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
       len(self.symbol_dict) - self.hesse.dim,
       auto_cleanup=self.cleanup
     )
-  

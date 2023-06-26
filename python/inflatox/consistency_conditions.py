@@ -200,4 +200,3 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     #evaluate and return
     anguelova_py(self.dylib, args, x, start_stop)
     return x
-  
