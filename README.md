@@ -25,6 +25,8 @@ inflatox = "0.1"
 ```
 
 ## Example programme
+> for more examples, see the `notebooks` folder
+
 The following code example shows how `inflatox` can be used to calculate the potential and components of the Hesse matrix for a two-field hyperinflation model.
 ```python
 #import inflatox
