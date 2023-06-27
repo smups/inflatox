@@ -20,6 +20,7 @@
 #System imports
 import os
 import tempfile
+import textwrap
 import distutils.ccompiler as ccomp
 from datetime import datetime
 from sys import version as sys_version
@@ -66,7 +67,7 @@ class CInflatoxPrinter(C99CodePrinter):
     return sym_name
     
   def get_symbol(self, symbol: sympy.Symbol) -> str | None:
-    """Returns string mapping of symbol, if there is one"""
+    """Returns string representing sympy symbol"""
     sym_name = super()._print_Symbol(symbol)
     if self.coord_dict.get(sym_name) is not None:
       return self.coord_dict[sym_name]
@@ -77,14 +78,14 @@ class CInflatoxPrinter(C99CodePrinter):
 
 class CompilationArtifact:
   """Class representing the output of the `Compiler`. It contains all information
-  necessary to access the compiled artefact.
+  necessary to access the compiled artifact.
   
   ### Compiler symbols
   The `Compiler` class maps all sympy symbols found in the expressions for the
   potential and projected Hesse matrix to arguments of two numpy arrays:
-    - `x` for the scalar fields themselves
-    - `args` for all other symbols (model parameters)
-  All functions and classes that make use of this `CompilerArtefact` class will
+    - `x` for the scalar fields themselves.
+    - `args` for all other symbols (model parameters).
+  All functions and classes that make use of this `CompilationArtifact` class will
   most likely require the user to supply `x` and `args` as numpy arrays. Therefore,
   one must know which sympy symbols were mapped to which position in the `x` and
   `args` arrays. The `CompilationArtifact` class provides two methods for this:
@@ -97,20 +98,24 @@ class CompilationArtifact:
     self,
     symbol_dictionary: dict,
     shared_object_path: str,
+    n_fields: int,
+    n_parameters: int,
     auto_cleanup: bool = True
   ):
     self.symbol_dictionary = symbol_dictionary
     self.shared_object_path = shared_object_path
+    self.n_fields = n_fields
+    self.n_parameters = n_parameters
     self.auto_cleanup = auto_cleanup
     
   def __del__(self):
-    #Delete compilation artefact
+    #Delete compilation artifact
     if self.auto_cleanup: os.remove(self.shared_object_path)
 
-  def symbol_lookup(self, symbol: sympy.Symbol) -> str|None:
-    """returns the compiled symbol for the supplied sympy symbol, if the sympy
-    symbol is known. `None` otherwise. See class docs for more info on compiled
-    symbols.
+  def lookup_symbol(self, symbol: sympy.Symbol) -> str|None:
+    """returns the compiled symbol (string) for the supplied sympy symbol,
+    if the sympy symbol is known, `None` otherwise. See class docs for more
+    info on compiled symbols.
 
     ### Args
     `symbol` (`sympy.Symbol`): sympy symbol to be converted.
@@ -134,12 +139,11 @@ class CompilationArtifact:
       print(f'{old} -> {new}')
 
 class Compiler:
-  """This class wraps the native platform C-compiler. It can be used to generate,
-  compile and link C-code from a `HesseMatrix` instance to produce a `CompilationArtifact`
+  """This class wraps the native platform C compiler. It can be used to generate,
+  compile and link C code from a `HesseMatrix` instance to produce a `CompilationArtifact`
   which can be used to calculate consistency conditions. This process involves
   creating a symbol dictionary that maps all symbols used in the `HesseMatrix` to
-  C-friendly symbols. The output of this function contains this dictionary, see
-  the docs of `CompilationArtifact` for more info.
+  C-friendly symbols.
   """
   
   @classmethod
@@ -165,6 +169,9 @@ class Compiler:
     compiler_type = cls.compiler.compiler_type
     if compiler_type == 'unix':
       return ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native'], ['-O3', '-fpic', '-lm', '-march=native']
+    else:
+      raise NotImplementedError(f'Inflatox currently does not support {compiler_type}.')
+    #TODO: add Windows support
         
   compiler = None
   
@@ -173,7 +180,7 @@ class Compiler:
     output_path: str|None = None,
     cleanup: bool = True
   ):
-    """Constructor for a C-Compiler (provided by the platform), which can be used
+    """Constructor for a C Compiler (provided by the platform), which can be used
     to convert the provided `HesseMatrix` object into a platform- and arch-specific
     shared library object.
     
@@ -181,14 +188,14 @@ class Compiler:
     To compile a previously calculated Hesse matrix, we simply construct a
     `Compiler` instance and call `.compile()` on it:
     ```python
-    artefact = inflatox.Compiler(hesse_matrix).compile()
+    artifact = inflatox.Compiler(hesse_matrix).compile()
     ```
-    See the docs for `HesseMatrix` and `SymbolicCaluclation` for info on how to
+    See the docs for `HesseMatrix` and `SymbolicCalculation` for info on how to
     obtain a `HesseMatrix` instance.
 
     ### Args
     - `hesse_matrix` (HesseMatrix): HesseMatrix object that will be turned into
-      C-code and compiled.
+      C code and compiled.
     - `output_path` (str | None, optional): output path of compilation artifacts.
       Will auto-select the platform-defined temporary folder if option is set to
       `None`. Defaults to `None`.
@@ -227,7 +234,13 @@ class Compiler:
       out.write(self.c_code_preamble)
       
       #(3) Write potential
-      potential_body = ccode_writer.doprint(self.hesse.potential).replace(')*', ') *\n    ')
+      potential_body = textwrap.fill(
+        ccode_writer.doprint(self.hesse.potential).replace(', ', ','),
+        width=80,
+        tabsize=4,
+        break_long_words=False,
+        break_on_hyphens=False
+      ).replace('\n', '\n    ')
       out.write(f"""
 double V(const double x[], const double args[]) {{
   return {potential_body};
@@ -299,14 +312,15 @@ const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
     To compile a previously calculated Hesse matrix, we simply construct a
     `Compiler` instance and call `.compile()` on it:
     ```python
-    artefact = inflatox.Compiler(hesse_matrix).compile()
+    artifact = inflatox.Compiler(hesse_matrix).compile()
     ```
     See the docs for `HesseMatrix` and `SymbolicCaluclation` for info on how to
     obtain a `HesseMatrix` instance.
 
     ### Returns
-      `CompilationArtefact`: artefact that can be used in further calculations.
-      It contains info on the  
+      `CompilationArtifact`: artifact that can be used in further calculations.
+      It contains info about the model and inflatox version used to create the
+      artifact.
     """
     #(1) generate the actual C-source
     self._generate_c_file()
@@ -320,5 +334,10 @@ const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
       os.remove(obj_path)
     
     #(R) return compilation artifact
-    return CompilationArtifact(self.symbol_dict, dylib_path)
-  
+    return CompilationArtifact(
+      self.symbol_dict,
+      dylib_path,
+      self.hesse.dim,
+      len(self.symbol_dict) - self.hesse.dim,
+      auto_cleanup=self.cleanup
+    )

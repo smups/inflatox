@@ -29,13 +29,10 @@ from .symbolic import (
 
 from . import consistency_conditions
 
-from . import libinflx_rs
-
 __all__ = [
   'CompilationArtifact',
   'Compiler',
   'HesseMatrix',
   'SymbolicCalculation',
-  'libinflx_rs',
   'consistency_conditions'
 ]

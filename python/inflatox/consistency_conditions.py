@@ -23,21 +23,21 @@ import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import (open_inflx_dylib, anguelova)
+from .libinflx_rs import (open_inflx_dylib, anguelova_py)
 
 #Limit exports to these items
 __all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
 
 class InflationCondition():
-  """Base-class for all inflation conditions. Provides native methods to evaluate
+  """Base class for all inflation conditions. Provides native methods to evaluate
   the potential and projected Hesse matrix. This base-class may be extended either
   by using these native methods, or by including your own native code that hooks
   into the Rust API or C ABI.
   """
 
-  def __init__(self, compiled_artefact: CompilationArtifact):
-    self.artefact = compiled_artefact
-    self.dylib = open_inflx_dylib(compiled_artefact.shared_object_path)
+  def __init__(self, compiled_artifact: CompilationArtifact):
+    self.artifact = compiled_artifact
+    self.dylib = open_inflx_dylib(compiled_artifact.shared_object_path)
     
   def calc_V(self, x: np.array, args: np.array) -> float:
     """calculates the scalar potential at field-space coordinates `x` with
@@ -46,27 +46,62 @@ class InflationCondition():
     ### Args
     - `x` (`np.array`): field-space coordinates at which to calculate
     - `args` (`np.array`): values of the model-dependent parameters. See
-    `CompilationArtefact.print_sym_lookup_table()` for an overview of which
+    `CompilationArtifact.print_sym_lookup_table()` for an overview of which
     sympy symbols were mapped to which args index.
 
     ### Returns
-      `float`: Value of scalar potential with parameters `args` at coordinates `x`
+      `float`: Value of scalar potential with parameters `args` at coordinates `x`.
     """
     return self.dylib.potential(x, args)
   
+  def calc_V_array(self,
+    args: list[float] | np.ndarray[float],
+    start: list[float] | np.ndarray[float],
+    stop: list[float] | np.ndarray[float],
+    N: list[int] | None = None
+  ) -> np.ndarray[float]:
+    """constructs an array of field space coordinates and fills it with the
+    value of the scalar potential at those field space coordinates.
+    The start and stop values of each axis in field-space can be specified with
+    the `start` and `stop` arguments. The number of samples along each axis can
+    be set with the `N` argument. It defaults to `8000` per axis.
+
+    ### Args
+    - `args` (`list[float] | np.ndarray[float]`): values of the model-dependent
+    parameters. See `CompilationArtifact.print_sym_lookup_table()` for an
+    overview of which sympy symbols were mapped to which args index.
+    - `start` (`list[float] | np.ndarray[float]`): list of minimum values for
+    each axis of the to-be-constructed array in field space.
+    - `stop` (`list[float] | np.ndarray[float]`): list of maximum values for each
+    axis of the to-be-constructed array in field space.
+    - `N` (`list[int] | None`, optional): _description_. list of the number of
+    samples along each axis in field space. If set to `None`, 8000 samples will
+    be used along each axis.
+
+    ### Returns
+    `np.ndarray[float]`: value of scalar potential at specified field-space
+    coordinates
+    """
+    n_fields = self.artifact.n_fields
+    start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
+    N = N if N is not None else np.array([8000 for _ in range(n_fields)])
+    x = np.zeros(N)
+    self.dylib.potential_array(x, args, start_stop)
+    return x
+  
   def calc_H(self, x: np.array, args: np.array) -> np.array:
-    """calculates the projected covariant hesse matrix at field-space
+    """calculates the projected covariant Hesse matrix at field-space
     coordinates `x` with model-specific parameters `args`.
 
     ### Args
     - `x` (`np.array`): field-space coordinates at which to calculate
     - `args` (`np.array`): values of the model-dependent parameters. See
-    `CompilationArtefact.print_sym_lookup_table()` for an overview of which
+    `CompilationArtifact.print_sym_lookup_table()` for an overview of which
     sympy symbols were mapped to which args index.
 
     ### Returns
     `np.ndarray`: Components of the projected covariant hesse matrix with
-      parameters `args` at coordinates `x`
+      parameters `args` at coordinates `x`.
     """
     return self.dylib.hesse(x, args)
 
@@ -76,34 +111,32 @@ class AnguelovaLazaroiuCondition(InflationCondition):
   (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL) inflationary models.
 
   ### Usage
-  To construct an instance of this class, a `CompilationArtefact` is required.
+  To construct an instance of this class, a `CompilationArtifact` is required.
   Such an artifact can be obtained by running an instance of `inflatox.Compiler`
   with a specific model (fieldspace metric + scalar potential). For more info on
   how to use the `Compiler`, see its documentation.
   
-  After obtaining the compiled artefact by calling the `.compile()` method on the
-  `Compiler` instance, the artefact can be used to construct an instance of this
-  class. The artefact contains all the necessary information to evaluate the
-  consistency condition.
+  The artifact contains all the necessary information to evaluate the consistency
+  condition and can be used to construct an instance of this class.
   
   To run evaluate the consistency condition for various model parameters and
   regions of field-space, use the `.evaluate()` method on an instance of this class
   with the appropriate methods. For more info, see the `.evaluate()` method.
   """
   
-  def __init__(self, compiled_artefact: CompilationArtifact):
-    super().__init__(compiled_artefact)
+  def __init__(self, compiled_artifact: CompilationArtifact):
+    super().__init__(compiled_artifact)
     
   def evaluate(self,
-    args: np.array,
+    args: np.ndarray[float],
     x0_start: float,
     x0_stop: float,
     x1_start: float,
     x1_stop: float,
     N_x0: int = 10_000,
     N_x1: int = 10_000
-  ) -> np.array:
-    """Evaluate the potential consistency condition from Anguelova and Lazaroiu
+  ) -> np.ndarray[float]:
+    """Evaluates the potential consistency condition from Anguelova and Lazaroiu
     2022 paper (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL)
     inflationary models.
     
@@ -111,17 +144,20 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     condition:
       3V (V_vv)^2 = (V_vw)^2 V_ww
     Where V_ab are the components of the covariant Hesse matrix projected along
-    the vectors v and w, where v is parallel to the gradient of the scalar
-    potential V, and w is orthonormal to v.
+    the vectors a and b. v is the basis vector parallel to the gradient of the scalar
+    potential V and w is the second basis vector (orthonormal to v).
     
-    This function returns the difference between the left-hand-side (lhs) and
-    right-hand-side (rhs) of this equation over the specified area in field space:
-      out = 3(V_vv / V_vw)^2 - V_ww / V
+    This function returns the difference between the left-hand side (lhs) divided
+    by the right-hand side (rhs) of the consistency condition from
+    Anguelova & Lazaroiu, minus one:
+      3(V_vv / V_vw)^2 = V_ww / V
+    Hence the output will be:
+      out = lhs / rhs - 1
     The field-space region to be investigated is specified with the arguments of
     this function.
 
     ### Args
-    General: See `CompilationArtefact.print_sym_lookup_table()` for an overview
+    General: See `CompilationArtifact.print_sym_lookup_table()` for an overview
     of which sympy symbols were mapped to which arguments (args) and fields (x).
     - `args` (`np.array`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
@@ -132,15 +168,15 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
 
     ### Returns
-    `np.array`: Difference between left-hand-side and right-hand-side of
-    Anguelova & Lazaroiu consistency condition: 3(V_vv / V_vw)^2 - V_ww / V
+    `np.array`: Quotient of left-hand side and right-hand side of
+    Anguelova & Lazaroiu consistency condition, minus one.
       
     ### Example
     Run and plot the consistency condition
     ```python
     from inflatox.consistency_conditions import AnguelovaLazaroiuCondition
     from matplotlib import pyplot as plt
-    anguelova = AnguelovaLazaroiuCondition(comp_artefact)
+    anguelova = AnguelovaLazaroiuCondition(comp_artifact)
 
     #calculate condition
     args = np.array([3.4e-10, 5e-16, 2.5e-3, 1.0])
@@ -154,7 +190,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     plt.show()
     ```
     """
-    #set-up args for anguelova's condition
+    #set up args for anguelova's condition
     x = np.zeros((N_x0, N_x1))
     start_stop = np.array([
       [x0_start, x0_stop],
@@ -162,6 +198,5 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     ])
     
     #evaluate and return
-    anguelova(self.dylib, args, x, start_stop)
+    anguelova_py(self.dylib, args, x, start_stop)
     return x
-  

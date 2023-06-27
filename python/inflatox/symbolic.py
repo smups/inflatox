@@ -42,10 +42,10 @@ class HesseMatrix():
     self.potential = potential
     self.model_name = model_name
     if len(components[0]) != len(components):
-      raise Exception('The Hesse Matrix is square; the provided list was not (number of columns != number of rows)')
+      raise Exception('The Hesse matrix is square; the provided list was not (number of columns != number of rows)')
     
   def __str__(self):
-    return f"""[Hesse Matrix]
+    return f"""[Hesse matrix]
     dimensionality: {self.dim} field(s)
     model name: {self.model_name}
     coordinates: {[display(f) for f in self.coordinates]}
@@ -56,31 +56,32 @@ class HesseMatrix():
 class SymbolicCalculation():
   """This class represents the symbolic calculation of the Hesse matrix of the
   scalar field potential, projected on an orthonormal vielbein basis constructed
-  from the supplied potential. Both of these constructs are covariant with respect
-  to the supplied metric on the scalar manifold.
+  from the supplied potential. Both the basis and Hesse matrix are covariant
+  with respect to the supplied metric on the scalar manifold.
   
   ### Usage
   An instance of this `SymbolicCalculation` class may be constructed from a
-  user-defined field_metric, a potential and a list of sympy Symbols indicating
-  which symbols (used in the definition of the potential and metric) should be
-  interpreted as fields. Two different constructors can be used:
+  user-defined metric on the scalar manifold, a potential and a list of sympy
+  Symbols indicating which symbols (used in the definition of the potential and
+  metric) should be interpreted as fields.
   
+  Two different constructors can be used:
   1. `SymbolicCalculation.new()` takes a `field_metric` argument as an instance
     of EinsteinPy's `MetricTensor` class.
   2. `SymbolicCalculation.new_from_list()` takes a `field_metric` argument as a
     normal python nested list of sympy expressions. This constructor is especially
     useful when other functionality supplied by the EinsteinPy package is not required.
     
-  Calling the `.execute()` method on an instance of this (`SymbolicCalculation`)
-  with an appropriate starting point for constructing the vielbein basis will 
-  perform the calculation of the components of the covariant Hesse matrix, projected
-  onto the vielbein basis.
+  Calling the `.execute()` method on an instance of `SymbolicCalculation` with
+  an appropriate starting point for constructing the vielbein basis will perform
+  the calculation of the components of the covariant Hesse matrix projected
+  onto the vielbein.
   
   ### Simplification depth
   When constructing this class, the simplification depth has to be set. The
   simplification depth represents how often intermediate answers will be
   simplified. Intermediate simplifications can take a lot of time, but may
-  produce prettier and more human readable output.
+  produce prettier and more human-readable output.
   
   Currently there are five levels, where each level enables all the previous 
   simplifications as well as the bulleted additional ones:
@@ -89,27 +90,10 @@ class SymbolicCalculation():
     - (2) Simplify the output of nested functions before returning.
     - (3) Simplify the output of twice nested functions before returning.
     - (>=4) Simplify all intermediate steps.
+    - (>=5) Extra expensive simplification of final output
   It can be beneficial to play around with this setting to see which level works
   best.
   """
-  
-  def __init__(self,
-    fields: list[sympy.Symbol],
-    field_metric: MetricTensor,
-    potential: sympy.Expr,
-    model_name: str,
-    simplification_depth: int,
-    silent: bool,
-    assertions: bool,
-  ):
-    """Internal constructor"""
-    self.coords = fields
-    self.g = field_metric
-    self.V = potential
-    self.model_name = model_name
-    self.simp = simplification_depth
-    self.silent = silent
-    self.assertions = assertions
     
   @classmethod
   def new(
@@ -127,15 +111,15 @@ class SymbolicCalculation():
     ### Args
     - `fields` (`list[sympy.Symbol]`): list of sympy symbols that should be
       interpreted as fields (coordinates on the scalar manifold).
-    - `field_metric` (`MetricTensor`): metric tensor on the scalar manifold
-    - `potential` (`sympy.Expr`): potential of the scalar field theory
-    - `model_name` (`str | None`, *optional*): Name of the model (potential +
+    - `field_metric` (`MetricTensor`): metric tensor on the scalar manifold.
+    - `potential` (`sympy.Expr`): potential of the scalar field theory.
+    - `model_name` (`str | None`, *optional*): name of the model (potential +
       scalar manifold geometry). Used for printing. Defaults to None.
-    - `simplification_depth` (`int`, *optional*): Set the simplification depth
+    - `simplification_depth` (`int`, *optional*): sets the simplification depth
       for the calculation. See class documentation. Defaults to 4.
-    - `silent` (`bool`, *optional*): If True, no console output will be produced
+    - `silent` (`bool`, *optional*): if True, no console output will be produced
       during the calculation. Defaults to False.
-    - `assertions` (`bool`, *optional*): If False, expensive intermediate
+    - `assertions` (`bool`, *optional*): if False, expensive intermediate
       assertions will be disabled. Defaults to False.
 
     ### Returns
@@ -146,7 +130,7 @@ class SymbolicCalculation():
       fields,
       field_metric,
       potential,
-      model_name if model_name is not None else "generic model",
+      model_name if model_name is not None else "None",
       simplification_depth,
       silent,
       assertions
@@ -170,14 +154,14 @@ class SymbolicCalculation():
       interpreted as fields (coordinates on the scalar manifold).
     - `field_metric` (`list[list[sympy.Symbol]]`): metric tensor on the scalar
       manifold.
-    - `potential` (`sympy.Expr`): potential of the scalar field theory
-    - `model_name` (`str | None`, *optional*): Name of the model (potential +
+    - `potential` (`sympy.Expr`): potential of the scalar field theory.
+    - `model_name` (`str | None`, *optional*): name of the model (potential +
       scalar manifold geometry). Used for printing. Defaults to None.
-    - `simplification_depth` (`int`, *optional*): Set the simplification depth
+    - `simplification_depth` (`int`, *optional*): sets the simplification depth
       for the calculation. See class documentation. Defaults to 4.
-    - `silent` (`bool`, *optional*): If True, no console output will be produced
+    - `silent` (`bool`, *optional*): if True, no console output will be produced
       during the calculation. Defaults to False.
-    - `assertions` (`bool`, *optional*): If False, expensive intermediate
+    - `assertions` (`bool`, *optional*): if False, expensive intermediate
       assertions will be disabled. Defaults to False.
 
     ### Returns
@@ -186,13 +170,35 @@ class SymbolicCalculation():
     """
     return cls(
       fields,
-      MetricTensor(field_metric, fields, "scalar manifold metric"),
+      MetricTensor(field_metric, fields, name="scalar manifold metric"),
       potential,
       model_name if model_name is not None else "generic model",
       simplification_depth,
       silent,
       assertions
     )
+  
+  def __init__(self,
+    fields: list[sympy.Symbol],
+    field_metric: MetricTensor,
+    potential: sympy.Expr,
+    model_name: str,
+    simplification_depth: int,
+    silent: bool,
+    assertions: bool,
+  ):
+    """Internal constructor"""
+    self.coords = fields
+    self.g = field_metric
+    self.V = potential
+    self.model_name = model_name
+    self.simp = simplification_depth
+    self.silent = silent
+    self.assertions = assertions
+    
+  def simplify(self, expr: sympy.Expr) -> sympy.Expr:
+    """simplifies expression"""
+    return expr.nsimplify().collect(self.coords).expand().powsimp()
     
   def print(self, msg: str) -> None:
     """prints msg to stdout if self.silent is not True"""
@@ -210,11 +216,11 @@ class SymbolicCalculation():
     
   def execute(self, basis: list[list[sympy.Expr]]) -> HesseMatrix:
     """Performs fully symbolic calculation of the components of the covariant
-    Hesse matrix of the potential with respect to the metric (both set during
-    construction of an instance of this class), which are then projected onto an
-    orthonormal vielbein basis using the Gramm-Schmidt procedure from:
-      1. the gradient of the potential
-      2. the list of vectors supplied by the caller of this function
+    Hesse matrix of the potential with respect to the metric, which are then
+    projected onto an orthonormal vielbein basis constructed (using the
+    Gramm-Schmidt procedure) from:
+      1. the gradient of the potential.
+      2. the list of vectors supplied by the caller of this function.
     The details of this procedure are specified in the documentation of the
     individual methods of this class.
 
@@ -267,7 +273,7 @@ class SymbolicCalculation():
       for x in range(dim):
         for y in range(dim):
           Hab = Hab + H[x][y] * w[a][x] * w[b][y]
-      return ([a, b], powdenest(Hab.simplify(), force=True) if self.simp >= 1 else Hab)
+      return ([a, b], powdenest(Hab.simplify(), force=True) if self.simp >= 5 else Hab)
   
     print("Projecting the Hesse matrix on the vielbein basis...")
     H_proj = [[0 for _ in range(dim)] for _ in range(dim)]
@@ -283,32 +289,32 @@ class SymbolicCalculation():
     return HesseMatrix(H_proj, self.coords, self.V, self.model_name)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
-    """returns the inner product of vec1 and vec2 with respect to configured metric
+    """returns the inner product of v1 and v2 with respect to configured metric.
 
     ### Args
     - `v1` (`list[sympy.Expr]`): first vector, once contravariant
-    - `v1` (`list[sympy.Expr]`): second vector, once contravariant
+    - `v2` (`list[sympy.Expr]`): second vector, once contravariant
     
     ### Simplification
     If the simplification depth is set to 4 or higher, this function will
     simplify its output before returning.
 
     ### Returns
-    `sympy.Expr`: inner product of vec1 with vec2 with respect to the configured
-      metric tensor of the current instance
+    `sympy.Expr`: inner product of v1 with v2 with respect to the configured
+      metric tensor of the current instance.
     """
     ans = 0
     dim = len(v1)
     for a in range(dim):
       for b in range(dim):
         ans = ans + (v1[a] * v2[b] * self.g.arr[a][b])
-    return ans.simplify() if self.simp >= 4 else ans
+    return self.simplify(ans) if self.simp >= 4 else ans
 
   def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
-    """normalizes the input vector with respect to the configured metric tensor
+    """normalizes the input vector with respect to the configured metric tensor.
 
     ### Args
-    vec (`list[sympy.Expr]`): components of the vector to be normalised
+    vec (`list[sympy.Expr]`): components of the vector to be normalised.
     
     ### Simplification
     If the simplification depth is set to 3 or higher, this function will
@@ -316,10 +322,10 @@ class SymbolicCalculation():
 
     ### Returns
     `list[sympy.Expr]`: normalized components of the supplied vector vec with
-      respect to the metric tensor of the current instance 
+      respect to the metric tensor of the current instance.
     """
     norm = sympy.sqrt(self.inner_prod(vec, vec))
-    return [(cmp / norm).simplify() if self.simp >= 3 else cmp / norm for cmp in vec] 
+    return [self.simplify(cmp / norm) if self.simp >= 3 else cmp / norm for cmp in vec] 
     
   def calc_hesse(self) -> list[list[sympy.Expr]]:
     """returns the components of the covariant Hesse matrix in a twice-covariant
@@ -339,7 +345,7 @@ class SymbolicCalculation():
     simplify its output before returning.
 
     ### Returns
-    `list[list[sympy.Expr]]`: nested list of components of the Hesse matrix
+    `list[list[sympy.Expr]]`: nested list of components of the covariant Hesse matrix.
     """
     dim = len(self.coords)
     #The connection has indices up-down-down (opposite order that we usually use)
@@ -358,19 +364,19 @@ class SymbolicCalculation():
         for c in range(dim):
           # Calculate ∂_c V(ϕ)
           Vc = sympy.diff(self.V, self.coords[c])
-          if self.simp >= 3: Vc = Vc.simplify()
+          if self.simp >= 3: Vc = self.simplify(Vc)
           
           # Calculate the full thing
           gamma_ab = gamma_ab + conn[c][b][a] * Vc
         
         #set the output components
         cmp = da_dbV - gamma_ab
-        Vab[a][b] = powdenest(cmp.simplify(), force=True) if self.simp >= 2 else cmp
+        Vab[a][b] = self.simplify(cmp) if self.simp >= 2 else cmp
     return Vab
 
   def calc_v(self) -> list[sympy.Expr]:
     """calculates a normalized vector pointing in the direction of the gradient of
-    the configured scalar potential of the current instance
+    the configured scalar potential of the current instance.
     
     ### Precise formulation of calculated quantities
     The contravariant components of the gradient of V are given by:
@@ -394,7 +400,7 @@ class SymbolicCalculation():
     
     #normalize v
     v = self.normalize(v)
-    return [powdenest(va.simplify(), force=True) for va in v] if self.simp >= 2 else v
+    return [self.simplify(va) for va in v] if self.simp >= 2 else v
 
   def gramm_schmidt(
     self, 
@@ -445,28 +451,28 @@ class SymbolicCalculation():
         y[a] = y[a] - xy * x[a]
     #normalize and return y
     y = self.normalize(y)
-    return [powdenest(ya.simplify(), force=True) for ya in y] if self.simp >= 2 else y
+    return [self.simplify(ya) for ya in y] if self.simp >= 2 else y
 
   def project_hesse(
     self,
     hesse_matrix: list[list[sympy.Expr]],
-    vec1: list[sympy.Expr],
-    vec2: list[sympy.Expr]
+    v1: list[sympy.Expr],
+    v2: list[sympy.Expr]
   ) -> sympy.Expr:
     """This function calculates the projection of the Hesse matrix along the two
     supplied vectors.
 
     ### Args
     - `hesse_matrix` (`list[list[sympy.Expr]]`): twice-covariant components of
-      the Hesse matrix
-    - `vec1` (`list[sympy.Expr]`): first vector along which to project the Hesse
-      matrix
-    - `vec2` (`list[sympy.Expr]`): second vector along which to project the Hesse
-      matrix
+      the Hesse matrix.
+    - `v1` (`list[sympy.Expr]`): first vector along which to project the Hesse
+      matrix.
+    - `v2` (`list[sympy.Expr]`): second vector along which to project the Hesse
+      matrix.
       
     ### Precise formulation of calculated quantities
-    The output V12 is given by
-      V12 = H_ab v1^a v2^b
+    The output H12 is given by
+      H12 = H_ab v1^a v2^b
     Where v1 is the first input vector, v2 the second one and H_ab are the
     twice covariant components of the Hesse matrix. No metrics are required for
     this operation.
@@ -476,11 +482,11 @@ class SymbolicCalculation():
     simplify its output before returning.
 
     ### Returns
-    `sympy.Expr`: returns the inner product of H with vec1 and vec2
+    `sympy.Expr`: returns the inner product of the Hesse matrix with v1 and v2.
     """
-    dim = len(vec1)
+    dim = len(v1)
     V_proj = 0
     for a in range(dim):
       for b in range(dim):
-        V_proj = V_proj + hesse_matrix[a][b]*vec1[a]*vec2[b]
-    return powdenest(V_proj.simplify(), force=True) if self.simp >= 1 else V_proj
+        V_proj = V_proj + hesse_matrix[a][b]*v1[a]*v2[b]
+    return self.simplify(V_proj) if self.simp >= 1 else V_proj

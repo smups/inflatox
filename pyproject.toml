@@ -26,10 +26,10 @@ authors = [
 description = "A small example package"
 readme = "README.md"
 requires-python = ">=3.7"
-license = "EUPL"
+license = "EUPL-1.2"
 classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: 3"
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3"
 ]
 dependencies = ["cffi"]
 
@@ -38,10 +38,11 @@ dependencies = ["cffi"]
 "Bug Tracker" = "https://github.com/smups/inflatox/issues"
 
 [build-system]
-requires = ["maturin>=0.14,<0.15", "cffi"]
+requires = ["maturin>=0.14,<0.15"]
 build-backend = "maturin"
 
 [tool.maturin]
 python-source = "python"
 module-name = "inflatox.libinflx_rs"
 features = ["pyo3_extension_module"]
+rustc-args = ["-C", "link-arg=-lm"]
