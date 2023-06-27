@@ -2,5 +2,6 @@
   "files.associations": {
     "cmath": "c",
     "stdlib.h": "c"
-  }
+  },
+  "python.analysis.typeCheckingMode": "basic"
 }
