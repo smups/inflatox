@@ -2,6 +2,8 @@
 # Inflatox - multifield inflation consistency conditions in python
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
 [![Crates.io](https://img.shields.io/crates/v/inflatox)](https://crates.io/crates/inflatox)
+[![PyPi](https://img.shields.io/pypi/v/inflatox)](https://pypi.org/project/inflatox)
+[![CI](https://github.com/smups/inflatox/actions/workflows/CI.yml/badge.svg)](https://github.com/smups/inflatox/actions/workflows/CI.yml)
 
 Inflatox provides a framework to implement high-performance numerical consistency conditions for multifield inflation models. As an example, an implementation of the potential consistency condition for slow-roll rapid-turn two-field inflation from Anguelova & Lazaroiu (2023)[^1] is built right into the package.
 
