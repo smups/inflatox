@@ -19,7 +19,7 @@
 
 [project]
 name = "inflatox"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Raúl Wolters", email="rawolters11@gmail.com" },
 ]
