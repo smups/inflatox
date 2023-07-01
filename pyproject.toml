@@ -23,7 +23,7 @@ version = "0.1.0"
 authors = [
   { name="Raúl Wolters", email="rawolters11@gmail.com" },
 ]
-description = "A small example package"
+description = "Framework for implementing high-performance numerical consistency conditions for multifield inflation models."
 readme = "README.md"
 requires-python = ">=3.7"
 license = "EUPL-1.2"
@@ -31,17 +31,25 @@ classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: 3"
 ]
-dependencies = ["cffi"]
+dependencies = [
+  "cffi",
+  "numpy > 1",
+  "sympy > 1",
+  "joblib > 1",
+  "einsteinpy > 0.4"
+]
 
 [project.urls]
 "Homepage" = "https://github.com/smups/inflatox"
 "Bug Tracker" = "https://github.com/smups/inflatox/issues"
 
 [build-system]
-requires = ["maturin>=0.14,<0.15"]
+requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
+bindings = "cffi"
+compatibility = "linux"
 python-source = "python"
 module-name = "inflatox.libinflx_rs"
 features = ["pyo3_extension_module"]

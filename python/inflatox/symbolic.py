@@ -19,6 +19,7 @@
 
 #System imports
 from IPython.display import display, Math
+from typing import Literal
 from joblib import Parallel, delayed, cpu_count
 
 #Sympy imports
@@ -105,6 +106,7 @@ class SymbolicCalculation():
     simplification_depth: int = 4,
     silent: bool = False,
     assertions: bool = False,
+    simplify_for: Literal['length'] | Literal['ops'] = 'ops'
   ):
     """Constructor for `SymbolicCalculation`
 
@@ -121,6 +123,10 @@ class SymbolicCalculation():
       during the calculation. Defaults to False.
     - `assertions` (`bool`, *optional*): if False, expensive intermediate
       assertions will be disabled. Defaults to False.
+    - `simplify_for` (`Literal['length'] | Literal['ops']`): simplification
+      strategy. When set to `length`, expressions will be optimized for code length.
+      When set to `ops`, expressions will be optimized to minimize the number of
+      operations. Defaults to `ops`.
 
     ### Returns
     `SymbolicCalculation`: object that can be used to perform the symbolic
@@ -133,7 +139,8 @@ class SymbolicCalculation():
       model_name if model_name is not None else "None",
       simplification_depth,
       silent,
-      assertions
+      assertions,
+      simplify_for
     )
   
   @classmethod
@@ -145,7 +152,8 @@ class SymbolicCalculation():
     model_name: str|None = None,
     simplification_depth: int = 4,
     silent: bool = False,
-    assertions: bool = False
+    assertions: bool = False,
+    simplify_for: Literal['length'] | Literal['ops'] = 'ops'
   ):
     """Constructor for `SymbolicCalculation`
 
@@ -163,6 +171,10 @@ class SymbolicCalculation():
       during the calculation. Defaults to False.
     - `assertions` (`bool`, *optional*): if False, expensive intermediate
       assertions will be disabled. Defaults to False.
+    - `simplify_for` (`Literal['length'] | Literal['ops']`): simplification
+      strategy. When set to `length`, expressions will be optimized for code length.
+      When set to `ops`, expressions will be optimized to minimize the number of
+      operations. Defaults to `ops`.
 
     ### Returns
     `SymbolicCalculation`: object that can be used to perform the symbolic
@@ -175,7 +187,8 @@ class SymbolicCalculation():
       model_name if model_name is not None else "generic model",
       simplification_depth,
       silent,
-      assertions
+      assertions,
+      simplify_for
     )
   
   def __init__(self,
@@ -186,6 +199,7 @@ class SymbolicCalculation():
     simplification_depth: int,
     silent: bool,
     assertions: bool,
+    simplify_for: str
   ):
     """Internal constructor"""
     self.coords = fields
@@ -195,10 +209,14 @@ class SymbolicCalculation():
     self.simp = simplification_depth
     self.silent = silent
     self.assertions = assertions
+    self.simplify_for = simplify_for
     
   def simplify(self, expr: sympy.Expr) -> sympy.Expr:
     """simplifies expression"""
-    return expr.nsimplify().collect(self.coords).expand().powsimp()
+    if self.simplify_for == 'length':
+      return powdenest(expr.nsimplify().cancel()).simplify()
+    else:
+      return expr.nsimplify().collect(self.coords).expand().powsimp()
     
   def print(self, msg: str) -> None:
     """prints msg to stdout if self.silent is not True"""

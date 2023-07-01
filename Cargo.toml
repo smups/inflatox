@@ -36,7 +36,7 @@ exclude = [
 
 [lib]
 name = "inflatox"
-crate_type = ["cdylib"]
+crate_type = ["cdylib", "rlib"]
 
 [dependencies]
 ndarray = { version = "0.15", features = ['rayon'] }
@@ -48,7 +48,7 @@ libloading = "0.8"
 
 [features]
 default = ["pyo3_extension_module"]
-pyo3_extension_module = ["pyo3/extension-module"]
+pyo3_extension_module = ["pyo3/extension-module", "pyo3/generate-import-lib"]
 
 [build]
 rustflags = ["-C", "link-arg=-lm"]

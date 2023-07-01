@@ -1,7 +1,7 @@
 ![inflatox_banner](https://raw.githubusercontent.com/smups/inflatox/dev/logos/banner.png)
 # Inflatox - multifield inflation consistency conditions in python
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
-[![Crates.io](https://img.shields.io/crates/v/rustronomy-watershed)](https://crates.io/crates/inflatox)
+[![Crates.io](https://img.shields.io/crates/v/inflatox)](https://crates.io/crates/inflatox)
 
 Inflatox provides a framework to implement high-performance numerical consistency conditions for multifield inflation models. As an example, an implementation of the potential consistency condition for slow-roll rapid-turn two-field inflation from Anguelova & Lazaroiu (2023)[^1] is built right into the package.
 
@@ -66,14 +66,11 @@ print(anguelova.calc_H(x, args))
 
 ## License
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
-
-All crates in the Rustronomy ecosystem are licensed under the EUPLv1.2 (or higher)
-license.
->**Rustronomy-watershed is explicitly not licensed under the dual
+>**Inflatox is explicitly not licensed under the dual
 Apache/MIT license common to the Rust ecosystem. Instead it is licensed under
 the terms of the [European Union Public License v1.2](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)**.
 
-Rustronomy is a science project and embraces the values of open science and free
+Inflatox is a science project and embraces the values of open science and free
 and open software. Closed and paid scientific software suites hinder the
 development of new technologies and research methods, as well as diverting much-
 needed public funds away from researchers to large publishing and software
