@@ -22,7 +22,6 @@
 use std::{ffi::OsStr, mem::MaybeUninit};
 
 use ndarray as nd;
-use rayon::prelude::*;
 
 use crate::inflatox_version::InflatoxVersion;
 
