@@ -48,7 +48,7 @@ libloading = "0.8"
 
 [features]
 default = ["pyo3_extension_module"]
-pyo3_extension_module = ["pyo3/extension-module", "pyo3/generate-import-lib"]
+pyo3_extension_module = ["pyo3/extension-module", "pyo3/generate-import-lib", "pyo3/abi3-py37"]
 
 [build]
 rustflags = ["-C", "link-arg=-lm"]
