@@ -36,7 +36,7 @@ dependencies = [
   "numpy > 1",
   "sympy > 1",
   "joblib > 1",
-  "einsteinpy > 0.4"
+  "einsteinpy >= 0.4"
 ]
 
 [project.urls]
