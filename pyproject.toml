@@ -19,7 +19,7 @@
 
 [project]
 name = "inflatox"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Raúl Wolters", email="rawolters11@gmail.com" },
 ]
@@ -36,7 +36,7 @@ dependencies = [
   "numpy > 1",
   "sympy > 1",
   "joblib > 1",
-  "einsteinpy > 0.4"
+  "einsteinpy >= 0.4"
 ]
 
 [project.urls]
@@ -48,8 +48,8 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-bindings = "cffi"
-compatibility = "linux"
+compatibility = "manylinux2014"
+bindings = "pyo3"
 python-source = "python"
 module-name = "inflatox.libinflx_rs"
 features = ["pyo3_extension_module"]

@@ -22,7 +22,6 @@
 use std::{ffi::OsStr, mem::MaybeUninit};
 
 use ndarray as nd;
-use rayon::prelude::*;
 
 use crate::inflatox_version::InflatoxVersion;
 
@@ -65,7 +64,7 @@ impl InflatoxDylib {
     let inflatox_version = unsafe {
       *lib
         .get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
-        .map_err(|err| Error::MissingSymbolErr {
+        .map_err(|_err| Error::MissingSymbolErr {
           lib_path: libp_string.clone(),
           symbol: INFLATOX_VERSION_SYM.to_vec(),
         })
@@ -77,14 +76,14 @@ impl InflatoxDylib {
 
     //(3) Get number of fields and number of parameters
     let n_fields = unsafe {
-      ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM).map_err(|err| Error::MissingSymbolErr {
+      ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM).map_err(|_err| Error::MissingSymbolErr {
         lib_path: libp_string.clone(),
         symbol: SYM_DIM_SYM.to_vec(),
       })?
     };
 
     let n_param = unsafe {
-      ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM).map_err(|err| Error::MissingSymbolErr {
+      ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM).map_err(|_err| Error::MissingSymbolErr {
         lib_path: libp_string.clone(),
         symbol: PARAM_DIM_SYM.to_vec(),
       })?
@@ -92,7 +91,7 @@ impl InflatoxDylib {
 
     //(4) Get potential and hesse components
     let potential = unsafe {
-      **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|err| Error::MissingSymbolErr {
+      **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbolErr {
         lib_path: libp_string.clone(),
         symbol: POTENTIAL_SYM.to_vec(),
       })?
@@ -118,7 +117,7 @@ impl InflatoxDylib {
         char::from_digit(idx.1 as u32, 10).unwrap() as u32 as u8,
       ];
       let symbol = unsafe {
-        **lib.get::<HdylibFn>(raw_symbol).map_err(|err| Error::MissingSymbolErr {
+        **lib.get::<HdylibFn>(raw_symbol).map_err(|_err| Error::MissingSymbolErr {
           lib_path: lib_path.to_string(),
           symbol: raw_symbol.to_vec(),
         })?
