@@ -19,7 +19,7 @@
 
 [project]
 name = "inflatox"
-version = "0.1.1"
+version = "0.2.0"
 authors = [
   { name="Raúl Wolters", email="rawolters11@gmail.com" },
 ]
@@ -36,7 +36,8 @@ dependencies = [
   "numpy > 1",
   "sympy > 1",
   "joblib > 1",
-  "einsteinpy >= 0.4"
+  "einsteinpy >= 0.4",
+  "ziglang >= 0.10"
 ]
 
 [project.urls]

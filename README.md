@@ -9,12 +9,11 @@ Inflatox provides a framework to implement high-performance numerical consistenc
 
 ## Features
 - symbolic solver for components of the Hesse matrix of an inflationary model with non-canonical kinetic terms, powered by [`sympy`](https://www.sympy.org).
-- compiler (with bindings to the platform-native C compiler) to transform `sympy` expressions into executable compiled code
+- transpiler (with bindings to the platform-native C compiler) to transform `sympy` expressions into executable compiled code
 - built-in multithreaded `rust` module for high-performance calculations of consistency conditions that interfaces directly with `numpy` and python.
 - no need to read, write or compile any `rust` or `C` code manually (this is all done automatically behind the scenes)
 
 ## Installation and Dependencies
-> Make sure to have a C compiler (and linker) installed on your computer when using `inflatox`.
 
 If you want to use the `inflatox` package and do not want to add your own native code to it, installing the `inflatox` python package is sufficient.
 - The `inflatox` python package can be installed by running the `pip install inflatox` command.
