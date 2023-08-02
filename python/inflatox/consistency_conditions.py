@@ -39,13 +39,13 @@ class InflationCondition():
     self.artifact = compiled_artifact
     self.dylib = open_inflx_dylib(compiled_artifact.shared_object_path)
     
-  def calc_V(self, x: np.array, args: np.array) -> float:
+  def calc_V(self, x: np.ndarray, args: np.ndarray) -> float:
     """calculates the scalar potential at field-space coordinates `x` with
     model-specific parameters `args`.
 
     ### Args
-    - `x` (`np.array`): field-space coordinates at which to calculate
-    - `args` (`np.array`): values of the model-dependent parameters. See
+    - `x` (`np.ndarray`): field-space coordinates at which to calculate
+    - `args` (`np.ndarray`): values of the model-dependent parameters. See
     `CompilationArtifact.print_sym_lookup_table()` for an overview of which
     sympy symbols were mapped to which args index.
 
@@ -55,11 +55,11 @@ class InflationCondition():
     return self.dylib.potential(x, args)
   
   def calc_V_array(self,
-    args: list[float] | np.ndarray[float],
-    start: list[float] | np.ndarray[float],
-    stop: list[float] | np.ndarray[float],
+    args: list[float] | np.ndarray,
+    start: list[float] | np.ndarray,
+    stop: list[float] | np.ndarray,
     N: list[int] | None = None
-  ) -> np.ndarray[float]:
+  ) -> np.ndarray:
     """constructs an array of field space coordinates and fills it with the
     value of the scalar potential at those field space coordinates.
     The start and stop values of each axis in field-space can be specified with
@@ -67,19 +67,19 @@ class InflationCondition():
     be set with the `N` argument. It defaults to `8000` per axis.
 
     ### Args
-    - `args` (`list[float] | np.ndarray[float]`): values of the model-dependent
+    - `args` (`list[float] | np.ndarray`): values of the model-dependent
     parameters. See `CompilationArtifact.print_sym_lookup_table()` for an
     overview of which sympy symbols were mapped to which args index.
-    - `start` (`list[float] | np.ndarray[float]`): list of minimum values for
+    - `start` (`list[float] | np.ndarray`): list of minimum values for
     each axis of the to-be-constructed array in field space.
-    - `stop` (`list[float] | np.ndarray[float]`): list of maximum values for each
+    - `stop` (`list[float] | np.ndarray`): list of maximum values for each
     axis of the to-be-constructed array in field space.
     - `N` (`list[int] | None`, optional): _description_. list of the number of
     samples along each axis in field space. If set to `None`, 8000 samples will
     be used along each axis.
 
     ### Returns
-    `np.ndarray[float]`: value of scalar potential at specified field-space
+    `np.ndarray`: value of scalar potential at specified field-space
     coordinates
     """
     n_fields = self.artifact.n_fields
@@ -89,13 +89,13 @@ class InflationCondition():
     self.dylib.potential_array(x, args, start_stop)
     return x
   
-  def calc_H(self, x: np.array, args: np.array) -> np.array:
+  def calc_H(self, x: np.ndarray, args: np.ndarray) -> np.ndarray:
     """calculates the projected covariant Hesse matrix at field-space
     coordinates `x` with model-specific parameters `args`.
 
     ### Args
-    - `x` (`np.array`): field-space coordinates at which to calculate
-    - `args` (`np.array`): values of the model-dependent parameters. See
+    - `x` (`np.ndarray`): field-space coordinates at which to calculate
+    - `args` (`np.ndarray`): values of the model-dependent parameters. See
     `CompilationArtifact.print_sym_lookup_table()` for an overview of which
     sympy symbols were mapped to which args index.
 
@@ -128,14 +128,14 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     super().__init__(compiled_artifact)
     
   def evaluate(self,
-    args: np.ndarray[float],
+    args: np.ndarray,
     x0_start: float,
     x0_stop: float,
     x1_start: float,
     x1_stop: float,
     N_x0: int = 10_000,
     N_x1: int = 10_000
-  ) -> np.ndarray[float]:
+  ) -> np.ndarray:
     """Evaluates the potential consistency condition from Anguelova and Lazaroiu
     2022 paper (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL)
     inflationary models.
@@ -159,7 +159,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     ### Args
     General: See `CompilationArtifact.print_sym_lookup_table()` for an overview
     of which sympy symbols were mapped to which arguments (args) and fields (x).
-    - `args` (`np.array`): values of the model-dependent parameters. 
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
     - `x0_stop` (`float`): maximum value of first field `x[0]`.
     - `x1_start` (`float`): minimum value of second field `x[1]`.
@@ -168,7 +168,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
 
     ### Returns
-    `np.array`: Quotient of left-hand side and right-hand side of
+    `np.ndarray`: Quotient of left-hand side and right-hand side of
     Anguelova & Lazaroiu consistency condition, minus one.
       
     ### Example
@@ -179,8 +179,8 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     anguelova = AnguelovaLazaroiuCondition(comp_artifact)
 
     #calculate condition
-    args = np.array([3.4e-10, 5e-16, 2.5e-3, 1.0])
-    x = np.array([2.0, 2.0])
+    args = np.ndarray([3.4e-10, 5e-16, 2.5e-3, 1.0])
+    x = np.ndarray([2.0, 2.0])
     extent = (-1e-3, 1e-3, -1e-3, 1e-3)
     array = anguelova.evaluate(args, *extent)
     
