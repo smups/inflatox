@@ -110,3 +110,21 @@ pub fn anguelova_leading_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64],
     });
 }
 
+pub fn anguelova_0th_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
+  //(1) Convert start-stop ranges
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
+
+  //(2) Fill output array
+  nd::Zip::indexed(x)
+    .into_par_iter()
+    //(2a) Convert indices to field-space coordinates
+    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
+    //(2b) evaluate consistency condition at every field-space point
+    .for_each(|(ref x, val)| {
+      *val = {
+        let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2) + 1.0;
+        let rhs = h.v11(x, p) / h.potential(x, p);
+        ((lhs / rhs) - 1.0).abs()
+      }
+    });
+}
