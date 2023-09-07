@@ -110,15 +110,3 @@ pub fn anguelova_leading_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64],
     });
 }
 
-#[test]
-fn anguelova_performance() {
-  use crate::InflatoxDylib;
-  let n = 10_000;
-  let mut out = nd::Array2::zeros((n, n));
-  let start_stop = [[-1000.0, 1000.0], [-1000.0, 1000.0]];
-  let lib = InflatoxDylib::open("/tmp/libinflx_autoc_z1lc1jur.so").unwrap();
-  let h = Hesse2D::new(&lib);
-  let p = &[12.0, 3.0, 4.0, -12.0];
-  anguelova_leading_order(h, out.view_mut(), p, &start_stop);
-  println!("{out:?}");
-}
