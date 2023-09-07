@@ -29,7 +29,7 @@ mod inflatox_version;
 pub mod err;
 pub mod hesse_bindings;
 pub mod consistency_conditions {
-  pub use crate::anguelova::anguelova;
+  pub use crate::anguelova::anguelova_leading_order;
 }
 
 use hesse_bindings::InflatoxDylib;

@@ -72,25 +72,28 @@ pub(crate) fn anguelova_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(5) evaluate anguelova's condition
-  anguelova(h, x, p, &start_stop);
+  anguelova_leading_order(h, x, p, &start_stop);
 
   Ok(())
 }
 
-pub fn anguelova(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
+/// Converts start-stop ranges into offset-spacing ranges. Order of return arguments
+/// is x_spacing, y_spacing, x_ofst, y_ofst
+fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f64) {
+  let x_start = start_stop[0][0];
+  let x_stop = start_stop[0][1];
+  let x_spacing = (x_stop - x_start) / shape[0] as f64;
+
+  let y_start = start_stop[1][0];
+  let y_stop = start_stop[1][1];
+  let y_spacing = (y_stop - y_start) / shape[1] as f64;
+
+  (x_spacing, y_spacing, x_start, y_start)
+}
+
+pub fn anguelova_leading_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
   //(1) Convert start-stop ranges
-  let (x_spacing, x_ofst) = {
-    let x_start = start_stop[0][0];
-    let x_stop = start_stop[0][1];
-    let x_spacing = (x_stop - x_start) / x.shape()[0] as f64;
-    (x_spacing, x_start)
-  };
-  let (y_spacing, y_ofst) = {
-    let y_start = start_stop[1][0];
-    let y_stop = start_stop[1][1];
-    let y_spacing = (y_stop - y_start) / x.shape()[1] as f64;
-    (y_spacing, y_start)
-  };
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
 
   //(2) Fill output array
   nd::Zip::indexed(x)
@@ -116,6 +119,6 @@ fn anguelova_performance() {
   let lib = InflatoxDylib::open("/tmp/libinflx_autoc_z1lc1jur.so").unwrap();
   let h = Hesse2D::new(&lib);
   let p = &[12.0, 3.0, 4.0, -12.0];
-  anguelova(h, out.view_mut(), p, &start_stop);
+  anguelova_leading_order(h, out.view_mut(), p, &start_stop);
   println!("{out:?}");
 }
