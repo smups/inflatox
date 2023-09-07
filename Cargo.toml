@@ -52,3 +52,9 @@ pyo3_extension_module = ["pyo3/extension-module", "pyo3/generate-import-lib", "p
 
 [build]
 rustflags = ["-C", "link-arg=-lm"]
+
+[profile.release]
+opt-level = 3
+debug = "none"
+strip = "debuginfo"
+lto = "fat"
