@@ -22,6 +22,7 @@
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
 use pyo3::prelude::*;
+use pyo3::exceptions::PySystemError;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::Hesse2D;
@@ -33,6 +34,7 @@ pub(crate) fn anguelova_py(
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
+  order: isize
 ) -> PyResult<()> {
   //(0) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -71,8 +73,14 @@ pub(crate) fn anguelova_py(
   //(4) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
-  //(5) evaluate anguelova's condition
-  anguelova_leading_order(h, x, p, &start_stop);
+  //(5) evaluate anguelova's condition up to the specified order
+  match order {
+    o if o < -1 => anguelova_exact(h, x, p, &start_stop),
+    -1 => anguelova_leading_order(h, x, p, &start_stop),
+    0 => anguelova_0th_order(h, x, p, &start_stop),
+    2 => anguelova_2nd_order(h, x, p, &start_stop),
+    o => return Err(PySystemError::new_err(format!("expected order to be negative, 0, 1 or 2. Found {o}")))
+  }
 
   Ok(())
 }
