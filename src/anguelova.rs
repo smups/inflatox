@@ -91,7 +91,12 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   (x_spacing, y_spacing, x_start, y_start)
 }
 
-pub fn anguelova_leading_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
+pub fn anguelova_leading_order(
+  h: Hesse2D,
+  x: nd::ArrayViewMut2<f64>,
+  p: &[f64],
+  start_stop: &[[f64; 2]],
+) {
   //(1) Convert start-stop ranges
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
 
@@ -110,7 +115,12 @@ pub fn anguelova_leading_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64],
     });
 }
 
-pub fn anguelova_0th_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
+pub fn anguelova_0th_order(
+  h: Hesse2D,
+  x: nd::ArrayViewMut2<f64>,
+  p: &[f64],
+  start_stop: &[[f64; 2]],
+) {
   //(1) Convert start-stop ranges
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
 
@@ -129,7 +139,12 @@ pub fn anguelova_0th_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], sta
     });
 }
 
-pub fn anguelova_2nd_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
+pub fn anguelova_2nd_order(
+  h: Hesse2D,
+  x: nd::ArrayViewMut2<f64>,
+  p: &[f64],
+  start_stop: &[[f64; 2]],
+) {
   //(1) Convert start-stop ranges
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
 
@@ -141,11 +156,9 @@ pub fn anguelova_2nd_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], sta
     //(2b) evaluate consistency condition at every field-space point
     .for_each(|(ref x, val)| {
       *val = {
-        let (v, v00, v10, v11) = (
-          h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p)
-        );
-        let lhs = 3.0 * (v00/v10).powi(2) + v10.powi(2)/(v*v00) + 0.2*(v10 / v00).powi(2);
-        let rhs = v11/v - 1.0;
+        let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
+        let lhs = 3.0 * (v00 / v10).powi(2) + v10.powi(2) / (v * v00) + 0.2 * (v10 / v00).powi(2);
+        let rhs = v11 / v - 1.0;
         ((lhs / rhs) - 1.0).abs()
       }
     });
@@ -163,12 +176,10 @@ pub fn anguelova_exact(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_s
     //(2b) evaluate consistency condition at every field-space point
     .for_each(|(ref x, val)| {
       *val = {
-        let (v, v00, v10, v11) = (
-          h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p)
-        );
-        let delta = (v10/v00).atan();
-        let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2)/(v*v00);
-        let rhs = v11/v;
+        let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
+        let delta = (v10 / v00).atan();
+        let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2) / (v * v00);
+        let rhs = v11 / v;
         ((lhs / rhs) - 1.0).abs()
       }
     });
