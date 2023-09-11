@@ -32,7 +32,7 @@ from sympy.printing.c import C99CodePrinter
 
 #Internal imports
 from .symbolic import HesseMatrix
-from .version import __version__
+from .version import __abi_version__
 
 class CInflatoxPrinter(C99CodePrinter):
   """C99CodePrinter with modified `_print_Symbol` method. Converting Sympy
@@ -235,7 +235,7 @@ double v{a}{b}(const double x[], const double args[]) {{
           )
           
       #(5) Write global constants
-      v = __version__.split('.')
+      v = __abi_version__.split('.')
       out.write(f"""
 //Inflatox version used to generate this file
 const uint16_t VERSION[3] = {{{v[0]},{v[1]},{v[2]}}};
