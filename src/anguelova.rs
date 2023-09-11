@@ -79,7 +79,7 @@ pub(crate) fn anguelova_py(
     -1 => anguelova_leading_order(h, x, p, &start_stop),
     0 => anguelova_0th_order(h, x, p, &start_stop),
     2 => anguelova_2nd_order(h, x, p, &start_stop),
-    o => return Err(PySystemError::new_err(format!("expected order to be negative, 0, 1 or 2. Found {o}")))
+    o => return Err(PySystemError::new_err(format!("expected order to be -1, 0, 2 or smaller than -1. Found {o}")))
   }
 
   Ok(())
