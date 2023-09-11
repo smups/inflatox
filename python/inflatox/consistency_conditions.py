@@ -207,7 +207,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       case 'exact': order_int = -2
       case 'leading': order_int = -1
       case '0th': order_int = 0
-      case '2nd': order_int = 1
+      case '2nd': order_int = 2
       case other: raise Exception(f'order parameter was set to \"{other}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
     
     #evaluate and return
