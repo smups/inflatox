@@ -167,10 +167,13 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `y_stop` (`float`): maximum value of second field `x[1]`.
     - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `order (['exact', 'leading', '0th', '2nd'], optional)`: set approximation order
+      for AL consistency condition. See [reference] for details.
 
     ### Returns
     `np.ndarray`: Quotient of left-hand side and right-hand side of
-    Anguelova & Lazaroiu consistency condition, minus one.
+    Anguelova & Lazaroiu consistency condition (approximated to the specified
+    order), minus one.
       
     ### Example
     Run and plot the consistency condition
