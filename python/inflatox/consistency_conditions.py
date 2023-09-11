@@ -202,7 +202,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       [x1_start, x1_stop]
     ])
     
-    order_int
+    order_int = 10
     match order:
       case 'exact': order_int = -2
       case 'leading': order_int = -1
