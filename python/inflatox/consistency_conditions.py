@@ -134,7 +134,8 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     x1_start: float,
     x1_stop: float,
     N_x0: int = 10_000,
-    N_x1: int = 10_000
+    N_x1: int = 10_000,
+    order: ['exact', 'leading', '0th', '2nd'] = '2nd'
   ) -> np.ndarray:
     """Evaluates the potential consistency condition from Anguelova and Lazaroiu
     2022 paper (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL)
@@ -192,11 +193,20 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     """
     #set up args for anguelova's condition
     x = np.zeros((N_x0, N_x1))
+    
     start_stop = np.array([
       [x0_start, x0_stop],
       [x1_start, x1_stop]
     ])
     
+    order_int
+    match order:
+      case 'exact': order_int = -2
+      case 'leading': order_int = -1
+      case '0th': order_int = 0
+      case '2nd': order_int = 1
+      case other: raise Exception(f'order parameter was set to \"{other}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
+    
     #evaluate and return
-    anguelova_py(self.dylib, args, x, start_stop)
+    anguelova_py(self.dylib, args, x, start_stop, order_int)
     return x
