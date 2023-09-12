@@ -29,7 +29,7 @@ mod inflatox_version;
 pub mod err;
 pub mod hesse_bindings;
 pub mod consistency_conditions {
-  pub use crate::anguelova::anguelova;
+  pub use crate::anguelova::anguelova_leading_order;
 }
 
 use hesse_bindings::InflatoxDylib;
@@ -42,7 +42,7 @@ use numpy::{PyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn};
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub(crate) const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([0, 2, 0]);
+pub(crate) const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([1, 0, 0]);
 
 //Register errors
 create_exception!(libinflx_rs, ShapeError, PyException);
