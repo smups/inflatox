@@ -23,7 +23,7 @@ import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import (open_inflx_dylib, anguelova_py)
+from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py)
 
 #Limit exports to these items
 __all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
@@ -212,4 +212,48 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     
     #evaluate and return
     anguelova_py(self.dylib, args, x, start_stop, order_int)
+    return x
+
+  def calc_delta(self,
+    args: np.ndarray,
+    x0_start: float,
+    x0_stop: float,
+    x1_start: float,
+    x1_stop: float,
+    N_x0: int = 10_000,
+    N_x1: int = 10_000
+  ) -> np.ndarray:
+    """Evaluates the characteristic angle δ for the field-space region specified
+    by the start/stop arguments given some model parameters. See [publication] for
+    the definition and interpretation of δ.
+    
+    ### Precise mathematical formulation
+    δ is calculated by taking the arctangent of the quotient of Vvw and Vvv. Vvw
+    is the inner product of the covariant Hesse matrix with vectors of the gradient
+    basis {v,w} where v is aligned with the gradient of the potential and w is
+    perpendicular to v. Similarly, Vvv is the covariant Hesse matrix projected
+    onto v twice. δ is clamped between -π/2 and +π/2.
+
+    ### Args
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x0_start` (`float`): minimum value of first field `x[0]`.
+    - `x0_stop` (`float`): maximum value of first field `x[0]`.
+    - `x1_start` (`float`): minimum value of second field `x[1]`.
+    - `y_stop` (`float`): maximum value of second field `x[1]`.
+    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+
+    ### Returns
+    `np.ndarray`: array with calculated δ's
+    """
+    #set up args for anguelova's condition
+    x = np.zeros((N_x0, N_x1))
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #evaluate and return
+    delta_py(self.dylib, args, x, start_stop)
     return x
