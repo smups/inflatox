@@ -55,6 +55,7 @@ fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::anguelova_py, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::delta_py, pymod)?)?;
 
   //Register exceptions
   pymod.add("DimensionalityError", py.get_type::<ShapeError>())?;
