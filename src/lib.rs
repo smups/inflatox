@@ -23,6 +23,7 @@
   html_logo_url = "https://raw.githubusercontent.com/smups/inflatox/dev/logos/logo.png?raw=true"
 )]
 
+#[cfg(feature = "pyo3_extension_module")]
 mod anguelova;
 mod inflatox_version;
 
