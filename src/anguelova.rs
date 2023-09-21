@@ -198,3 +198,36 @@ pub fn anguelova_exact(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_s
       }
     });
 }
+
+#[pyfunction]
+pub(crate) fn delta_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let h = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, x.shape());
+
+  //(4) Fill output array
+  nd::Zip::indexed(x)
+    .into_par_iter()
+    //(4a) Convert indices to field-space coordinates
+    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
+    //(4b) calculate delta at every field-space point
+    .for_each(|(ref x, val)| {
+      *val = (h.v01(x, p)/h.v00(x, p)).atan()
+    });
+
+  Ok(())
+}
