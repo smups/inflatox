@@ -22,13 +22,17 @@
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
-use pyo3::prelude::*;
 use pyo3::exceptions::PySystemError;
+use pyo3::prelude::*;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
 
-fn validate<'lib>(lib: &'lib InflatoxDylib, x: ArrayView2<f64>, p: &[f64]) -> PyResult<Hesse2D<'lib>> {
+fn validate<'lib>(
+  lib: &'lib InflatoxDylib,
+  x: ArrayView2<f64>,
+  p: &[f64],
+) -> PyResult<Hesse2D<'lib>> {
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
     crate::raise_shape_err(format!(
@@ -65,7 +69,7 @@ pub(crate) fn anguelova_py(
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
-  order: isize
+  order: isize,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -85,7 +89,11 @@ pub(crate) fn anguelova_py(
     -1 => anguelova_leading_order(h, x, p, &start_stop),
     0 => anguelova_0th_order(h, x, p, &start_stop),
     2 => anguelova_2nd_order(h, x, p, &start_stop),
-    o => return Err(PySystemError::new_err(format!("expected order to be -1, 0, 2 or smaller than -1. Found {o}")))
+    o => {
+      return Err(PySystemError::new_err(format!(
+        "expected order to be -1, 0, 2 or smaller than -1. Found {o}"
+      )))
+    }
   }
 
   Ok(())
@@ -204,7 +212,7 @@ pub(crate) fn delta_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
-  start_stop: PyReadonlyArray2<f64>
+  start_stop: PyReadonlyArray2<f64>,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -225,9 +233,7 @@ pub(crate) fn delta_py(
     //(4a) Convert indices to field-space coordinates
     .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
     //(4b) calculate delta at every field-space point
-    .for_each(|(ref x, val)| {
-      *val = (h.v01(x, p)/h.v00(x, p)).atan()
-    });
+    .for_each(|(ref x, val)| *val = (h.v01(x, p) / h.v00(x, p)).atan());
 
   Ok(())
 }
