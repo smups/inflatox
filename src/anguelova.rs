@@ -19,29 +19,16 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
+use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
 use pyo3::prelude::*;
 use pyo3::exceptions::PySystemError;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::Hesse2D;
+use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
 
-#[cfg(feature = "pyo3_extension_module")]
-#[pyfunction]
-pub(crate) fn anguelova_py(
-  lib: PyRef<crate::InflatoxPyDyLib>,
-  p: PyReadonlyArray1<f64>,
-  mut x: PyReadwriteArray2<f64>,
-  start_stop: PyReadonlyArray2<f64>,
-  order: isize
-) -> PyResult<()> {
-  //(0) Convert the PyArrays to nd::Arrays
-  let lib = &lib.0;
-  let p = p.as_array();
-  let x = x.as_array_mut();
-  let start_stop = start_stop.as_array();
-
+fn validate<'lib>(lib: &'lib InflatoxDylib, x: ArrayView2<f64>, p: &[f64]) -> PyResult<Hesse2D<'lib>> {
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
     crate::raise_shape_err(format!(
@@ -61,19 +48,39 @@ pub(crate) fn anguelova_py(
 
   //(3) Make sure that the number of supplied model parameters matches the number
   //specified by the dynamic lib
-  if p.shape() != &[h.get_n_params()] {
+  if p.len() != h.get_n_params() {
     crate::raise_shape_err(format!(
       "model expected {} parameters, got {}",
       h.get_n_params(),
-      p.shape().len()
+      p.len()
     ))?;
   }
-  let p = p.as_slice().unwrap();
 
-  //(4) Convert start-stop
+  Ok(h)
+}
+
+#[cfg(feature = "pyo3_extension_module")]
+#[pyfunction]
+pub(crate) fn anguelova_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  order: isize
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let h = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
-  //(5) evaluate anguelova's condition up to the specified order
+  //(4) evaluate anguelova's condition up to the specified order
   match order {
     o if o < -1 => anguelova_exact(h, x, p, &start_stop),
     -1 => anguelova_leading_order(h, x, p, &start_stop),
