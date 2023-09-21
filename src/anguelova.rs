@@ -59,7 +59,6 @@ fn validate<'lib>(lib: &'lib InflatoxDylib, x: ArrayView2<f64>, p: &[f64]) -> Py
   Ok(h)
 }
 
-#[cfg(feature = "pyo3_extension_module")]
 #[pyfunction]
 pub(crate) fn anguelova_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
