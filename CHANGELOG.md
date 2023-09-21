@@ -2,6 +2,7 @@
 
 ## v0.4.0 - $\delta$ calculations
 - added functionality to calculate the $\delta$ slow-roll, rapid-turn parameter (see _future publication_)
+- yanked the inflatox crate from `crates.io`. All rust code is now considered internal
 
 ## v0.3.0 - Higher order conditions
 - added higher-order consistency conditions
