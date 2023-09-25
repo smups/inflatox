@@ -19,11 +19,11 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
-use nd::ArrayView2;
 use ndarray as nd;
+use nd::ArrayView2;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
-use pyo3::exceptions::PySystemError;
 use pyo3::prelude::*;
+use pyo3::exceptions::PySystemError;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
@@ -64,7 +64,7 @@ fn validate<'lib>(
 }
 
 #[pyfunction]
-pub(crate) fn anguelova_py(
+pub fn anguelova_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
@@ -113,7 +113,7 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   (x_spacing, y_spacing, x_start, y_start)
 }
 
-pub fn anguelova_leading_order(
+fn anguelova_leading_order(
   h: Hesse2D,
   x: nd::ArrayViewMut2<f64>,
   p: &[f64],
@@ -137,7 +137,7 @@ pub fn anguelova_leading_order(
     });
 }
 
-pub fn anguelova_0th_order(
+fn anguelova_0th_order(
   h: Hesse2D,
   x: nd::ArrayViewMut2<f64>,
   p: &[f64],
@@ -161,7 +161,7 @@ pub fn anguelova_0th_order(
     });
 }
 
-pub fn anguelova_2nd_order(
+fn anguelova_2nd_order(
   h: Hesse2D,
   x: nd::ArrayViewMut2<f64>,
   p: &[f64],
@@ -186,7 +186,7 @@ pub fn anguelova_2nd_order(
     });
 }
 
-pub fn anguelova_exact(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
+fn anguelova_exact(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
   //(1) Convert start-stop ranges
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
 
@@ -208,7 +208,7 @@ pub fn anguelova_exact(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_s
 }
 
 #[pyfunction]
-pub(crate) fn delta_py(
+pub fn delta_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
