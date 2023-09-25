@@ -19,29 +19,20 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
+use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
-use pyo3::prelude::*;
 use pyo3::exceptions::PySystemError;
+use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::Hesse2D;
+use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
 
-#[cfg(feature = "pyo3_extension_module")]
-#[pyfunction]
-pub(crate) fn anguelova_py(
-  lib: PyRef<crate::InflatoxPyDyLib>,
-  p: PyReadonlyArray1<f64>,
-  mut x: PyReadwriteArray2<f64>,
-  start_stop: PyReadonlyArray2<f64>,
-  order: isize
-) -> PyResult<()> {
-  //(0) Convert the PyArrays to nd::Arrays
-  let lib = &lib.0;
-  let p = p.as_array();
-  let x = x.as_array_mut();
-  let start_stop = start_stop.as_array();
-
+fn validate<'lib>(
+  lib: &'lib InflatoxDylib,
+  x: ArrayView2<f64>,
+  p: &[f64],
+) -> PyResult<Hesse2D<'lib>> {
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
     crate::raise_shape_err(format!(
@@ -61,25 +52,48 @@ pub(crate) fn anguelova_py(
 
   //(3) Make sure that the number of supplied model parameters matches the number
   //specified by the dynamic lib
-  if p.shape() != &[h.get_n_params()] {
+  if p.len() != h.get_n_params() {
     crate::raise_shape_err(format!(
       "model expected {} parameters, got {}",
       h.get_n_params(),
-      p.shape().len()
+      p.len()
     ))?;
   }
-  let p = p.as_slice().unwrap();
 
-  //(4) Convert start-stop
+  Ok(h)
+}
+
+#[pyfunction]
+pub(crate) fn anguelova_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  order: isize,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let h = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
-  //(5) evaluate anguelova's condition up to the specified order
+  //(4) evaluate anguelova's condition up to the specified order
   match order {
     o if o < -1 => anguelova_exact(h, x, p, &start_stop),
     -1 => anguelova_leading_order(h, x, p, &start_stop),
     0 => anguelova_0th_order(h, x, p, &start_stop),
     2 => anguelova_2nd_order(h, x, p, &start_stop),
-    o => return Err(PySystemError::new_err(format!("expected order to be -1, 0, 2 or smaller than -1. Found {o}")))
+    o => {
+      return Err(PySystemError::new_err(format!(
+        "expected order to be -1, 0, 2 or smaller than -1. Found {o}"
+      )))
+    }
   }
 
   Ok(())
@@ -191,4 +205,35 @@ pub fn anguelova_exact(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_s
         ((lhs / rhs) - 1.0).abs()
       }
     });
+}
+
+#[pyfunction]
+pub(crate) fn delta_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let h = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, x.shape());
+
+  //(4) Fill output array
+  nd::Zip::indexed(x)
+    .into_par_iter()
+    //(4a) Convert indices to field-space coordinates
+    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
+    //(4b) calculate delta at every field-space point
+    .for_each(|(ref x, val)| *val = (h.v01(x, p) / h.v00(x, p)).atan());
+
+  Ok(())
 }
