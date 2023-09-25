@@ -32,7 +32,6 @@ classifiers = [
   "Programming Language :: Python :: 3"
 ]
 dependencies = [
-  "cffi",
   "numpy > 1",
   "sympy > 1",
   "joblib > 1",
@@ -49,8 +48,6 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-compatibility = "manylinux2014"
 bindings = "pyo3"
 python-source = "python"
 module-name = "inflatox.libinflx_rs"
-rustc-args = ["-C", "link-arg=-lm"]
