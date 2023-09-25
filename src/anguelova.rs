@@ -19,11 +19,11 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
-use ndarray as nd;
 use nd::ArrayView2;
+use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
-use pyo3::prelude::*;
 use pyo3::exceptions::PySystemError;
+use pyo3::prelude::*;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
@@ -137,12 +137,7 @@ fn anguelova_leading_order(
     });
 }
 
-fn anguelova_0th_order(
-  h: Hesse2D,
-  x: nd::ArrayViewMut2<f64>,
-  p: &[f64],
-  start_stop: &[[f64; 2]],
-) {
+fn anguelova_0th_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
   //(1) Convert start-stop ranges
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
 
@@ -161,12 +156,7 @@ fn anguelova_0th_order(
     });
 }
 
-fn anguelova_2nd_order(
-  h: Hesse2D,
-  x: nd::ArrayViewMut2<f64>,
-  p: &[f64],
-  start_stop: &[[f64; 2]],
-) {
+fn anguelova_2nd_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
   //(1) Convert start-stop ranges
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
 

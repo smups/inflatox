@@ -24,9 +24,9 @@
 )]
 
 mod anguelova;
-mod inflatox_version;
 mod err;
 mod hesse_bindings;
+mod inflatox_version;
 
 use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
