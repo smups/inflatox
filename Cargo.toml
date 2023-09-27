@@ -36,6 +36,7 @@ numpy = "0.19"
 pyo3 = { version = "0.19", features = ['extension-module', 'abi3-py37'] }
 rayon = "1"
 libloading = "0.8"
+indicatif = { version = "0.17", features = ["rayon",  "improved_unicode"] }
 
 [build]
 rustflags = ["-C", "link-arg=-lm"]
