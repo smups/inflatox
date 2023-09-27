@@ -161,6 +161,35 @@ fn anguelova_0th_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_s
     });
 }
 
+fn anguelova_leading_order(
+  h: Hesse2D,
+  mut x: nd::ArrayViewMut2<f64>,
+  p: &[f64],
+  start_stop: &[[f64; 2]],
+  progress: bool
+) {
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
+
+  //Leading order calculation as closure
+  let op = |(ref x, val): ([f64; 2], &mut f64)| *val = {
+      let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2);
+      let rhs = h.v11(x, p) / h.potential(x, p);
+      ((lhs / rhs) - 1.0).abs()
+  };
+
+  if progress {
+    //configure progress bar
+    let style = ProgressStyle::default_bar()
+      .template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%")
+      .unwrap();
+    iter.progress_with_style(style).for_each(op);
+  } else {
+    //...or not
+    iter.for_each(op);
+  }
+}
+
 fn anguelova_2nd_order(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
   //(1) Convert start-stop ranges
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
