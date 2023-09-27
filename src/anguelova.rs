@@ -32,9 +32,11 @@ use rayon::prelude::*;
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
 
-lazy_static!(
-  static ref PBAR_FMT: ProgressStyle = ProgressStyle::default_bar().template("Time to completion: {eta:<}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%").unwrap();
-);
+lazy_static! {
+  static ref PBAR_FMT: ProgressStyle = ProgressStyle::default_bar()
+    .template("Time to completion: {eta:<}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%")
+    .unwrap();
+}
 
 fn validate<'lib>(
   lib: &'lib InflatoxDylib,
@@ -111,7 +113,10 @@ pub fn anguelova_py(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("[Inflatox] Calculation finished. Took {}s.", indicatif::HumanDuration(start.elapsed()).to_string());
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}s.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
   Ok(())
 }
 
@@ -168,7 +173,6 @@ fn anguelova_leading_order(
   if progress {
     iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
-    //...or not
     iter.for_each(op);
   }
 }
@@ -195,7 +199,6 @@ fn anguelova_0th_order(
   if progress {
     iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
-    //...or not
     iter.for_each(op);
   }
 }
@@ -223,7 +226,6 @@ fn anguelova_2nd_order(
   if progress {
     iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
-    //...or not
     iter.for_each(op);
   }
 }
@@ -252,7 +254,6 @@ fn anguelova_exact(
   if progress {
     iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
-    //...or not
     iter.for_each(op);
   }
 }
