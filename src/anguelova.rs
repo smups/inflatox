@@ -21,8 +21,7 @@
 
 use std::io::Write;
 
-use indicatif::{ParallelProgressIterator, ProgressStyle};
-use lazy_static::lazy_static;
+use indicatif::{ParallelProgressIterator, ProgressStyle, ProgressBar, ProgressDrawTarget};
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
@@ -31,12 +30,6 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
-
-lazy_static! {
-  static ref PBAR_FMT: ProgressStyle = ProgressStyle::default_bar()
-    .template("Time to completion: {eta:<}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%")
-    .unwrap();
-}
 
 fn validate<'lib>(
   lib: &'lib InflatoxDylib,
@@ -151,6 +144,17 @@ fn iter_array<'a>(
     .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val))
 }
 
+fn set_pbar(len: usize) -> ProgressBar {
+  const PBAR_REFRESH: u8 = 5;
+  const PBAR_STYLE: &str = "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
+  let style = ProgressStyle::default_bar()
+    .template(PBAR_STYLE)
+    .unwrap();
+  let target = ProgressDrawTarget::stderr_with_hz(PBAR_REFRESH);
+
+  ProgressBar::with_draw_target(Some(len as u64), target).with_style(style)
+}
+
 fn anguelova_leading_order(
   h: Hesse2D,
   mut x: nd::ArrayViewMut2<f64>,
@@ -159,6 +163,7 @@ fn anguelova_leading_order(
   progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
   //Leading order calculation as closure
@@ -171,7 +176,7 @@ fn anguelova_leading_order(
   };
 
   if progress {
-    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
+    iter.progress_with(set_pbar(len)).for_each(op);
   } else {
     iter.for_each(op);
   }
@@ -185,9 +190,10 @@ fn anguelova_0th_order(
   progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
-  //Leading order calculation as closure
+  //Zeroth order calculation as closure
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     *val = {
       let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2) + 1.0; //the +1.0 is the zeroth order correction
@@ -197,7 +203,7 @@ fn anguelova_0th_order(
   };
 
   if progress {
-    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
+    iter.progress_with(set_pbar(len)).for_each(op);
   } else {
     iter.for_each(op);
   }
@@ -211,9 +217,10 @@ fn anguelova_2nd_order(
   progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
-  //Leading order calculation as closure
+  //Second order calculation as closure
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     *val = {
       let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
@@ -224,7 +231,7 @@ fn anguelova_2nd_order(
   };
 
   if progress {
-    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
+    iter.progress_with(set_pbar(len)).for_each(op);
   } else {
     iter.for_each(op);
   }
@@ -238,9 +245,10 @@ fn anguelova_exact(
   progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
-  //Leading order calculation as closure
+  //Exact calculation as closure
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     *val = {
       let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
@@ -252,7 +260,7 @@ fn anguelova_exact(
   };
 
   if progress {
-    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
+    iter.progress_with(set_pbar(len)).for_each(op);
   } else {
     iter.for_each(op);
   }
@@ -284,12 +292,13 @@ pub fn delta_py(
   let start = std::time::Instant::now();
 
   //(5) Fill output array
+  let len = x.len();
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
   let op = |(ref x, val): ([f64; 2], &mut f64)| *val = (h.v01(x, p) / h.v00(x, p)).atan();
 
   if progress {
-    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
+    iter.progress_with(set_pbar(len)).for_each(op);
   } else {
     iter.for_each(op);
   }

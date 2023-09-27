@@ -144,7 +144,6 @@ name = "libinflx_rs"
 version = "0.0.0"
 dependencies = [
  "indicatif",
- "lazy_static",
  "libloading",
  "ndarray",
  "numpy",
