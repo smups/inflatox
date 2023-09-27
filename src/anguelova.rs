@@ -22,6 +22,7 @@
 use std::io::Write;
 
 use indicatif::{ParallelProgressIterator, ProgressStyle};
+use lazy_static::lazy_static;
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
@@ -30,6 +31,10 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
+
+lazy_static!(
+  static ref PBAR_FMT: ProgressStyle = ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
+);
 
 fn validate<'lib>(
   lib: &'lib InflatoxDylib,
@@ -161,10 +166,7 @@ fn anguelova_leading_order(
   };
 
   if progress {
-    //configure progress bar
-    let style =
-      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
-    iter.progress_with_style(style).for_each(op);
+    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
     //...or not
     iter.for_each(op);
@@ -191,10 +193,7 @@ fn anguelova_0th_order(
   };
 
   if progress {
-    //configure progress bar
-    let style =
-      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
-    iter.progress_with_style(style).for_each(op);
+    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
     //...or not
     iter.for_each(op);
@@ -222,10 +221,7 @@ fn anguelova_2nd_order(
   };
 
   if progress {
-    //configure progress bar
-    let style =
-      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
-    iter.progress_with_style(style).for_each(op);
+    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
     //...or not
     iter.for_each(op);
@@ -254,10 +250,7 @@ fn anguelova_exact(
   };
 
   if progress {
-    //configure progress bar
-    let style =
-      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
-    iter.progress_with_style(style).for_each(op);
+    iter.progress_with_style(PBAR_FMT.clone()).for_each(op);
   } else {
     //...or not
     iter.for_each(op);
