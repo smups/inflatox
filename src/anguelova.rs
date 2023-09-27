@@ -21,13 +21,13 @@
 
 use std::io::Write;
 
+use indicatif::{ParallelProgressIterator, ProgressStyle};
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
 use pyo3::exceptions::PySystemError;
 use pyo3::prelude::*;
 use rayon::prelude::*;
-use indicatif::{ParallelProgressIterator, ProgressStyle};
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
 
@@ -73,7 +73,7 @@ pub fn anguelova_py(
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
   order: isize,
-  progress: bool
+  progress: bool,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -127,14 +127,13 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
 fn iter_array<'a>(
   x: &'a mut [f64],
   start_stop: &[[f64; 2]],
-  shape: &'a [usize]
-) -> impl IndexedParallelIterator<Item = ([f64; 2], &'a mut f64)> {  
+  shape: &'a [usize],
+) -> impl IndexedParallelIterator<Item = ([f64; 2], &'a mut f64)> {
   //(1) Calculate spacings
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, shape);
 
   //(2) Set-up iterator over field-space array
-  x
-    .into_par_iter()
+  x.into_par_iter()
     .enumerate()
     //(2a) convert flat index into array index
     .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -147,23 +146,24 @@ fn anguelova_leading_order(
   mut x: nd::ArrayViewMut2<f64>,
   p: &[f64],
   start_stop: &[[f64; 2]],
-  progress: bool
+  progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
   //Leading order calculation as closure
-  let op = |(ref x, val): ([f64; 2], &mut f64)| *val = {
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
       let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2);
       let rhs = h.v11(x, p) / h.potential(x, p);
       ((lhs / rhs) - 1.0).abs()
+    }
   };
 
   if progress {
     //configure progress bar
-    let style = ProgressStyle::default_bar()
-      .template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%")
-      .unwrap();
+    let style =
+      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
     iter.progress_with_style(style).for_each(op);
   } else {
     //...or not
@@ -176,23 +176,24 @@ fn anguelova_0th_order(
   mut x: nd::ArrayViewMut2<f64>,
   p: &[f64],
   start_stop: &[[f64; 2]],
-  progress: bool
+  progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
   //Leading order calculation as closure
-  let op = |(ref x, val): ([f64; 2], &mut f64)| *val = {
-    let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2) + 1.0; //the +1.0 is the zeroth order correction
-    let rhs = h.v11(x, p) / h.potential(x, p);
-    ((lhs / rhs) - 1.0).abs()
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
+      let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2) + 1.0; //the +1.0 is the zeroth order correction
+      let rhs = h.v11(x, p) / h.potential(x, p);
+      ((lhs / rhs) - 1.0).abs()
+    }
   };
 
   if progress {
     //configure progress bar
-    let style = ProgressStyle::default_bar()
-      .template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%")
-      .unwrap();
+    let style =
+      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
     iter.progress_with_style(style).for_each(op);
   } else {
     //...or not
@@ -205,24 +206,25 @@ fn anguelova_2nd_order(
   mut x: nd::ArrayViewMut2<f64>,
   p: &[f64],
   start_stop: &[[f64; 2]],
-  progress: bool
+  progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
   //Leading order calculation as closure
-  let op = |(ref x, val): ([f64; 2], &mut f64)| *val = {
-    let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
-    let lhs = 3.0 * (v00 / v10).powi(2) + v10.powi(2) / (v * v00) + 0.2 * (v10 / v00).powi(2);
-    let rhs = v11 / v - 1.0;
-    ((lhs / rhs) - 1.0).abs()
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
+      let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
+      let lhs = 3.0 * (v00 / v10).powi(2) + v10.powi(2) / (v * v00) + 0.2 * (v10 / v00).powi(2);
+      let rhs = v11 / v - 1.0;
+      ((lhs / rhs) - 1.0).abs()
+    }
   };
 
   if progress {
     //configure progress bar
-    let style = ProgressStyle::default_bar()
-      .template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%")
-      .unwrap();
+    let style =
+      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
     iter.progress_with_style(style).for_each(op);
   } else {
     //...or not
@@ -235,25 +237,26 @@ fn anguelova_exact(
   mut x: nd::ArrayViewMut2<f64>,
   p: &[f64],
   start_stop: &[[f64; 2]],
-  progress: bool
+  progress: bool,
 ) {
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
   //Leading order calculation as closure
-  let op = |(ref x, val): ([f64; 2], &mut f64)| *val = {
-    let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
-    let delta = (v10 / v00).atan();
-    let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2) / (v * v00);
-    let rhs = v11 / v;
-    ((lhs / rhs) - 1.0).abs()
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
+      let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
+      let delta = (v10 / v00).atan();
+      let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2) / (v * v00);
+      let rhs = v11 / v;
+      ((lhs / rhs) - 1.0).abs()
+    }
   };
 
   if progress {
     //configure progress bar
-    let style = ProgressStyle::default_bar()
-      .template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%")
-      .unwrap();
+    let style =
+      ProgressStyle::default_bar().template("[ETA: {eta:<}]{bar:40.blue/gray} {percent}%").unwrap();
     iter.progress_with_style(style).for_each(op);
   } else {
     //...or not
