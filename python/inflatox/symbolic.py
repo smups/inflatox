@@ -27,7 +27,7 @@ import sympy
 from sympy import powdenest
 from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 
-class HesseMatrix():
+class SymbolicOutput():
   """Class containing the components of the projected Hesse matrix, as well as
   information about the model that was used to calculate said components.
   """
@@ -232,7 +232,7 @@ class SymbolicCalculation():
     elif not self.silent:
       display(expr)
     
-  def execute(self, basis: list[list[sympy.Expr]]) -> HesseMatrix:
+  def execute(self, basis: list[list[sympy.Expr]]) -> SymbolicOutput:
     """Performs fully symbolic calculation of the components of the covariant
     Hesse matrix of the potential with respect to the metric, which are then
     projected onto an orthonormal vielbein basis constructed (using the
@@ -304,7 +304,7 @@ class SymbolicCalculation():
         if a == 0: a = 'v'
         if b == 0: b = 'v'
         self.display(component, lhs=f'H_{{{a}{b}}}')
-    return HesseMatrix(H_proj, self.coords, self.V, self.model_name)
+    return SymbolicOutput(H_proj, self.coords, self.V, self.model_name)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of v1 and v2 with respect to configured metric.

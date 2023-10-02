@@ -31,7 +31,7 @@ import sympy
 from sympy.printing.c import C99CodePrinter
 
 #Internal imports
-from .symbolic import HesseMatrix
+from .symbolic import SymbolicOutput
 from .version import __abi_version__, __version__
 
 class CInflatoxPrinter(C99CodePrinter):
@@ -151,7 +151,7 @@ class Compiler:
   lib_prefix = "libinflx_auto_"
   
   def __init__(self,
-    hesse_matrix: HesseMatrix,
+    hesse_matrix: SymbolicOutput,
     output_path: str|None = None,
     cleanup: bool = True
   ):
