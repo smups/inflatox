@@ -29,13 +29,14 @@ use pyo3::exceptions::PySystemError;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
+use crate::hesse_bindings::{Hesse2D, InflatoxDylib, Grad};
 
-fn validate<'lib>(
+#[inline]
+fn validate<'lib, T>(
   lib: &'lib InflatoxDylib,
-  x: ArrayView2<f64>,
+  x: ArrayView2<T>,
   p: &[f64],
-) -> PyResult<Hesse2D<'lib>> {
+) -> PyResult<(Hesse2D<'lib>, Grad<'lib>)> {
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
     crate::raise_shape_err(format!(
@@ -44,6 +45,7 @@ fn validate<'lib>(
     ))?;
   }
   let h = Hesse2D::new(lib);
+  let g = Grad::new(lib);
 
   //(2) Make sure the field-space array is actually 2d
   if x.shape().len() != 2 {
@@ -63,7 +65,7 @@ fn validate<'lib>(
     ))?;
   }
 
-  Ok(h)
+  Ok((h, g))
 }
 
 #[pyfunction]
@@ -82,7 +84,7 @@ pub fn anguelova_py(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let h = validate(lib, x.view(), p)?;
+  let (h, _) = validate(lib, x.view(), p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
@@ -127,11 +129,11 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   (x_spacing, y_spacing, x_start, y_start)
 }
 
-fn iter_array<'a>(
-  x: &'a mut [f64],
+fn iter_array<'a, T: Send>(
+  x: &'a mut [T],
   start_stop: &[[f64; 2]],
   shape: &'a [usize],
-) -> impl IndexedParallelIterator<Item = ([f64; 2], &'a mut f64)> {
+) -> impl IndexedParallelIterator<Item = ([f64; 2], &'a mut T)> {
   //(1) Calculate spacings
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, shape);
 
@@ -280,7 +282,7 @@ pub fn delta_py(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let h = validate(lib, x.view(), p)?;
+  let (h, _) = validate(lib, x.view(), p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
@@ -295,6 +297,55 @@ pub fn delta_py(
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
   let op = |(ref x, val): ([f64; 2], &mut f64)| *val = (h.v01(x, p) / h.v00(x, p)).atan();
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}s.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
+pub fn flag_quantum_dif(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<bool>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+  accuracy: f64
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (_, g) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut bool)| {
+    *val = (g.cmp(x, p, 0).abs() <= accuracy) & (g.cmp(x, p, 1).abs() <= accuracy);
+  };
 
   if progress {
     iter.progress_with(set_pbar(len)).for_each(op);
