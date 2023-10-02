@@ -113,7 +113,7 @@ pub fn anguelova_py(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}s.",
+    "[Inflatox] Calculation finished. Took {}.",
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
   Ok(())
@@ -314,7 +314,7 @@ pub fn delta_py(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}s.",
+    "[Inflatox] Calculation finished. Took {}.",
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 
@@ -367,7 +367,7 @@ pub fn flag_quantum_dif_py(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}s.",
+    "[Inflatox] Calculation finished. Took {}.",
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 
