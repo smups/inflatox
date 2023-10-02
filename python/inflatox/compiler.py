@@ -151,7 +151,7 @@ class Compiler:
   lib_prefix = "libinflx_auto_"
   
   def __init__(self,
-    hesse_matrix: SymbolicOutput,
+    symbolic_out: SymbolicOutput,
     output_path: str|None = None,
     cleanup: bool = True
   ):
@@ -183,8 +183,8 @@ class Compiler:
       suffix='.c',
       prefix=Compiler.c_prefix
     )
-    self.hesse = hesse_matrix
-    self._set_preamble(hesse_matrix.model_name)
+    self.symbolic_out = symbolic_out
+    self._set_preamble(symbolic_out.model_name)
     self.cleanup = cleanup
     self.zigcc_opts = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-shared']
    
@@ -202,7 +202,7 @@ class Compiler:
   def _generate_c_file(self):
     """Generates C source file from Hesse matrix specified by the constructor"""
     #(1) Initialise C-code printer
-    ccode_writer = CInflatoxPrinter(self.hesse.coordinates)
+    ccode_writer = CInflatoxPrinter(self.symbolic_out.coordinates)
     
     with self.output_file as out:
       #(2) Write preamble
@@ -210,7 +210,7 @@ class Compiler:
       
       #(3) Write potential
       potential_body = textwrap.fill(
-        ccode_writer.doprint(self.hesse.potential).replace(', ', ','),
+        ccode_writer.doprint(self.symbolic_out.potential).replace(', ', ','),
         width=80,
         tabsize=4,
         break_long_words=False,
@@ -224,9 +224,9 @@ double V(const double x[], const double args[]) {{
       )
       
       #(4) Write all the components of the Hesse matrix
-      for a in range(self.hesse.dim):
-        for b in range(self.hesse.dim):
-          function_body = ccode_writer.doprint(self.hesse.hesse_cmp[a][b]).replace(')*', ') *\n    ')
+      for a in range(self.symbolic_out.dim):
+        for b in range(self.symbolic_out.dim):
+          function_body = ccode_writer.doprint(self.symbolic_out.hesse_cmp[a][b]).replace(')*', ') *\n    ')
           out.write(f"""
 double v{a}{b}(const double x[], const double args[]) {{
   return {function_body};
@@ -234,13 +234,22 @@ double v{a}{b}(const double x[], const double args[]) {{
 """
           )
           
-      #(5) Write global constants
+      #(5) Write all the components of the first basis vector (gradient)
+      for (idx, cmp) in enumerate(self.symbolic_out.basis[0]):
+        function_body = ccode_writer.doprint(cmp).replace(')*', ') *\n    ')
+        out.write(f"""
+double g{idx}(const double x[], const double args[]) {{
+  return {function_body};
+}}
+""")
+          
+      #(6) Write global constants
       v = __abi_version__.split('.')
       out.write(f"""
 //Inflatox version used to generate this file
 const uint16_t VERSION[3] = {{{v[0]},{v[1]},{v[2]}}};
 //Number of fields (dimensionality of the scalar manifold)
-const uint32_t DIM = {self.hesse.dim};
+const uint32_t DIM = {self.symbolic_out.dim};
 //Number of parameters
 const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
 """)
@@ -302,7 +311,7 @@ const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
     return CompilationArtifact(
       self.symbol_dict,
       dylib_path,
-      self.hesse.dim,
-      len(self.symbol_dict) - self.hesse.dim,
+      self.symbolic_out.dim,
+      len(self.symbol_dict) - self.symbolic_out.dim,
       auto_cleanup=self.cleanup
     )
