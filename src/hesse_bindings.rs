@@ -279,11 +279,6 @@ impl<'a> Hesse2D<'a> {
   }
 
   #[inline]
-  pub const fn get_n_fields(&self) -> usize {
-    self.lib.get_n_fields()
-  }
-
-  #[inline]
   pub const fn get_n_params(&self) -> usize {
     self.lib.get_n_params()
   }
