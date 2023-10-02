@@ -23,7 +23,7 @@ import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py)
+from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py, flag_quantum_dif_py)
 
 #Limit exports to these items
 __all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
@@ -262,4 +262,28 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     
     #evaluate and return
     delta_py(self.dylib, args, x, start_stop, progress)
+    return x
+  
+  def flag_quantum_dif(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 10_000,
+      N_x1: int = 10_000,
+      progress = True,
+      accuracy = 1e-3
+    ) -> np.ndarray:
+    
+    #set up args for anguelova's condition
+    x = np.zeros((N_x0, N_x1), dtype=bool)
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #evaluate and return
+    flag_quantum_dif_py(self.dylib, args, x, start_stop, progress, accuracy)
     return x
