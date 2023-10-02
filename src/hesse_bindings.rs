@@ -234,6 +234,7 @@ pub struct Hesse2D<'a> {
 }
 
 impl<'a> Hesse2D<'a> {
+
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     assert!(lib.get_n_fields() == 2);
     let v00 = *lib.hesse_cmp.get((0, 0)).unwrap();
@@ -284,5 +285,25 @@ impl<'a> Hesse2D<'a> {
   #[inline]
   pub const fn get_n_params(&self) -> usize {
     self.lib.get_n_params()
+  }
+}
+
+pub struct Grad<'a> {
+  lib: &'a InflatoxDylib,
+  fns: &'a [ExFn]
+}
+
+impl<'a> Grad<'a> {
+
+  #[inline]
+  pub fn new(lib: &'a InflatoxDylib) -> Self {
+    Grad { lib, fns: &lib.grad_cmp }
+  }
+
+  #[inline]
+  pub fn cmp(&self, x: &[f64], p: &[f64], idx: usize) -> f64 {
+    assert!(x.len() == self.lib.get_n_fields());
+    assert!(p.len() == self.lib.get_n_params());
+    unsafe { self.fns[idx](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 }
