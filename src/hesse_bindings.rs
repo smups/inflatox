@@ -138,9 +138,10 @@ impl InflatoxDylib {
     (0..n_fields)
       .into_iter()
       .map(|idx| unsafe {
-        lib.get::<HdylibFn>(&[b'g', idx as u8]).map_err(|_err| Error::MissingSymbolErr {
+        let c = char::from_digit(idx as u32, 10).unwrap() as u32 as u8;
+        lib.get::<HdylibFn>(&[b'g', c]).map_err(|_err| Error::MissingSymbolErr {
           lib_path: lib_path.to_string(),
-          symbol: vec![b'g', idx as u8],
+          symbol: vec![b'g', c],
         }).and_then(|x| Ok(**x))
       })
       .collect()
