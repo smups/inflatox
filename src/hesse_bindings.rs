@@ -44,7 +44,7 @@ pub struct InflatoxDylib {
   n_param: u32,
   potential: ExFn,
   hesse_cmp: nd::Array2<ExFn>,
-  grad_cmp: Vec<ExFn>
+  grad_cmp: Vec<ExFn>,
 }
 
 impl InflatoxDylib {
@@ -130,19 +130,18 @@ impl InflatoxDylib {
     Ok(unsafe { array.assume_init() })
   }
 
-  fn get_grad_cmp(
-    lib: &libloading::Library,
-    lib_path: &str,
-    n_fields: usize,
-  ) -> Result<Vec<ExFn>> {
+  fn get_grad_cmp(lib: &libloading::Library, lib_path: &str, n_fields: usize) -> Result<Vec<ExFn>> {
     (0..n_fields)
       .into_iter()
       .map(|idx| unsafe {
         let c = char::from_digit(idx as u32, 10).unwrap() as u32 as u8;
-        lib.get::<HdylibFn>(&[b'g', c]).map_err(|_err| Error::MissingSymbolErr {
-          lib_path: lib_path.to_string(),
-          symbol: vec![b'g', c],
-        }).and_then(|x| Ok(**x))
+        lib
+          .get::<HdylibFn>(&[b'g', c])
+          .map_err(|_err| Error::MissingSymbolErr {
+            lib_path: lib_path.to_string(),
+            symbol: vec![b'g', c],
+          })
+          .and_then(|x| Ok(**x))
       })
       .collect()
   }
@@ -235,7 +234,6 @@ pub struct Hesse2D<'a> {
 }
 
 impl<'a> Hesse2D<'a> {
-
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     assert!(lib.get_n_fields() == 2);
     let v00 = *lib.hesse_cmp.get((0, 0)).unwrap();
@@ -286,11 +284,10 @@ impl<'a> Hesse2D<'a> {
 
 pub struct Grad<'a> {
   lib: &'a InflatoxDylib,
-  fns: &'a [ExFn]
+  fns: &'a [ExFn],
 }
 
 impl<'a> Grad<'a> {
-
   #[inline]
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     Grad { lib, fns: &lib.grad_cmp }

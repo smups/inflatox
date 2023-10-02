@@ -21,7 +21,7 @@
 
 use std::io::Write;
 
-use indicatif::{ParallelProgressIterator, ProgressStyle, ProgressBar, ProgressDrawTarget};
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
@@ -146,10 +146,9 @@ fn iter_array<'a>(
 
 fn set_pbar(len: usize) -> ProgressBar {
   const PBAR_REFRESH: u8 = 5;
-  const PBAR_STYLE: &str = "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
-  let style = ProgressStyle::default_bar()
-    .template(PBAR_STYLE)
-    .unwrap();
+  const PBAR_STYLE: &str =
+    "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
+  let style = ProgressStyle::default_bar().template(PBAR_STYLE).unwrap();
   let target = ProgressDrawTarget::stderr_with_hz(PBAR_REFRESH);
 
   ProgressBar::with_draw_target(Some(len as u64), target).with_style(style)
@@ -272,7 +271,7 @@ pub fn delta_py(
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
-  progress: bool
+  progress: bool,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
