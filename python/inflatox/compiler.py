@@ -226,7 +226,7 @@ double V(const double x[], const double args[]) {{
       #(4) Write all the components of the Hesse matrix
       for a in range(self.hesse.dim):
         for b in range(self.hesse.dim):
-          function_body = ccode_writer.doprint(self.hesse.cmp[a][b]).replace(')*', ') *\n    ')
+          function_body = ccode_writer.doprint(self.hesse.hesse_cmp[a][b]).replace(')*', ') *\n    ')
           out.write(f"""
 double v{a}{b}(const double x[], const double args[]) {{
   return {function_body};

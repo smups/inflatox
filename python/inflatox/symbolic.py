@@ -32,17 +32,18 @@ class SymbolicOutput():
   information about the model that was used to calculate said components.
   """
   def __init__(self,
-    components: list[list[sympy.Expr]],
+    hesse_cmp: list[list[sympy.Expr]],
+    grad_cmp: list[sympy.Expr],
     coordinates: list[sympy.Symbol],
     potential: sympy.Expr,
     model_name: str
   ):
-    self.cmp = components
-    self.dim = len(components[0])
+    self.hesse_cmp = hesse_cmp
+    self.dim = len(hesse_cmp[0])
     self.coordinates = coordinates
     self.potential = potential
     self.model_name = model_name
-    if len(components[0]) != len(components):
+    if len(hesse_cmp[0]) != len(hesse_cmp):
       raise Exception('The Hesse matrix is square; the provided list was not (number of columns != number of rows)')
     
   def __str__(self):
@@ -51,7 +52,7 @@ class SymbolicOutput():
     model name: {self.model_name}
     coordinates: {[display(f) for f in self.coordinates]}
     potential: {display(self.potential)}
-    components: {display(sympy.Matrix(self.cmp))}
+    components: {display(sympy.Matrix(self.hesse_cmp))}
     """
 
 class SymbolicCalculation():
