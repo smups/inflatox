@@ -43,7 +43,8 @@ pub struct InflatoxDylib {
   n_fields: u32,
   n_param: u32,
   potential: ExFn,
-  components: nd::Array2<ExFn>,
+  hesse_cmp: nd::Array2<ExFn>,
+  grad_cmp: Vec<ExFn>
 }
 
 impl InflatoxDylib {
@@ -89,20 +90,21 @@ impl InflatoxDylib {
       })?
     };
 
-    //(4) Get potential and hesse components
+    //(4) Get potential hesse, and gradient components
     let potential = unsafe {
       **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbolErr {
         lib_path: libp_string.clone(),
         symbol: POTENTIAL_SYM.to_vec(),
       })?
     };
-    let components = Self::get_components(&lib, &libp_string, n_fields as usize)?;
+    let hesse_cmp = Self::get_hesse_cmp(&lib, &libp_string, n_fields as usize)?;
+    let grad_cmp = Self::get_grad_cmp(&lib, &libp_string, n_fields as usize)?;
 
     //(R) Return the fully constructed obj
-    Ok(InflatoxDylib { lib, n_fields, n_param, potential, components })
+    Ok(InflatoxDylib { lib, n_fields, n_param, potential, hesse_cmp, grad_cmp })
   }
 
-  fn get_components(
+  fn get_hesse_cmp(
     lib: &libloading::Library,
     lib_path: &str,
     n_fields: usize,
@@ -126,6 +128,22 @@ impl InflatoxDylib {
     }
 
     Ok(unsafe { array.assume_init() })
+  }
+
+  fn get_grad_cmp(
+    lib: &libloading::Library,
+    lib_path: &str,
+    n_fields: usize,
+  ) -> Result<Vec<ExFn>> {
+    (0..n_fields)
+      .into_iter()
+      .map(|idx| unsafe {
+        lib.get::<HdylibFn>(&[b'g', idx as u8]).map_err(|_err| Error::MissingSymbolErr {
+          lib_path: lib_path.to_string(),
+          symbol: vec![b'g', idx as u8],
+        }).and_then(|x| Ok(**x))
+      })
+      .collect()
   }
 
   #[inline(always)]
@@ -181,7 +199,7 @@ impl InflatoxDylib {
   pub fn hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
     assert!(x.len() == self.n_fields as usize);
     assert!(p.len() == self.n_param as usize);
-    self.components.mapv(|func| unsafe {
+    self.hesse_cmp.mapv(|func| unsafe {
       func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
     })
   }
@@ -218,10 +236,10 @@ pub struct Hesse2D<'a> {
 impl<'a> Hesse2D<'a> {
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     assert!(lib.get_n_fields() == 2);
-    let v00 = *lib.components.get((0, 0)).unwrap();
-    let v01 = *lib.components.get((1, 0)).unwrap();
-    let v10 = *lib.components.get((0, 1)).unwrap();
-    let v11 = *lib.components.get((1, 1)).unwrap();
+    let v00 = *lib.hesse_cmp.get((0, 0)).unwrap();
+    let v01 = *lib.hesse_cmp.get((1, 0)).unwrap();
+    let v10 = *lib.hesse_cmp.get((0, 1)).unwrap();
+    let v11 = *lib.hesse_cmp.get((1, 1)).unwrap();
     Hesse2D { lib, fns: [v00, v01, v10, v11] }
   }
 
