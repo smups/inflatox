@@ -326,7 +326,7 @@ pub fn delta_py(
 /// may induce a sign-flip of the gradient of V. This function flags those pixels
 /// where the components of the gradient become very small, where very small is
 /// defined by the user-supplied value `accuracy`.
-pub fn flag_quantum_dif(
+pub fn flag_quantum_dif_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<bool>,
