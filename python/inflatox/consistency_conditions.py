@@ -135,7 +135,8 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     x1_stop: float,
     N_x0: int = 10_000,
     N_x1: int = 10_000,
-    order: ['exact', 'leading', '0th', '2nd'] = '2nd'
+    order: ['exact', 'leading', '0th', '2nd'] = '2nd',
+    progress: bool = True
   ) -> np.ndarray:
     """Evaluates the potential consistency condition from Anguelova and Lazaroiu
     2022 paper (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL)
@@ -168,7 +169,9 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
     - `order (['exact', 'leading', '0th', '2nd'], optional)`: set approximation order
-      for AL consistency condition. See [reference] for details.
+      for AL consistency condition. See [reference] for details. Defaults to 2nd.
+    - `progress` (`bool`): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
 
     ### Returns
     `np.ndarray`: Quotient of left-hand side and right-hand side of
@@ -211,7 +214,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       case other: raise Exception(f'order parameter was set to \"{other}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
     
     #evaluate and return
-    anguelova_py(self.dylib, args, x, start_stop, order_int)
+    anguelova_py(self.dylib, args, x, start_stop, order_int, progress)
     return x
 
   def calc_delta(self,
@@ -221,7 +224,8 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     x1_start: float,
     x1_stop: float,
     N_x0: int = 10_000,
-    N_x1: int = 10_000
+    N_x1: int = 10_000,
+    progress = True
   ) -> np.ndarray:
     """Evaluates the characteristic angle δ for the field-space region specified
     by the start/stop arguments given some model parameters. See [publication] for
@@ -242,6 +246,8 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `y_stop` (`float`): maximum value of second field `x[1]`.
     - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `progress` (`bool`): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
 
     ### Returns
     `np.ndarray`: array with calculated δ's
@@ -255,5 +261,5 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     ])
     
     #evaluate and return
-    delta_py(self.dylib, args, x, start_stop)
+    delta_py(self.dylib, args, x, start_stop, progress)
     return x

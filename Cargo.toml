@@ -33,14 +33,10 @@ crate_type = ["cdylib", "rlib"]
 [dependencies]
 ndarray = { version = "0.15", features = ['rayon'] }
 numpy = "0.19"
-pyo3 = { version = "0.19" }
-num-traits = "0.2"
+pyo3 = { version = "0.19", features = ['extension-module', 'abi3-py37'] }
 rayon = "1"
 libloading = "0.8"
-
-[features]
-default = ["pyo3_extension_module"]
-pyo3_extension_module = ["pyo3/extension-module", "pyo3/generate-import-lib", "pyo3/abi3-py37"]
+indicatif = { version = "0.17", features = ["rayon",  "improved_unicode"] }
 
 [build]
 rustflags = ["-C", "link-arg=-lm"]

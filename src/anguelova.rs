@@ -19,6 +19,9 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
+use std::io::Write;
+
+use indicatif::{ParallelProgressIterator, ProgressStyle, ProgressBar, ProgressDrawTarget};
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
@@ -64,12 +67,13 @@ fn validate<'lib>(
 }
 
 #[pyfunction]
-pub(crate) fn anguelova_py(
+pub fn anguelova_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
   order: isize,
+  progress: bool,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -83,12 +87,17 @@ pub(crate) fn anguelova_py(
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
-  //(4) evaluate anguelova's condition up to the specified order
+  //(4) Say hello
+  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) evaluate anguelova's condition up to the specified order
   match order {
-    o if o < -1 => anguelova_exact(h, x, p, &start_stop),
-    -1 => anguelova_leading_order(h, x, p, &start_stop),
-    0 => anguelova_0th_order(h, x, p, &start_stop),
-    2 => anguelova_2nd_order(h, x, p, &start_stop),
+    o if o < -1 => anguelova_exact(h, x, p, &start_stop, progress),
+    -1 => anguelova_leading_order(h, x, p, &start_stop, progress),
+    0 => anguelova_0th_order(h, x, p, &start_stop, progress),
+    2 => anguelova_2nd_order(h, x, p, &start_stop, progress),
     o => {
       return Err(PySystemError::new_err(format!(
         "expected order to be -1, 0, 2 or smaller than -1. Found {o}"
@@ -96,6 +105,11 @@ pub(crate) fn anguelova_py(
     }
   }
 
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}s.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
   Ok(())
 }
 
@@ -113,111 +127,157 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   (x_spacing, y_spacing, x_start, y_start)
 }
 
-pub fn anguelova_leading_order(
-  h: Hesse2D,
-  x: nd::ArrayViewMut2<f64>,
-  p: &[f64],
+fn iter_array<'a>(
+  x: &'a mut [f64],
   start_stop: &[[f64; 2]],
-) {
-  //(1) Convert start-stop ranges
-  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
+  shape: &'a [usize],
+) -> impl IndexedParallelIterator<Item = ([f64; 2], &'a mut f64)> {
+  //(1) Calculate spacings
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, shape);
 
-  //(2) Fill output array
-  nd::Zip::indexed(x)
-    .into_par_iter()
-    //(2a) Convert indices to field-space coordinates
-    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
-    //(2b) evaluate consistency condition at every field-space point
-    .for_each(|(ref x, val)| {
-      *val = {
-        let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2);
-        let rhs = h.v11(x, p) / h.potential(x, p);
-        ((lhs / rhs) - 1.0).abs()
-      }
-    });
+  //(2) Set-up iterator over field-space array
+  x.into_par_iter()
+    .enumerate()
+    //(2a) convert flat index into array index
+    .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+    //(2b) convert array index into field-space point
+    .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val))
 }
 
-pub fn anguelova_0th_order(
-  h: Hesse2D,
-  x: nd::ArrayViewMut2<f64>,
-  p: &[f64],
-  start_stop: &[[f64; 2]],
-) {
-  //(1) Convert start-stop ranges
-  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
+fn set_pbar(len: usize) -> ProgressBar {
+  const PBAR_REFRESH: u8 = 5;
+  const PBAR_STYLE: &str = "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
+  let style = ProgressStyle::default_bar()
+    .template(PBAR_STYLE)
+    .unwrap();
+  let target = ProgressDrawTarget::stderr_with_hz(PBAR_REFRESH);
 
-  //(2) Fill output array
-  nd::Zip::indexed(x)
-    .into_par_iter()
-    //(2a) Convert indices to field-space coordinates
-    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
-    //(2b) evaluate consistency condition at every field-space point
-    .for_each(|(ref x, val)| {
-      *val = {
-        let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2) + 1.0;
-        let rhs = h.v11(x, p) / h.potential(x, p);
-        ((lhs / rhs) - 1.0).abs()
-      }
-    });
+  ProgressBar::with_draw_target(Some(len as u64), target).with_style(style)
 }
 
-pub fn anguelova_2nd_order(
+fn anguelova_leading_order(
   h: Hesse2D,
-  x: nd::ArrayViewMut2<f64>,
+  mut x: nd::ArrayViewMut2<f64>,
   p: &[f64],
   start_stop: &[[f64; 2]],
+  progress: bool,
 ) {
-  //(1) Convert start-stop ranges
-  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
+  let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
-  //(2) Fill output array
-  nd::Zip::indexed(x)
-    .into_par_iter()
-    //(2a) Convert indices to field-space coordinates
-    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
-    //(2b) evaluate consistency condition at every field-space point
-    .for_each(|(ref x, val)| {
-      *val = {
-        let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
-        let lhs = 3.0 * (v00 / v10).powi(2) + v10.powi(2) / (v * v00) + 0.2 * (v10 / v00).powi(2);
-        let rhs = v11 / v - 1.0;
-        ((lhs / rhs) - 1.0).abs()
-      }
-    });
+  //Leading order calculation as closure
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
+      let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2);
+      let rhs = h.v11(x, p) / h.potential(x, p);
+      ((lhs / rhs) - 1.0).abs()
+    }
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
 }
 
-pub fn anguelova_exact(h: Hesse2D, x: nd::ArrayViewMut2<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
-  //(1) Convert start-stop ranges
-  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, x.shape());
+fn anguelova_0th_order(
+  h: Hesse2D,
+  mut x: nd::ArrayViewMut2<f64>,
+  p: &[f64],
+  start_stop: &[[f64; 2]],
+  progress: bool,
+) {
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
+  let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
 
-  //(2) Fill output array
-  nd::Zip::indexed(x)
-    .into_par_iter()
-    //(2a) Convert indices to field-space coordinates
-    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
-    //(2b) evaluate consistency condition at every field-space point
-    .for_each(|(ref x, val)| {
-      *val = {
-        let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
-        let delta = (v10 / v00).atan();
-        let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2) / (v * v00);
-        let rhs = v11 / v;
-        ((lhs / rhs) - 1.0).abs()
-      }
-    });
+  //Zeroth order calculation as closure
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
+      let lhs = 3.0 * (h.v00(x, p) / h.v01(x, p)).powi(2) + 1.0; //the +1.0 is the zeroth order correction
+      let rhs = h.v11(x, p) / h.potential(x, p);
+      ((lhs / rhs) - 1.0).abs()
+    }
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+}
+
+fn anguelova_2nd_order(
+  h: Hesse2D,
+  mut x: nd::ArrayViewMut2<f64>,
+  p: &[f64],
+  start_stop: &[[f64; 2]],
+  progress: bool,
+) {
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
+  let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
+
+  //Second order calculation as closure
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
+      let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
+      let lhs = 3.0 * (v00 / v10).powi(2) + v10.powi(2) / (v * v00) + 0.2 * (v10 / v00).powi(2);
+      let rhs = v11 / v - 1.0;
+      ((lhs / rhs) - 1.0).abs()
+    }
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+}
+
+fn anguelova_exact(
+  h: Hesse2D,
+  mut x: nd::ArrayViewMut2<f64>,
+  p: &[f64],
+  start_stop: &[[f64; 2]],
+  progress: bool,
+) {
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let len = x.len();
+  let iter = iter_array(x.as_slice_mut().unwrap(), start_stop, shape);
+
+  //Exact calculation as closure
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = {
+      let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
+      let delta = (v10 / v00).atan();
+      let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2) / (v * v00);
+      let rhs = v11 / v;
+      ((lhs / rhs) - 1.0).abs()
+    }
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
 }
 
 #[pyfunction]
-pub(crate) fn delta_py(
+pub fn delta_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
+  progress: bool
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
   let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
-  let x = x.as_array_mut();
+  let mut x = x.as_array_mut();
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
@@ -225,15 +285,29 @@ pub(crate) fn delta_py(
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
-  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, x.shape());
 
-  //(4) Fill output array
-  nd::Zip::indexed(x)
-    .into_par_iter()
-    //(4a) Convert indices to field-space coordinates
-    .map(|(idx, val)| ([idx.0 as f64 * x_spacing + x_ofst, idx.1 as f64 * y_spacing + y_ofst], val))
-    //(4b) calculate delta at every field-space point
-    .for_each(|(ref x, val)| *val = (h.v01(x, p) / h.v00(x, p)).atan());
+  //(4) Say hello
+  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut f64)| *val = (h.v01(x, p) / h.v00(x, p)).atan();
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}s.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
 
   Ok(())
 }

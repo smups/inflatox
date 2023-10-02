@@ -23,32 +23,24 @@
   html_logo_url = "https://raw.githubusercontent.com/smups/inflatox/dev/logos/logo.png?raw=true"
 )]
 
-#[cfg(feature = "pyo3_extension_module")]
 mod anguelova;
+mod err;
+mod hesse_bindings;
 mod inflatox_version;
-
-pub mod err;
-pub mod hesse_bindings;
-pub mod consistency_conditions {
-  pub use crate::anguelova::anguelova_leading_order;
-}
 
 use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
-use numpy::PyReadonlyArray2;
-#[cfg(feature = "pyo3_extension_module")]
-use numpy::{PyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn};
+use numpy::{PyArray2, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn};
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub(crate) const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([1, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([1, 0, 0]);
 
 //Register errors
 create_exception!(libinflx_rs, ShapeError, PyException);
 
-#[cfg(feature = "pyo3_extension_module")]
 #[pymodule]
 /// PyO3 wrapper for libinflx_rs rust api
 fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
@@ -64,7 +56,7 @@ fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
 
 #[pyclass]
 /// Python wrapper for `InflatoxDyLib`
-struct InflatoxPyDyLib(pub InflatoxDylib);
+pub struct InflatoxPyDyLib(pub InflatoxDylib);
 
 #[pyfunction]
 fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
@@ -72,11 +64,11 @@ fn open_inflx_dylib(lib_path: &str) -> PyResult<InflatoxPyDyLib> {
 }
 
 /// Utility function to easily raise a shape error.
-pub(crate) fn raise_shape_err<T>(err: String) -> PyResult<T> {
+pub fn raise_shape_err<T>(err: String) -> PyResult<T> {
   Err(ShapeError::new_err(err))
 }
 
-pub(crate) fn convert_start_stop(
+pub fn convert_start_stop(
   start_stop: nd::ArrayView2<f64>,
   n_fields: usize,
 ) -> PyResult<Vec<[f64; 2]>> {
@@ -93,7 +85,6 @@ pub(crate) fn convert_start_stop(
   Ok(start_stop)
 }
 
-#[cfg(feature = "pyo3_extension_module")]
 #[pymethods]
 impl InflatoxPyDyLib {
   fn potential(&self, x: PyReadonlyArrayDyn<f64>, p: PyReadonlyArrayDyn<f64>) -> PyResult<f64> {
