@@ -69,6 +69,10 @@ fn validate<'lib, T>(
 }
 
 #[pyfunction]
+/// python-facing function that evaluates Anguelova & Lazaroiu's consistency
+/// condition for a two-field model for the supplied input field-space array x
+/// and the parameter array p. The order of the calculation may be specified using
+/// the order parameter. Console output will be generated if progress=true.
 pub fn anguelova_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
@@ -268,6 +272,10 @@ fn anguelova_exact(
 }
 
 #[pyfunction]
+/// python-facing function used to calculate the characteristic angle delta given
+/// the supplied input field-space array and the parameter array p. The order of
+/// the calculation may be specified using the order parameter. Console output
+/// will be generated if progress=true.
 pub fn delta_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
@@ -314,6 +322,10 @@ pub fn delta_py(
 }
 
 #[pyfunction]
+/// python-facing function that produces a masked array indicating which pixels
+/// may induce a sign-flip of the gradient of V. This function flags those pixels
+/// where the components of the gradient become very small, where very small is
+/// defined by the user-supplied value `accuracy`.
 pub fn flag_quantum_dif(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
