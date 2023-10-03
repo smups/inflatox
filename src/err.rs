@@ -41,7 +41,7 @@ impl std::fmt::Display for LibInflxRsErr {
           write!(f, "Could not find symbol {symbol:?} in {lib_path}")
         }
       },
-      VersionErr(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
+      VersionErr(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
     }
   }
 }
