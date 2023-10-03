@@ -19,7 +19,7 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
-use std::{ffi::OsStr, mem::MaybeUninit};
+use std::{ffi::{OsStr, c_char}, mem::MaybeUninit};
 
 use ndarray as nd;
 
@@ -29,21 +29,25 @@ type ExFn = unsafe extern "C" fn(*const f64, *const f64) -> f64;
 type HdylibFn<'a> = libloading::Symbol<'a, ExFn>;
 type HdylibStaticInt<'a> = libloading::Symbol<'a, *const u32>;
 type HdyLibStaticArr<'a> = libloading::Symbol<'a, *const [u16; 3]>;
+type HdyLibCharArr<'a> = libloading::Symbol<'a, *const c_char>;
 
 const SYM_DIM_SYM: &[u8; 3] = b"DIM";
 const PARAM_DIM_SYM: &[u8; 11] = b"N_PARAMTERS";
 const POTENTIAL_SYM: &[u8; 1] = b"V";
 const INFLATOX_VERSION_SYM: &[u8; 7] = b"VERSION";
+const MODEL_NAME_SYM: &[u8; 10] = b"MODEL_NAME";
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct InflatoxDylib {
   lib: libloading::Library,
+  model_name: String,
   n_fields: u32,
   n_param: u32,
   potential: ExFn,
-  components: nd::Array2<ExFn>,
+  hesse_cmp: nd::Array2<ExFn>,
+  grad_cmp: Vec<ExFn>,
 }
 
 impl InflatoxDylib {
@@ -89,20 +93,31 @@ impl InflatoxDylib {
       })?
     };
 
-    //(4) Get potential and hesse components
+    //(4) Parse model name
+    let mname_raw = unsafe {
+      let mname_ptr = **lib.get::<HdyLibCharArr>(MODEL_NAME_SYM).map_err(|_err| Error::MissingSymbolErr {
+        lib_path: libp_string.clone(),
+        symbol: MODEL_NAME_SYM.to_vec(),
+      })?;
+      std::ffi::CStr::from_ptr(mname_ptr)
+    };
+    let model_name = mname_raw.to_string_lossy().to_string();    
+
+    //(5) Get potential hesse, and gradient components
     let potential = unsafe {
       **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbolErr {
         lib_path: libp_string.clone(),
         symbol: POTENTIAL_SYM.to_vec(),
       })?
     };
-    let components = Self::get_components(&lib, &libp_string, n_fields as usize)?;
+    let hesse_cmp = Self::get_hesse_cmp(&lib, &libp_string, n_fields as usize)?;
+    let grad_cmp = Self::get_grad_cmp(&lib, &libp_string, n_fields as usize)?;
 
     //(R) Return the fully constructed obj
-    Ok(InflatoxDylib { lib, n_fields, n_param, potential, components })
+    Ok(InflatoxDylib { lib, model_name, n_fields, n_param, potential, hesse_cmp, grad_cmp })
   }
 
-  fn get_components(
+  fn get_hesse_cmp(
     lib: &libloading::Library,
     lib_path: &str,
     n_fields: usize,
@@ -126,6 +141,28 @@ impl InflatoxDylib {
     }
 
     Ok(unsafe { array.assume_init() })
+  }
+
+  fn get_grad_cmp(lib: &libloading::Library, lib_path: &str, n_fields: usize) -> Result<Vec<ExFn>> {
+    (0..n_fields)
+      .into_iter()
+      .map(|idx| unsafe {
+        let c = char::from_digit(idx as u32, 10).unwrap() as u32 as u8;
+        lib
+          .get::<HdylibFn>(&[b'g', c])
+          .map_err(|_err| Error::MissingSymbolErr {
+            lib_path: lib_path.to_string(),
+            symbol: vec![b'g', c],
+          })
+          .and_then(|x| Ok(**x))
+      })
+      .collect()
+  }
+
+  #[inline(always)]
+  /// returns the model name
+  pub fn name(&self) -> &str {
+    &self.model_name
   }
 
   #[inline(always)]
@@ -181,7 +218,7 @@ impl InflatoxDylib {
   pub fn hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
     assert!(x.len() == self.n_fields as usize);
     assert!(p.len() == self.n_param as usize);
-    self.components.mapv(|func| unsafe {
+    self.hesse_cmp.mapv(|func| unsafe {
       func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
     })
   }
@@ -218,10 +255,10 @@ pub struct Hesse2D<'a> {
 impl<'a> Hesse2D<'a> {
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     assert!(lib.get_n_fields() == 2);
-    let v00 = *lib.components.get((0, 0)).unwrap();
-    let v01 = *lib.components.get((1, 0)).unwrap();
-    let v10 = *lib.components.get((0, 1)).unwrap();
-    let v11 = *lib.components.get((1, 1)).unwrap();
+    let v00 = *lib.hesse_cmp.get((0, 0)).unwrap();
+    let v01 = *lib.hesse_cmp.get((1, 0)).unwrap();
+    let v10 = *lib.hesse_cmp.get((0, 1)).unwrap();
+    let v11 = *lib.hesse_cmp.get((1, 1)).unwrap();
     Hesse2D { lib, fns: [v00, v01, v10, v11] }
   }
 
@@ -259,12 +296,26 @@ impl<'a> Hesse2D<'a> {
   }
 
   #[inline]
-  pub const fn get_n_fields(&self) -> usize {
-    self.lib.get_n_fields()
+  pub const fn get_n_params(&self) -> usize {
+    self.lib.get_n_params()
+  }
+}
+
+pub struct Grad<'a> {
+  lib: &'a InflatoxDylib,
+  fns: &'a [ExFn],
+}
+
+impl<'a> Grad<'a> {
+  #[inline]
+  pub fn new(lib: &'a InflatoxDylib) -> Self {
+    Grad { lib, fns: &lib.grad_cmp }
   }
 
   #[inline]
-  pub const fn get_n_params(&self) -> usize {
-    self.lib.get_n_params()
+  pub fn cmp(&self, x: &[f64], p: &[f64], idx: usize) -> f64 {
+    assert!(x.len() == self.lib.get_n_fields());
+    assert!(p.len() == self.lib.get_n_params());
+    unsafe { self.fns[idx](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 }

@@ -23,7 +23,7 @@ import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py)
+from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py, flag_quantum_dif_py)
 
 #Limit exports to these items
 __all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
@@ -170,7 +170,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
     - `order (['exact', 'leading', '0th', '2nd'], optional)`: set approximation order
       for AL consistency condition. See [reference] for details. Defaults to 2nd.
-    - `progress` (`bool`): whether to render a progressbar or not. Showing the
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
       progressbar may slightly degrade performance. Defaults to True.
 
     ### Returns
@@ -206,12 +206,11 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     ])
     
     order_int = 10
-    match order:
-      case 'exact': order_int = -2
-      case 'leading': order_int = -1
-      case '0th': order_int = 0
-      case '2nd': order_int = 2
-      case other: raise Exception(f'order parameter was set to \"{other}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
+    if order == 'exact': order_int = -2
+    elif order == 'leading': order_int = -1
+    elif order == '0th': order_int = 0
+    elif order == '2nd': order_int = 2
+    else: raise Exception(f'order parameter was set to \"{order}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
     
     #evaluate and return
     anguelova_py(self.dylib, args, x, start_stop, order_int, progress)
@@ -246,7 +245,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `y_stop` (`float`): maximum value of second field `x[1]`.
     - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
-    - `progress` (`bool`): whether to render a progressbar or not. Showing the
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
       progressbar may slightly degrade performance. Defaults to True.
 
     ### Returns
@@ -262,4 +261,52 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     
     #evaluate and return
     delta_py(self.dylib, args, x, start_stop, progress)
+    return x
+  
+  def flag_quantum_dif(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 10_000,
+      N_x1: int = 10_000,
+      progress = True,
+      accuracy = 1e-3
+    ) -> np.ndarray:
+    """returns boolean array where `True` values indicate that both components
+    of the gradient of the scalar potential are smaller than the specified
+    `accuracy` parameter. This is useful to identify points in the potential where
+    quantum diffusion may have a large impact (saddle points in the potential).
+    This calculation explicitly *does not* take into account the full inner product
+    using the metric to avoid measuring where the metric goes to zero or becomes
+    signular.
+
+    Args:
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x0_start` (`float`): minimum value of first field `x[0]`.
+    - `x0_stop` (`float`): maximum value of first field `x[0]`.
+    - `x1_start` (`float`): minimum value of second field `x[1]`.
+    - `y_stop` (`float`): maximum value of second field `x[1]`.
+    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+    - `accuracy` (`float`, optional): 
+
+    Returns:
+    `np.ndarray`: boolean array. `True` where the absolute value of both components
+      of the gradient are smaller than `accuracy`, `False` otherwise.
+    """
+    
+    #set up args for anguelova's condition
+    x = np.zeros((N_x0, N_x1), dtype=bool)
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #evaluate and return
+    flag_quantum_dif_py(self.dylib, args, x, start_stop, progress, accuracy)
     return x

@@ -36,7 +36,7 @@ use numpy::{PyArray2, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn}
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([1, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([2, 0, 0]);
 
 //Register errors
 create_exception!(libinflx_rs, ShapeError, PyException);
@@ -48,6 +48,7 @@ fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::anguelova_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::delta_py, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::flag_quantum_dif_py, pymod)?)?;
 
   //Register exceptions
   pymod.add("DimensionalityError", py.get_type::<ShapeError>())?;

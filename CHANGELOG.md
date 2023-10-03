@@ -1,5 +1,13 @@
 # Inflatox Changelog
 
+## v0.5.0 - Quantum diffusion
+- breaking ABI change (new symbols)
+- added functionality to calculate if gradient of potential flips sign (goes to
+  zero). This is relevant for those looking for areas where quantum diffusion
+  dominates over the background
+- improved error messages
+- moved examples to different repository
+
 ### v0.4.1
 - simplified build system
 - inflatox now uses pythons ABI3, specifically version 3.7

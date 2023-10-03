@@ -34,8 +34,14 @@ impl std::fmt::Display for LibInflxRsErr {
     #[cfg_attr(rustfmt, rustfmt_skip)]
     match self {
       IoErr { lib_path, msg } => write!(f, "Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{msg}\""),
-      MissingSymbolErr { symbol, lib_path } => write!(f, "Could not find symbol {symbol:#?} in {lib_path}."),
-      VersionErr(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
+      MissingSymbolErr { symbol, lib_path } => {
+        if let Ok(string) = std::str::from_utf8(&symbol) {
+          write!(f, "Could not find symbol \"{string}\" in {lib_path}.")
+        } else {
+          write!(f, "Could not find symbol {symbol:?} in {lib_path}")
+        }
+      },
+      VersionErr(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
     }
   }
 }

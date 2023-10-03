@@ -23,7 +23,7 @@ from .compiler import (
 )
 
 from .symbolic import (
-  HesseMatrix,
+  SymbolicOutput,
   SymbolicCalculation
 )
 
@@ -32,7 +32,7 @@ from . import consistency_conditions
 __all__ = [
   'CompilationArtifact',
   'Compiler',
-  'HesseMatrix',
+  'SymbolicOutput',
   'SymbolicCalculation',
   'consistency_conditions'
 ]

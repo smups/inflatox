@@ -21,7 +21,7 @@
 
 use std::io::Write;
 
-use indicatif::{ParallelProgressIterator, ProgressStyle, ProgressBar, ProgressDrawTarget};
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
@@ -29,21 +29,24 @@ use pyo3::exceptions::PySystemError;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::{Hesse2D, InflatoxDylib};
+use crate::hesse_bindings::{Hesse2D, InflatoxDylib, Grad};
 
-fn validate<'lib>(
+#[inline]
+fn validate<'lib, T>(
   lib: &'lib InflatoxDylib,
-  x: ArrayView2<f64>,
+  x: ArrayView2<T>,
   p: &[f64],
-) -> PyResult<Hesse2D<'lib>> {
+) -> PyResult<(Hesse2D<'lib>, Grad<'lib>)> {
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
     crate::raise_shape_err(format!(
-      "the Anguelova consistency condition requires a 2-field model. Received a {}-field model.",
+      "the Anguelova consistency condition requires a 2-field model. Model \"{}\" has only {} fields.",
+      lib.name(),
       lib.get_n_fields()
     ))?;
   }
   let h = Hesse2D::new(lib);
+  let g = Grad::new(lib);
 
   //(2) Make sure the field-space array is actually 2d
   if x.shape().len() != 2 {
@@ -57,16 +60,21 @@ fn validate<'lib>(
   //specified by the dynamic lib
   if p.len() != h.get_n_params() {
     crate::raise_shape_err(format!(
-      "model expected {} parameters, got {}",
+      "model \"{}\" expected {} parameters. Parameter array has {}.",
+      lib.name(),
       h.get_n_params(),
       p.len()
     ))?;
   }
 
-  Ok(h)
+  Ok((h, g))
 }
 
 #[pyfunction]
+/// python-facing function that evaluates Anguelova & Lazaroiu's consistency
+/// condition for a two-field model for the supplied input field-space array x
+/// and the parameter array p. The order of the calculation may be specified using
+/// the order parameter. Console output will be generated if progress=true.
 pub fn anguelova_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
@@ -82,7 +90,7 @@ pub fn anguelova_py(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let h = validate(lib, x.view(), p)?;
+  let (h, _) = validate(lib, x.view(), p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
@@ -107,7 +115,7 @@ pub fn anguelova_py(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}s.",
+    "[Inflatox] Calculation finished. Took {}.",
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
   Ok(())
@@ -127,11 +135,11 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   (x_spacing, y_spacing, x_start, y_start)
 }
 
-fn iter_array<'a>(
-  x: &'a mut [f64],
+fn iter_array<'a, T: Send>(
+  x: &'a mut [T],
   start_stop: &[[f64; 2]],
   shape: &'a [usize],
-) -> impl IndexedParallelIterator<Item = ([f64; 2], &'a mut f64)> {
+) -> impl IndexedParallelIterator<Item = ([f64; 2], &'a mut T)> {
   //(1) Calculate spacings
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(start_stop, shape);
 
@@ -146,10 +154,9 @@ fn iter_array<'a>(
 
 fn set_pbar(len: usize) -> ProgressBar {
   const PBAR_REFRESH: u8 = 5;
-  const PBAR_STYLE: &str = "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
-  let style = ProgressStyle::default_bar()
-    .template(PBAR_STYLE)
-    .unwrap();
+  const PBAR_STYLE: &str =
+    "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
+  let style = ProgressStyle::default_bar().template(PBAR_STYLE).unwrap();
   let target = ProgressDrawTarget::stderr_with_hz(PBAR_REFRESH);
 
   ProgressBar::with_draw_target(Some(len as u64), target).with_style(style)
@@ -267,12 +274,16 @@ fn anguelova_exact(
 }
 
 #[pyfunction]
+/// python-facing function used to calculate the characteristic angle delta given
+/// the supplied input field-space array and the parameter array p. The order of
+/// the calculation may be specified using the order parameter. Console output
+/// will be generated if progress=true.
 pub fn delta_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
-  progress: bool
+  progress: bool,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -281,7 +292,7 @@ pub fn delta_py(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let h = validate(lib, x.view(), p)?;
+  let (h, _) = validate(lib, x.view(), p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
@@ -305,7 +316,60 @@ pub fn delta_py(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}s.",
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
+/// python-facing function that produces a masked array indicating which pixels
+/// may induce a sign-flip of the gradient of V. This function flags those pixels
+/// where the components of the gradient become very small, where very small is
+/// defined by the user-supplied value `accuracy`.
+pub fn flag_quantum_dif_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<bool>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+  accuracy: f64
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (_, g) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut bool)| {
+    *val = (g.cmp(x, p, 0).abs() <= accuracy) & (g.cmp(x, p, 1).abs() <= accuracy);
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 
