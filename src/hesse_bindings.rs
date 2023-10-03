@@ -19,7 +19,7 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
-use std::{ffi::OsStr, mem::MaybeUninit};
+use std::{ffi::{OsStr, c_char}, mem::MaybeUninit, borrow::Cow};
 
 use ndarray as nd;
 
@@ -29,17 +29,20 @@ type ExFn = unsafe extern "C" fn(*const f64, *const f64) -> f64;
 type HdylibFn<'a> = libloading::Symbol<'a, ExFn>;
 type HdylibStaticInt<'a> = libloading::Symbol<'a, *const u32>;
 type HdyLibStaticArr<'a> = libloading::Symbol<'a, *const [u16; 3]>;
+type HdyLibCharArr<'a> = libloading::Symbol<'a, *const c_char>;
 
 const SYM_DIM_SYM: &[u8; 3] = b"DIM";
 const PARAM_DIM_SYM: &[u8; 11] = b"N_PARAMTERS";
 const POTENTIAL_SYM: &[u8; 1] = b"V";
 const INFLATOX_VERSION_SYM: &[u8; 7] = b"VERSION";
+const MODEL_NAME_SYM: &[u8; 10] = b"MODEL_NAME";
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
-pub struct InflatoxDylib {
+pub struct InflatoxDylib<'a> {
   lib: libloading::Library,
+  model_name: Cow<'a, str>,
   n_fields: u32,
   n_param: u32,
   potential: ExFn,
@@ -47,7 +50,7 @@ pub struct InflatoxDylib {
   grad_cmp: Vec<ExFn>,
 }
 
-impl InflatoxDylib {
+impl<'a> InflatoxDylib<'a> {
   /// Try to open an Inflatox compilation artefact at file location `lib_path`.
   /// Returns an error if compilation artefact is incomplete, invalid, or built
   /// for a different inflatox ABI.
@@ -90,7 +93,17 @@ impl InflatoxDylib {
       })?
     };
 
-    //(4) Get potential hesse, and gradient components
+    //(4) Parse model name
+    let mname_raw = unsafe {
+      let mname_ptr = **lib.get::<HdyLibCharArr>(MODEL_NAME_SYM).map_err(|_err| Error::MissingSymbolErr {
+        lib_path: libp_string.clone(),
+        symbol: MODEL_NAME_SYM.to_vec(),
+      })?;
+      std::ffi::CStr::from_ptr(mname_ptr)
+    };
+    let model_name = mname_raw.to_string_lossy();    
+
+    //(5) Get potential hesse, and gradient components
     let potential = unsafe {
       **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbolErr {
         lib_path: libp_string.clone(),
@@ -101,7 +114,7 @@ impl InflatoxDylib {
     let grad_cmp = Self::get_grad_cmp(&lib, &libp_string, n_fields as usize)?;
 
     //(R) Return the fully constructed obj
-    Ok(InflatoxDylib { lib, n_fields, n_param, potential, hesse_cmp, grad_cmp })
+    Ok(InflatoxDylib { lib, model_name, n_fields, n_param, potential, hesse_cmp, grad_cmp })
   }
 
   fn get_hesse_cmp(
@@ -229,7 +242,7 @@ impl InflatoxDylib {
 }
 
 pub struct Hesse2D<'a> {
-  lib: &'a InflatoxDylib,
+  lib: &'a InflatoxDylib<'a>,
   fns: [ExFn; 4],
 }
 
@@ -283,7 +296,7 @@ impl<'a> Hesse2D<'a> {
 }
 
 pub struct Grad<'a> {
-  lib: &'a InflatoxDylib,
+  lib: &'a InflatoxDylib<'a>,
   fns: &'a [ExFn],
 }
 

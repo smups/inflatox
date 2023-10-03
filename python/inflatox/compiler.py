@@ -252,6 +252,8 @@ const uint16_t VERSION[3] = {{{v[0]},{v[1]},{v[2]}}};
 const uint32_t DIM = {self.symbolic_out.dim};
 //Number of parameters
 const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
+//Model name
+const *char MODEL_NAME = \"{self.model_name}\";
 """)
       
     #(6) Update symbol dictionary
