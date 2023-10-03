@@ -40,7 +40,8 @@ fn validate<'lib, T>(
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
     crate::raise_shape_err(format!(
-      "the Anguelova consistency condition requires a 2-field model. Received a {}-field model.",
+      "the Anguelova consistency condition requires a 2-field model. Model \"{}\" has only {} fields.",
+      lib.name(),
       lib.get_n_fields()
     ))?;
   }
@@ -59,7 +60,8 @@ fn validate<'lib, T>(
   //specified by the dynamic lib
   if p.len() != h.get_n_params() {
     crate::raise_shape_err(format!(
-      "model expected {} parameters, got {}",
+      "model \"{}\" expected {} parameters. Parameter array has {}.",
+      lib.name(),
       h.get_n_params(),
       p.len()
     ))?;

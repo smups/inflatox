@@ -19,7 +19,7 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
-use std::{ffi::{OsStr, c_char}, mem::MaybeUninit, borrow::Cow};
+use std::{ffi::{OsStr, c_char}, mem::MaybeUninit};
 
 use ndarray as nd;
 
@@ -40,9 +40,9 @@ const MODEL_NAME_SYM: &[u8; 10] = b"MODEL_NAME";
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
-pub struct InflatoxDylib<'a> {
+pub struct InflatoxDylib {
   lib: libloading::Library,
-  model_name: Cow<'a, str>,
+  model_name: String,
   n_fields: u32,
   n_param: u32,
   potential: ExFn,
@@ -50,7 +50,7 @@ pub struct InflatoxDylib<'a> {
   grad_cmp: Vec<ExFn>,
 }
 
-impl<'a> InflatoxDylib<'a> {
+impl InflatoxDylib {
   /// Try to open an Inflatox compilation artefact at file location `lib_path`.
   /// Returns an error if compilation artefact is incomplete, invalid, or built
   /// for a different inflatox ABI.
@@ -101,7 +101,7 @@ impl<'a> InflatoxDylib<'a> {
       })?;
       std::ffi::CStr::from_ptr(mname_ptr)
     };
-    let model_name = mname_raw.to_string_lossy();    
+    let model_name = mname_raw.to_string_lossy().to_string();    
 
     //(5) Get potential hesse, and gradient components
     let potential = unsafe {
@@ -157,6 +157,12 @@ impl<'a> InflatoxDylib<'a> {
           .and_then(|x| Ok(**x))
       })
       .collect()
+  }
+
+  #[inline(always)]
+  /// returns the model name
+  pub fn name(&self) -> &str {
+    &self.model_name
   }
 
   #[inline(always)]
@@ -242,7 +248,7 @@ impl<'a> InflatoxDylib<'a> {
 }
 
 pub struct Hesse2D<'a> {
-  lib: &'a InflatoxDylib<'a>,
+  lib: &'a InflatoxDylib,
   fns: [ExFn; 4],
 }
 
@@ -296,7 +302,7 @@ impl<'a> Hesse2D<'a> {
 }
 
 pub struct Grad<'a> {
-  lib: &'a InflatoxDylib<'a>,
+  lib: &'a InflatoxDylib,
   fns: &'a [ExFn],
 }
 
