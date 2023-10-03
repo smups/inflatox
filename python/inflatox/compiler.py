@@ -155,7 +155,7 @@ class Compiler:
     output_path: str|None = None,
     cleanup: bool = True
   ):
-    """Constructor for a C Compiler (provided by the platform), which can be used
+    """Constructor for a C Compiler (provided by zig-cc), which can be used
     to convert the provided `HesseMatrix` object into a platform- and arch-specific
     shared library object.
     
@@ -216,12 +216,12 @@ class Compiler:
         break_long_words=False,
         break_on_hyphens=False
       ).replace('\n', '\n    ')
+      
       out.write(f"""
 double V(const double x[], const double args[]) {{
   return {potential_body};
 }}
-"""
-      )
+""")
       
       #(4) Write all the components of the Hesse matrix
       for a in range(self.symbolic_out.dim):
@@ -231,8 +231,7 @@ double V(const double x[], const double args[]) {{
 double v{a}{b}(const double x[], const double args[]) {{
   return {function_body};
 }}
-"""
-          )
+""")
           
       #(5) Write all the components of the first basis vector (gradient)
       for (idx, cmp) in enumerate(self.symbolic_out.basis[0]):
@@ -253,7 +252,7 @@ const uint32_t DIM = {self.symbolic_out.dim};
 //Number of parameters
 const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
 //Model name
-const *char MODEL_NAME = \"{self.model_name}\";
+char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
 """)
       
     #(6) Update symbol dictionary
