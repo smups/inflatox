@@ -206,12 +206,11 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     ])
     
     order_int = 10
-    match order:
-      case 'exact': order_int = -2
-      case 'leading': order_int = -1
-      case '0th': order_int = 0
-      case '2nd': order_int = 2
-      case other: raise Exception(f'order parameter was set to \"{other}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
+    if order == 'exact': order_int = -2
+    elif order == 'leading': order_int = -1
+    elif order == '0th': order_int = 0
+    elif order == '2nd': order_int = 2
+    else: raise Exception(f'order parameter was set to \"{order}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
     
     #evaluate and return
     anguelova_py(self.dylib, args, x, start_stop, order_int, progress)
