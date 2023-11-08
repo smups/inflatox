@@ -259,8 +259,9 @@ fn anguelova_exact(
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     *val = {
       let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
-      let delta = (v10 / v00).atan();
-      let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2) / (v * v00);
+      let tan2_delta = (v10 / v00).powi(2);
+      let csc2_delta = 1.0 + tan2_delta.recip(); //csc²(x) = 1 + cot²(x)
+      let lhs = 3.0 * csc2_delta + (v00 / v) * tan2_delta;
       let rhs = v11 / v;
       ((lhs / rhs) - 1.0).abs()
     }
