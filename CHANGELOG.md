@@ -1,5 +1,14 @@
 # Inflatox Changelog
 
+### v0.6.0
+- Specified that package is only compatible with python 3.7 - 3.11, because
+  no version of `Numba` dependency (which is a dependency of EinsteinPy) that is
+  compatible with python 3.12 has been released yet. Package still interfaces
+  with rust using the stable python 3.7 ABI. This will not be changed until
+  the 3.7 ABI is deprecated. 
+- Upgraded numpy 0.19 -> 0.20
+- Upgraded PyO3 0.19 -> 0.20
+
 ## v0.5.0 - Quantum diffusion
 - breaking ABI change (new symbols)
 - added functionality to calculate if gradient of potential flips sign (goes to
