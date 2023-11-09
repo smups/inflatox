@@ -22,6 +22,7 @@
 use std::{ffi::{OsStr, c_char}, mem::MaybeUninit};
 
 use ndarray as nd;
+use nd::parallel::prelude::*;
 
 use crate::inflatox_version::InflatoxVersion;
 
@@ -196,14 +197,14 @@ impl InflatoxDylib {
       .zip(x.shape().iter())
       .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
       .unzip::<_, _, Vec<_>, Vec<_>>();
-    let mut field_vec = Vec::with_capacity(x.shape().len());
+    let mut field_space_point = Vec::with_capacity(x.shape().len());
 
     for (idx, val) in x.indexed_iter_mut() {
-      field_vec.clear();
-      field_vec.extend(
+      field_space_point.clear();
+      field_space_point.extend(
         (0..self.n_fields as usize).into_iter().map(|i| idx[i] as f64 * spacings[i] + offsets[i]),
       );
-      *val = unsafe { (&self.potential)(field_vec.as_ptr(), p.as_ptr()) };
+      *val = unsafe { (&self.potential)(field_space_point.as_ptr(), p.as_ptr()) };
     }
   }
 
@@ -221,6 +222,60 @@ impl InflatoxDylib {
     self.hesse_cmp.mapv(|func| unsafe {
       func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
     })
+  }
+
+  /// Calculate the projected hesse matrix at all field-space coordinates `x`
+  /// with model parameters `p`. Returns an array with two more axes than `x`,
+  /// representing the axes of the hesse matrix. The FIRST two axes of the output
+  /// array represent the axes of the hesse array.
+  pub fn hesse_array(&self, x: nd::ArrayViewD<f64>, p: &[f64], start_stop: &[[f64; 2]]) -> nd::ArrayD<f64> {
+    let n_fields = self.n_fields as usize;
+    assert!(x.shape().len() == n_fields);
+    assert!(p.len() == self.n_param as usize);
+
+    //(1) Convert start-stop ranges
+    let (spacings, offsets) = start_stop
+      .iter()
+      .zip(x.shape().iter())
+      .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
+      .unzip::<_, _, Vec<_>, Vec<_>>();
+  
+    //(2) Create output array
+    let output_shape = [vec![n_fields, n_fields], x.shape().to_vec()].concat();
+    let mut output = nd::ArrayD::<f64>::zeros(output_shape);
+
+    //(3) Fill output array
+    let mut field_space_point = Vec::with_capacity(x.shape().len());
+    output
+      .axis_iter_mut(nd::Axis(0))
+      .enumerate()
+      .for_each(|(i, mut view)| {
+        view
+          .axis_iter_mut(nd::Axis(0))
+          .enumerate()
+          .for_each(|(j, mut x)| {
+            //Just to be clear, the first two axes are the axes of the hesse
+            //matrix. All the other axes are the field-space axes (we do not
+            //know how many of these there are). We will thus be calculating the
+            //ijth component of the hesse matrix for ALL field space points x,
+            //and then moving on to ij+1 etc...
+            x
+              .indexed_iter_mut()
+              .for_each(|(idx, val)| {
+                //Convert index into field_space point
+                field_space_point.clear();
+                field_space_point.extend(
+                  (0..self.n_fields as usize).into_iter().map(|k| idx[k] as f64 * spacings[k] + offsets[k]),
+                );
+                //Calculate the ijth matrix element
+                let x_ptr = field_space_point.as_ptr(); 
+                let p_ptr = p.as_ptr();
+                *val = unsafe { (self.hesse_cmp[(i,j)])(x_ptr, p_ptr) };
+              })
+          });
+      });
+    //Return this insane array
+    output
   }
 
   #[inline]
