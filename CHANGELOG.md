@@ -6,6 +6,9 @@
   compatible with python 3.12 has been released yet. Package still interfaces
   with rust using the stable python 3.7 ABI. This will not be changed until
   the 3.7 ABI is deprecated. 
+- Added `hesse_array` method that allows calculating the hesse matrix (for an
+  arbitrary number of field-space dimensions) at all points in a given field-
+  space array.
 - Upgraded numpy 0.19 -> 0.20
 - Upgraded PyO3 0.19 -> 0.20
 
