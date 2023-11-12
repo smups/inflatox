@@ -84,7 +84,7 @@ class InflationCondition():
     """
     n_fields = self.artifact.n_fields
     start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
-    N = N if N is not None else np.array([8000 for _ in range(n_fields)])
+    N = N if N is not None else (8000 for _ in range(n_fields))
     x = np.zeros(N)
     self.dylib.potential_array(x, args, start_stop)
     return x
