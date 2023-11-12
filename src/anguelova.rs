@@ -325,6 +325,59 @@ pub fn delta_py(
 }
 
 #[pyfunction]
+/// boo
+pub fn omega_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  threshold: f64,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    //This calculation is only valid when delta is small
+    let delta = (h.v01(x, p) / h.v00(x, p)).atan();
+    let omega = (3.0 * h.v11(x, p) / h.potential(x, p)).sqrt();
+    *val = if delta.abs() <= threshold.abs() { omega } else { f64::NAN };
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
 /// python-facing function that produces a masked array indicating which pixels
 /// may induce a sign-flip of the gradient of V. This function flags those pixels
 /// where the components of the gradient become very small, where very small is

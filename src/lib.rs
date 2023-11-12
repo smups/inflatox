@@ -48,6 +48,7 @@ fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::anguelova_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::delta_py, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::omega_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::flag_quantum_dif_py, pymod)?)?;
 
   //Register exceptions
