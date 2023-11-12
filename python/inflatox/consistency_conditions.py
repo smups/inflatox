@@ -23,7 +23,7 @@ import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py, flag_quantum_dif_py)
+from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py, omega_py, flag_quantum_dif_py)
 
 #Limit exports to these items
 __all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
@@ -261,6 +261,62 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     
     #evaluate and return
     delta_py(self.dylib, args, x, start_stop, progress)
+    return x
+  
+  def calc_omega(self,
+    args: np.ndarray,
+    x0_start: float,
+    x0_stop: float,
+    x1_start: float,
+    x1_stop: float,
+    N_x0: int = 10_000,
+    N_x1: int = 10_000,
+    threshold: float = 1e-2,
+    progress = True
+  ) -> np.ndarray:
+    """Evaluates the turn rate ω for the field-space region specified by the
+    start/stop arguments given the model parameters. ω cannot be calculated for
+    any field-space point, only for those where |δ|<<1. At points where 
+    |δ| is not smaller than the `threshold` parameter, a `NaN` value will be
+    returned.
+    
+    ### Precise mathematical formulation
+    ω is calculated by assuming that the gradient and potential bases are
+    counter-aligned, which is approximately the case for |δ|<<1. With this
+    assumption, ω can be written as:
+    
+      Vww / V = ω²/3
+      
+    In this range, we can thus calculate ω from the potential and field-space
+    metric alone. See [publication] for more details and examples.
+
+    ### Args
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x0_start` (`float`): minimum value of first field `x[0]`.
+    - `x0_stop` (`float`): maximum value of first field `x[0]`.
+    - `x1_start` (`float`): minimum value of second field `x[1]`.
+    - `y_stop` (`float`): maximum value of second field `x[1]`.
+    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `threshold` (`float`, optional): threshold above which the calculated value
+      for ω should be discarded. Note that increasing this number will _not_
+      extend the validity range of approximation underlying the calculation.
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+
+    ### Returns
+    `np.ndarray`: array with calculated ω's
+    """
+    #set up args for anguelova's condition
+    x = np.zeros((N_x0, N_x1))
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #evaluate and return
+    omega_py(self.dylib, args, x, start_stop, threshold, progress)
     return x
   
   def flag_quantum_dif(self,
