@@ -224,28 +224,36 @@ impl InflatoxDylib {
     })
   }
 
-  /// Calculate the projected hesse matrix at all field-space coordinates `x`
-  /// with model parameters `p`. Returns an array with two more axes than `x`,
+  /// Calculate the projected hesse matrix at a number of field-space coordinates.
+  /// The `x_shape` parameter determines the number of samples along each axis.
+  /// The `start_stop` arrays indicate the values of the first and last samples
+  /// along each axis. The model parameters must be supplied via the slice `p`.
+  /// Returns an array with two more axes than `x_shape` has entries,
   /// representing the axes of the hesse matrix. The FIRST two axes of the output
   /// array represent the axes of the hesse array.
-  pub fn hesse_array(&self, x: nd::ArrayViewD<f64>, p: &[f64], start_stop: &[[f64; 2]]) -> nd::ArrayD<f64> {
+  /// 
+  /// # Panics
+  /// This function panics if `x.len()` does not equal the number of fields of
+  /// the loaded model. Similarly, if `p.len()` does not equal the number of
+  /// model parameters, this function will panic.
+  pub fn hesse_array(&self, x_shape: &[usize], p: &[f64], start_stop: &[[f64; 2]]) -> nd::ArrayD<f64> {
     let n_fields = self.n_fields as usize;
-    assert!(x.shape().len() == n_fields);
+    assert!(x_shape.len() == n_fields);
     assert!(p.len() == self.n_param as usize);
 
     //(1) Convert start-stop ranges
     let (spacings, offsets) = start_stop
       .iter()
-      .zip(x.shape().iter())
+      .zip(x_shape.iter())
       .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
       .unzip::<_, _, Vec<_>, Vec<_>>();
   
     //(2) Create output array
-    let output_shape = [vec![n_fields, n_fields], x.shape().to_vec()].concat();
+    let output_shape = [vec![n_fields, n_fields], x_shape.to_vec()].concat();
     let mut output = nd::ArrayD::<f64>::zeros(output_shape);
 
     //(3) Fill output array
-    let mut field_space_point = Vec::with_capacity(x.shape().len());
+    let mut field_space_point = Vec::with_capacity(x_shape.len());
     output
       .axis_iter_mut(nd::Axis(0))
       .enumerate()
