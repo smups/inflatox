@@ -32,7 +32,7 @@ use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
-use numpy::{PyArray2, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn, PyArrayDyn, IntoPyArray};
+use numpy::{PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn, PyArrayDyn, IntoPyArray};
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 /// Version of Inflatox ABI that this crate is compatible with
@@ -192,22 +192,23 @@ impl InflatoxPyDyLib {
   fn hesse_array<'py>(
     &self,
     py: Python<'py>,
-    x: PyReadonlyArrayDyn<f64>,
+    nx: PyReadonlyArray1<usize>,
     p: PyReadonlyArrayDyn<f64>,
     start_stop: PyReadonlyArray2<f64>,
   ) -> PyResult<&'py PyArrayDyn<f64>> {
     //(0) Convert the PyArrays to nd::Arrays
     let p = p.as_array();
-    let x = x.as_array();
+    let nx = nx.as_array();
+    let nx = nx.as_slice().unwrap();
     let start_stop = start_stop.as_array();
 
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape().len() != self.0.get_n_fields() as usize {
+    if nx.len() != self.0.get_n_fields() as usize {
       raise_shape_err(format!(
-        "expected an array with {} axes as field-space coordinates. Found array with shape {:?}",
+        "expected a 1D-array with {} entries specifying the number of samples along each field-space axis. Found array with {:?} entries.",
         self.0.get_n_fields(),
-        x.shape()
+        nx.len()
       ))?;
     }
 
@@ -226,7 +227,7 @@ impl InflatoxPyDyLib {
     let p = p.as_slice().unwrap();
 
     //(4) Evaluate the hesse matrix
-    let out = self.0.hesse_array(x, p, &start_stop);
+    let out = self.0.hesse_array(nx, p, &start_stop);
     Ok(out.into_pyarray(py))
   }
 }
