@@ -104,6 +104,40 @@ class InflationCondition():
       parameters `args` at coordinates `x`.
     """
     return self.dylib.hesse(x, args)
+  
+  def calc_H_array(self,
+    args: list[float] | np.ndarray,
+    start: list[float] | np.ndarray,
+    stop: list[float] | np.ndarray,
+    N: list[int] | None = None
+  ) -> np.ndarray:
+    """constructs an array of field space coordinates and fills it with the
+    value of the projected Hesse matrix at those field space coordinates.
+    The start and stop values of each axis in field-space can be specified with
+    the `start` and `stop` arguments. The number of samples along each axis can
+    be set with the `N` argument. It defaults to `8000` per axis.
+
+    ### Args
+    - `args` (`list[float] | np.ndarray`): values of the model-dependent
+    parameters. See `CompilationArtifact.print_sym_lookup_table()` for an
+    overview of which sympy symbols were mapped to which args index.
+    - `start` (`list[float] | np.ndarray`): list of minimum values for
+    each axis of the to-be-constructed array in field space.
+    - `stop` (`list[float] | np.ndarray`): list of maximum values for each
+    axis of the to-be-constructed array in field space.
+    - `N` (`list[int] | None`, optional): _description_. list of the number of
+    samples along each axis in field space. If set to `None`, 8000 samples will
+    be used along each axis.
+
+    ### Returns
+    `np.ndarray`: (d+2)-dimensional array for a d-dimensional field-space. The
+      first two axes of this array represent the axes of the Hesse matrix itself.
+      The other axes correspond to the field-space components. 
+    """
+    n_fields = self.artifact.n_fields
+    start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
+    N = N if N is not None else (8000 for _ in range(n_fields))
+    return self.dylib.hesse_array(N, args, start_stop)
 
 class AnguelovaLazaroiuCondition(InflationCondition):
   """This class extends the generic `InflationCondition` with the potential
