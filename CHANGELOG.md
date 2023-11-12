@@ -9,6 +9,10 @@
 - Added `hesse_array` method that allows calculating the hesse matrix (for an
   arbitrary number of field-space dimensions) at all points in a given field-
   space array.
+- added functionality to calculate the turn rate $\omega$ in situations where
+  such a calculation is valid ($\delta\ll1$).
+- added functionality to calculate the hesse matrix for a whole range of field
+  space values at once.
 - Upgraded numpy 0.19 -> 0.20
 - Upgraded PyO3 0.19 -> 0.20
 
