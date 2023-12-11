@@ -331,7 +331,6 @@ pub fn omega_py(
   p: PyReadonlyArray1<f64>,
   mut x: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
-  threshold: f64,
   progress: bool,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
@@ -356,10 +355,12 @@ pub fn omega_py(
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
-    //This calculation is only valid when delta is small
-    let delta = (h.v01(x, p) / h.v00(x, p)).atan();
-    let omega = (3.0 * h.v11(x, p) / h.potential(x, p)).sqrt();
-    *val = if delta.abs() <= threshold.abs() { omega } else { f64::NAN };
+    let (v, v00, v01, v11) = (h.potential(x, p), h.v00(x, p), h.v01(x, p), h.v11(x, p));
+    let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
+    let vtt = cos2d * v11 + sin2d * v00 - 2.0 * sincosd * v01;
+    *val = (3.0 * vtt / v).abs().sqrt();
   };
 
   if progress {
