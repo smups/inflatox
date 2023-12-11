@@ -22,7 +22,6 @@
 use std::{ffi::{OsStr, c_char}, mem::MaybeUninit};
 
 use ndarray as nd;
-use nd::parallel::prelude::*;
 
 use crate::inflatox_version::InflatoxVersion;
 
