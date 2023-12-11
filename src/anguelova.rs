@@ -325,7 +325,10 @@ pub fn delta_py(
 }
 
 #[pyfunction]
-/// boo
+/// python-facing function used to calculate the relative turn rate omega given
+/// the supplied input field-space array and the parameter array p. The order of
+/// the calculation may be specified using the order parameter. Console output
+/// will be generated if progress=true.
 pub fn omega_py(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
