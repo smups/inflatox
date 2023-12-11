@@ -96,7 +96,7 @@ pub fn anguelova_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  eprintln!("[Inflatox] Calculating consistency condition using {} threads.", rayon::current_num_threads());
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -299,7 +299,7 @@ pub fn delta_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  eprintln!("[Inflatox] Calculating alignment angle δ using {} threads.", rayon::current_num_threads());
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -349,7 +349,7 @@ pub fn omega_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  eprintln!("[Inflatox] Calculating turn rate ω using {} threads.", rayon::current_num_threads());
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -407,7 +407,7 @@ pub fn flag_quantum_dif_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  eprintln!("[Inflatox] Calculating zeros of the potential gradient using {} threads.", rayon::current_num_threads());
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
