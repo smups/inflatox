@@ -382,6 +382,62 @@ pub fn omega_py(
 }
 
 #[pyfunction]
+/// python-facing function used to calculate the first slow-roll parameter
+/// epsilon given the supplied input field-space array and the parameter array p.
+/// Console output will be generated if progress=true.
+pub fn epsilon_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, grad) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating first potential slow-roll paramter ε using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    let (v, v00, v01) = (h.potential(x, p), h.v00(x, p), h.v01(x, p));
+    let (grad0, grad1) = (grad.cmp(x, p, 0), grad.cmp(x, p, 1));
+    let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
+    *val = (0.5 * v.powi(-2)) * (cos2d * grad0.powi(2) + sin2d * grad1.powi(2) + 2.0 * sincosd * grad0 * grad1);
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
 /// python-facing function that produces a masked array indicating which pixels
 /// may induce a sign-flip of the gradient of V. This function flags those pixels
 /// where the components of the gradient become very small, where very small is
