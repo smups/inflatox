@@ -396,6 +396,31 @@ class SymbolicCalculation():
         cmp = da_dbV - gamma_ab
         Vab[a][b] = self.simplify(cmp) if self.simp >= 2 else cmp
     return Vab
+  
+  def calc_gradient_size(self) -> sympy.Expr:
+    """Calculates the size of the gradient of the potential given the metric g_ab.
+    
+    ### Precise formulation of calculated quantities
+      output(ϕ) = sqrt[g^ab(ϕ) ∂_a V(ϕ) ∂_b V(ϕ)]
+    
+    ### Simplification
+    If the simplification depth is set to 2 or higher, this function will
+    simplify its output before returning.
+
+    Returns:
+        sympy.Expr: _description_
+    """
+    dim = len(self.coords)
+    #non-normalised components of grad V
+    v = [sympy.diff(self.V, φ) for φ in self.coords]
+    out = 1 
+    
+    #contract v with the inverse of the metric tensor
+    for a in range(dim):
+      for b in range(dim):
+        out +=  self.g.inv().arr[a][b] * v[a] * v[b]
+    out = sympy.sqrt(out)
+    return self.simplify(out) if self.simp >= 2 else out
 
   def calc_v(self) -> list[sympy.Expr]:
     """calculates a normalized vector pointing in the direction of the gradient of
