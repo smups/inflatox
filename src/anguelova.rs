@@ -70,57 +70,6 @@ fn validate<'lib, T>(
   Ok((h, g))
 }
 
-#[pyfunction]
-/// python-facing function that evaluates Anguelova & Lazaroiu's consistency
-/// condition for a two-field model for the supplied input field-space array x
-/// and the parameter array p. The order of the calculation may be specified using
-/// the order parameter. Console output will be generated if progress=true.
-pub fn anguelova_py(
-  lib: PyRef<crate::InflatoxPyDyLib>,
-  p: PyReadonlyArray1<f64>,
-  mut x: PyReadwriteArray2<f64>,
-  start_stop: PyReadonlyArray2<f64>,
-  order: isize,
-  progress: bool,
-) -> PyResult<()> {
-  //(1) Convert the PyArrays to nd::Arrays
-  let lib = &lib.0;
-  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
-  let x = x.as_array_mut();
-  let start_stop = start_stop.as_array();
-
-  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, _) = validate(lib, x.view(), p)?;
-
-  //(3) Convert start-stop
-  let start_stop = crate::convert_start_stop(start_stop, 2)?;
-
-  //(4) Say hello
-  eprintln!("[Inflatox] Calculating consistency condition using {} threads.", rayon::current_num_threads());
-  let _ = std::io::stderr().flush();
-  let start = std::time::Instant::now();
-
-  //(5) evaluate anguelova's condition up to the specified order
-  match order {
-    o if o < -1 => anguelova_exact(h, x, p, &start_stop, progress),
-    -1 => anguelova_leading_order(h, x, p, &start_stop, progress),
-    0 => anguelova_0th_order(h, x, p, &start_stop, progress),
-    2 => anguelova_2nd_order(h, x, p, &start_stop, progress),
-    o => {
-      return Err(PySystemError::new_err(format!(
-        "expected order to be -1, 0, 2 or smaller than -1. Found {o}"
-      )))
-    }
-  }
-
-  //(6) Report how long we took, and return.
-  eprintln!(
-    "[Inflatox] Calculation finished. Took {}.",
-    indicatif::HumanDuration(start.elapsed()).to_string()
-  );
-  Ok(())
-}
-
 /// Converts start-stop ranges into offset-spacing ranges. Order of return arguments
 /// is x_spacing, y_spacing, x_ofst, y_ofst
 fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f64) {
@@ -272,6 +221,57 @@ fn anguelova_exact(
   } else {
     iter.for_each(op);
   }
+}
+
+#[pyfunction]
+/// python-facing function that evaluates Anguelova & Lazaroiu's consistency
+/// condition for a two-field model for the supplied input field-space array x
+/// and the parameter array p. The order of the calculation may be specified using
+/// the order parameter. Console output will be generated if progress=true.
+pub fn anguelova_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  order: isize,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating consistency condition using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) evaluate anguelova's condition up to the specified order
+  match order {
+    o if o < -1 => anguelova_exact(h, x, p, &start_stop, progress),
+    -1 => anguelova_leading_order(h, x, p, &start_stop, progress),
+    0 => anguelova_0th_order(h, x, p, &start_stop, progress),
+    2 => anguelova_2nd_order(h, x, p, &start_stop, progress),
+    o => {
+      return Err(PySystemError::new_err(format!(
+        "expected order to be -1, 0, 2 or smaller than -1. Found {o}"
+      )))
+    }
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+  Ok(())
 }
 
 #[pyfunction]
