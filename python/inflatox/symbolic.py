@@ -408,14 +408,15 @@ class SymbolicCalculation():
     """Calculates the size of the gradient of the potential given the metric g_ab.
     
     ### Precise formulation of calculated quantities
-      output(ϕ) = sqrt[g^ab(ϕ) ∂_a V(ϕ) ∂_b V(ϕ)]
+      output(ϕ) = g^ab(ϕ) ∂_a V(ϕ) ∂_b V(ϕ)
+    Note that the output is actual the size of the gradient *squared*.
     
     ### Simplification
     If the simplification depth is set to 2 or higher, this function will
     simplify its output before returning.
 
     Returns:
-        sympy.Expr: _description_
+      sympy.Expr: size of the gradient squared (V_a V^a)
     """
     dim = len(self.coords)
     #non-normalised components of grad V
@@ -426,7 +427,6 @@ class SymbolicCalculation():
     for a in range(dim):
       for b in range(dim):
         out +=  self.g.inv().arr[a][b] * v[a] * v[b]
-    out = sympy.sqrt(out)
     return self.simplify(out) if self.simp >= 2 else out
 
   def calc_v(self) -> list[sympy.Expr]:
