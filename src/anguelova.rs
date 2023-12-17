@@ -419,7 +419,7 @@ pub fn epsilon_py(
     let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
     let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
     let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
-    *val = (0.5 * v.powi(-2)) * (cos2d * grad0.powi(2) + sin2d * grad1.powi(2) + 2.0 * sincosd * grad0 * grad1);
+    *val = 0.5 * (cos2d * (grad0/v).powi(2) + sin2d * (grad1/v).powi(2) + 2.0 * sincosd * grad0 * grad1 * v.powi(-2));
   };
 
   if progress {
