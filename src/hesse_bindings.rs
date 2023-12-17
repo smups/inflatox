@@ -34,6 +34,7 @@ type HdyLibCharArr<'a> = libloading::Symbol<'a, *const c_char>;
 const SYM_DIM_SYM: &[u8; 3] = b"DIM";
 const PARAM_DIM_SYM: &[u8; 11] = b"N_PARAMTERS";
 const POTENTIAL_SYM: &[u8; 1] = b"V";
+const GRADIENT_SQUARE_SYM: &[u8; 17] = b"grad_norm_squared";
 const INFLATOX_VERSION_SYM: &[u8; 7] = b"VERSION";
 const MODEL_NAME_SYM: &[u8; 10] = b"MODEL_NAME";
 
@@ -48,6 +49,7 @@ pub struct InflatoxDylib {
   potential: ExFn,
   hesse_cmp: nd::Array2<ExFn>,
   grad_cmp: Vec<ExFn>,
+  grad_square: ExFn,
 }
 
 impl InflatoxDylib {
@@ -113,8 +115,16 @@ impl InflatoxDylib {
     let hesse_cmp = Self::get_hesse_cmp(&lib, &libp_string, n_fields as usize)?;
     let grad_cmp = Self::get_grad_cmp(&lib, &libp_string, n_fields as usize)?;
 
+    //(6) Get the size of the gradient squared (special quantity)
+    let grad_square = unsafe {
+      **lib.get::<HdylibFn>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbolErr {
+        lib_path: libp_string.clone(),
+        symbol: GRADIENT_SQUARE_SYM.to_vec(),
+      })?
+    };
+
     //(R) Return the fully constructed obj
-    Ok(InflatoxDylib { lib, model_name, n_fields, n_param, potential, hesse_cmp, grad_cmp })
+    Ok(InflatoxDylib { lib, model_name, n_fields, n_param, potential, hesse_cmp, grad_cmp, grad_square})
   }
 
   fn get_hesse_cmp(
