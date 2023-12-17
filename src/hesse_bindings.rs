@@ -390,4 +390,11 @@ impl<'a> Grad<'a> {
     assert!(p.len() == self.lib.get_n_params());
     unsafe { self.fns[idx](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
+
+  #[inline]
+  pub fn grad_square(&self, x: &[f64], p: &[f64]) -> f64 {
+    assert!(x.len() == self.lib.get_n_fields());
+    assert!(p.len() == self.lib.get_n_params());
+    unsafe { (self.lib.grad_square)(x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+  }
 }
