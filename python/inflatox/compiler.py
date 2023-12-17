@@ -242,7 +242,7 @@ double g{idx}(const double x[], const double args[]) {{
       #(6) Write the size of the gradient
       gradnorm_body = ccode_writer.doprint(self.symbolic_out.gradient_size).replace(')*', ') *\n    ')
       out.write(f"""
-double grad_norm(const double x[], const double args[]) {{
+double grad_norm_squared(const double x[], const double args[]) {{
   return {gradnorm_body};
 }}          
 """)
