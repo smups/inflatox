@@ -414,12 +414,19 @@ pub fn epsilon_py(
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
-    let (v, v00, v01) = (h.potential(x, p), h.v00(x, p), h.v01(x, p));
-    let (grad0, grad1) = (grad.cmp(x, p, 0), grad.cmp(x, p, 1));
+    //Calculate omega
+    let (v, v00, v01, v11) = (h.potential(x, p), h.v00(x, p), h.v01(x, p), h.v11(x, p));
     let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
     let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
     let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
-    *val = 0.5 * (cos2d * (grad0/v).powi(2) + sin2d * (grad1/v).powi(2) + 2.0 * sincosd * grad0 * grad1 * v.powi(-2));
+    let vtt = cos2d * v11 + sin2d * v00 - 2.0 * sincosd * v01;
+    let omega2_by3 = (3.0 * vtt / v).abs();
+
+    //Calculate epsilon_V
+    let epsilon_v = grad.grad_square(x, p) / (2.0 * v.powi(2));
+
+    //Calculate epsilon
+    *val = epsilon_v / (1. + omega2_by3 / 3.0);
   };
 
   if progress {
