@@ -222,7 +222,6 @@ double V(const double x[], const double args[]) {{
   return {potential_body};
 }}
 """)
-      
       #(4) Write all the components of the Hesse matrix
       for a in range(self.symbolic_out.dim):
         for b in range(self.symbolic_out.dim):
@@ -232,7 +231,6 @@ double v{a}{b}(const double x[], const double args[]) {{
   return {function_body};
 }}
 """)
-          
       #(5) Write all the components of the first basis vector (gradient)
       for (idx, cmp) in enumerate(self.symbolic_out.basis[0]):
         function_body = ccode_writer.doprint(cmp).replace(')*', ') *\n    ')
@@ -241,8 +239,15 @@ double g{idx}(const double x[], const double args[]) {{
   return {function_body};
 }}
 """)
+      #(6) Write the size of the gradient
+      gradnorm_body = ccode_writer.doprint(self.symbolic_out.gradient_size).replace(')*', ') *\n    ')
+      out.write(f"""
+double grad_norm(const double x[], const double args[]) {{
+  return {gradnorm_body};
+}}          
+""")
           
-      #(6) Write global constants
+      #(7) Write global constants
       v = __abi_version__.split('.')
       out.write(f"""
 //Inflatox version used to generate this file
@@ -255,7 +260,7 @@ const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
 char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
 """)
       
-    #(6) Update symbol dictionary
+    #(8) Update symbol dictionary
     self.symbol_dict = ccode_writer.coord_dict
     self.symbol_dict.update(ccode_writer.param_dict)
   

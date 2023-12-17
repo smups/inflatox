@@ -18,4 +18,4 @@
 #  licensee subject to Dutch law as per article 15 of the EUPL.
 
 __version__ = '0.6.0'
-__abi_version__ = '2.0.0'
+__abi_version__ = '3.0.0'
