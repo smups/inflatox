@@ -45,7 +45,7 @@ class SymbolicOutput():
     self.coordinates = coordinates
     self.potential = potential
     self.model_name = model_name
-    self.gradient_size = gradient_size
+    self.gradient_square = gradient_size
     if len(hesse_cmp[0]) != len(hesse_cmp):
       raise Exception('The Hesse matrix is square; the provided list was not (number of columns != number of rows)')
     if len(hesse_cmp[0]) != len(basis[0]):
@@ -314,7 +314,7 @@ class SymbolicCalculation():
         
     #(4) Calculate the size of the gradient
     print("Calculating the norm of the gradient...")
-    gradnorm = self.calc_gradient_size()
+    gradnorm = self.calc_gradient_square()
         
     return SymbolicOutput(H_proj, w, self.coords, self.V, gradnorm, self.model_name)
    
@@ -404,7 +404,7 @@ class SymbolicCalculation():
         Vab[a][b] = self.simplify(cmp) if self.simp >= 2 else cmp
     return Vab
   
-  def calc_gradient_size(self) -> sympy.Expr:
+  def calc_gradient_square(self) -> sympy.Expr:
     """Calculates the size of the gradient of the potential given the metric g_ab.
     
     ### Precise formulation of calculated quantities
@@ -420,13 +420,13 @@ class SymbolicCalculation():
     """
     dim = len(self.coords)
     #non-normalised components of grad V
-    v = [sympy.diff(self.V, φ) for φ in self.coords]
-    out = 1 
+    gradient = [sympy.diff(self.V, φ) for φ in self.coords]
+    out = 0.
     
     #contract v with the inverse of the metric tensor
     for a in range(dim):
       for b in range(dim):
-        out +=  self.g.inv().arr[a][b] * v[a] * v[b]
+        out = out + self.g.inv().arr[a][b] * gradient[a] * gradient[b]
     return self.simplify(out) if self.simp >= 2 else out
 
   def calc_v(self) -> list[sympy.Expr]:
