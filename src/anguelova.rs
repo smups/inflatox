@@ -419,14 +419,14 @@ pub fn epsilon_py(
     let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
     let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
     let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
-    let vtt = cos2d * v11 + sin2d * v00 - 2.0 * sincosd * v01;
-    let omega2_by3 = (3.0 * vtt / v).abs();
+    let vtt_byv = cos2d * (v11/v) + sin2d * (v00/v) - 2.0 * sincosd * (v01/v);
+    let omega2_by9 = (vtt_byv / 3.0).abs();
 
     //Calculate epsilon_V
     let epsilon_v = grad.grad_square(x, p) / (2.0 * v.powi(2));
 
     //Calculate epsilon
-    *val = epsilon_v / (1. + omega2_by3 / 3.0);
+    *val = epsilon_v / (1. + omega2_by9);
   };
 
   if progress {
