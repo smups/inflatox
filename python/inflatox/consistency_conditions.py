@@ -23,7 +23,7 @@ import numpy as np
 
 #Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import (open_inflx_dylib, anguelova_py, delta_py, flag_quantum_dif_py)
+from .libinflx_rs import *
 
 #Limit exports to these items
 __all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
@@ -84,7 +84,7 @@ class InflationCondition():
     """
     n_fields = self.artifact.n_fields
     start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
-    N = N if N is not None else np.array([8000 for _ in range(n_fields)])
+    N = N if N is not None else (8000 for _ in range(n_fields))
     x = np.zeros(N)
     self.dylib.potential_array(x, args, start_stop)
     return x
@@ -104,6 +104,40 @@ class InflationCondition():
       parameters `args` at coordinates `x`.
     """
     return self.dylib.hesse(x, args)
+  
+  def calc_H_array(self,
+    args: list[float] | np.ndarray,
+    start: list[float] | np.ndarray,
+    stop: list[float] | np.ndarray,
+    N: list[int] | None = None
+  ) -> np.ndarray:
+    """constructs an array of field space coordinates and fills it with the
+    value of the projected Hesse matrix at those field space coordinates.
+    The start and stop values of each axis in field-space can be specified with
+    the `start` and `stop` arguments. The number of samples along each axis can
+    be set with the `N` argument. It defaults to `8000` per axis.
+
+    ### Args
+    - `args` (`list[float] | np.ndarray`): values of the model-dependent
+    parameters. See `CompilationArtifact.print_sym_lookup_table()` for an
+    overview of which sympy symbols were mapped to which args index.
+    - `start` (`list[float] | np.ndarray`): list of minimum values for
+    each axis of the to-be-constructed array in field space.
+    - `stop` (`list[float] | np.ndarray`): list of maximum values for each
+    axis of the to-be-constructed array in field space.
+    - `N` (`list[int] | None`, optional): _description_. list of the number of
+    samples along each axis in field space. If set to `None`, 8000 samples will
+    be used along each axis.
+
+    ### Returns
+    `np.ndarray`: (d+2)-dimensional array for a d-dimensional field-space. The
+      first two axes of this array represent the axes of the Hesse matrix itself.
+      The other axes correspond to the field-space components. 
+    """
+    n_fields = self.artifact.n_fields
+    start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
+    N = N if N is not None else (8000 for _ in range(n_fields))
+    return self.dylib.hesse_array(N, args, start_stop)
 
 class AnguelovaLazaroiuCondition(InflationCondition):
   """This class extends the generic `InflationCondition` with the potential
@@ -261,6 +295,108 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     
     #evaluate and return
     delta_py(self.dylib, args, x, start_stop, progress)
+    return x
+  
+  def calc_omega(self,
+    args: np.ndarray,
+    x0_start: float,
+    x0_stop: float,
+    x1_start: float,
+    x1_stop: float,
+    N_x0: int = 10_000,
+    N_x1: int = 10_000,
+    progress = True
+  ) -> np.ndarray:
+    """Evaluates the turn rate ω for the field-space region specified by the
+    start/stop arguments given the model parameters, assuming that all slow-roll
+    parameters are small.
+    
+    ### Precise mathematical formulation
+    When the slow-roll parameters are zero, ω can be written as:
+    
+      Vtt / V = ω²/3
+      
+    In this range, we can thus calculate ω from the potential and field-space
+    metric alone. See [publication] for more details and examples. Vtt is written
+    in terms of Vvv, Vvw and Vww using the angle δ:
+  
+    Vtt = cos²δ Vww + sin²δ -2sinδ cosδ Vvw
+
+    ### Args
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x0_start` (`float`): minimum value of first field `x[0]`.
+    - `x0_stop` (`float`): maximum value of first field `x[0]`.
+    - `x1_start` (`float`): minimum value of second field `x[1]`.
+    - `y_stop` (`float`): maximum value of second field `x[1]`.
+    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+
+    ### Returns
+    `np.ndarray`: array with calculated ω's
+    """
+    #set up args for anguelova's condition
+    x = np.zeros((N_x0, N_x1))
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #evaluate and return
+    omega_py(self.dylib, args, x, start_stop, progress)
+    return x
+  
+  def calc_epsilon(self,
+    args: np.ndarray,
+    x0_start: float,
+    x0_stop: float,
+    x1_start: float,
+    x1_stop: float,
+    N_x0: int = 10_000,
+    N_x1: int = 10_000,
+    progress = True
+  ) -> np.ndarray:
+    """Evaluates the turn rate ω for the field-space region specified by the
+    start/stop arguments given the model parameters, assuming that all slow-roll
+    parameters are small.
+    
+    ### Precise mathematical formulation
+    When the slow-roll parameters are zero, ω can be written as:
+    
+      Vtt / V = ω²/3
+      
+    In this range, we can thus calculate ω from the potential and field-space
+    metric alone. See [publication] for more details and examples. Vtt is written
+    in terms of Vvv, Vvw and Vww using the angle δ:
+  
+    Vtt = cos²δ Vww + sin²δ -2sinδ cosδ Vvw
+
+    ### Args
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x0_start` (`float`): minimum value of first field `x[0]`.
+    - `x0_stop` (`float`): maximum value of first field `x[0]`.
+    - `x1_start` (`float`): minimum value of second field `x[1]`.
+    - `y_stop` (`float`): maximum value of second field `x[1]`.
+    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+
+    ### Returns
+    `np.ndarray`: array with calculated ω's
+    """
+    #set up args for anguelova's condition
+    x = np.zeros((N_x0, N_x1))
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #evaluate and return
+    epsilon_py(self.dylib, args, x, start_stop, progress)
     return x
   
   def flag_quantum_dif(self,

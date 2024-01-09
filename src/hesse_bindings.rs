@@ -34,6 +34,7 @@ type HdyLibCharArr<'a> = libloading::Symbol<'a, *const c_char>;
 const SYM_DIM_SYM: &[u8; 3] = b"DIM";
 const PARAM_DIM_SYM: &[u8; 11] = b"N_PARAMTERS";
 const POTENTIAL_SYM: &[u8; 1] = b"V";
+const GRADIENT_SQUARE_SYM: &[u8; 17] = b"grad_norm_squared";
 const INFLATOX_VERSION_SYM: &[u8; 7] = b"VERSION";
 const MODEL_NAME_SYM: &[u8; 10] = b"MODEL_NAME";
 
@@ -48,6 +49,7 @@ pub struct InflatoxDylib {
   potential: ExFn,
   hesse_cmp: nd::Array2<ExFn>,
   grad_cmp: Vec<ExFn>,
+  grad_square: ExFn,
 }
 
 impl InflatoxDylib {
@@ -113,8 +115,16 @@ impl InflatoxDylib {
     let hesse_cmp = Self::get_hesse_cmp(&lib, &libp_string, n_fields as usize)?;
     let grad_cmp = Self::get_grad_cmp(&lib, &libp_string, n_fields as usize)?;
 
+    //(6) Get the size of the gradient squared (special quantity)
+    let grad_square = unsafe {
+      **lib.get::<HdylibFn>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbolErr {
+        lib_path: libp_string.clone(),
+        symbol: GRADIENT_SQUARE_SYM.to_vec(),
+      })?
+    };
+
     //(R) Return the fully constructed obj
-    Ok(InflatoxDylib { lib, model_name, n_fields, n_param, potential, hesse_cmp, grad_cmp })
+    Ok(InflatoxDylib { lib, model_name, n_fields, n_param, potential, hesse_cmp, grad_cmp, grad_square})
   }
 
   fn get_hesse_cmp(
@@ -196,14 +206,14 @@ impl InflatoxDylib {
       .zip(x.shape().iter())
       .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
       .unzip::<_, _, Vec<_>, Vec<_>>();
-    let mut field_vec = Vec::with_capacity(x.shape().len());
+    let mut field_space_point = Vec::with_capacity(x.shape().len());
 
     for (idx, val) in x.indexed_iter_mut() {
-      field_vec.clear();
-      field_vec.extend(
+      field_space_point.clear();
+      field_space_point.extend(
         (0..self.n_fields as usize).into_iter().map(|i| idx[i] as f64 * spacings[i] + offsets[i]),
       );
-      *val = unsafe { (&self.potential)(field_vec.as_ptr(), p.as_ptr()) };
+      *val = unsafe { (&self.potential)(field_space_point.as_ptr(), p.as_ptr()) };
     }
   }
 
@@ -221,6 +231,68 @@ impl InflatoxDylib {
     self.hesse_cmp.mapv(|func| unsafe {
       func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
     })
+  }
+
+  /// Calculate the projected hesse matrix at a number of field-space coordinates.
+  /// The `x_shape` parameter determines the number of samples along each axis.
+  /// The `start_stop` arrays indicate the values of the first and last samples
+  /// along each axis. The model parameters must be supplied via the slice `p`.
+  /// Returns an array with two more axes than `x_shape` has entries,
+  /// representing the axes of the hesse matrix. The FIRST two axes of the output
+  /// array represent the axes of the hesse array.
+  /// 
+  /// # Panics
+  /// This function panics if `x.len()` does not equal the number of fields of
+  /// the loaded model. Similarly, if `p.len()` does not equal the number of
+  /// model parameters, this function will panic.
+  pub fn hesse_array(&self, x_shape: &[usize], p: &[f64], start_stop: &[[f64; 2]]) -> nd::ArrayD<f64> {
+    let n_fields = self.n_fields as usize;
+    assert!(x_shape.len() == n_fields);
+    assert!(p.len() == self.n_param as usize);
+
+    //(1) Convert start-stop ranges
+    let (spacings, offsets) = start_stop
+      .iter()
+      .zip(x_shape.iter())
+      .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
+      .unzip::<_, _, Vec<_>, Vec<_>>();
+  
+    //(2) Create output array
+    let output_shape = [vec![n_fields, n_fields], x_shape.to_vec()].concat();
+    let mut output = nd::ArrayD::<f64>::zeros(output_shape);
+
+    //(3) Fill output array
+    let mut field_space_point = Vec::with_capacity(x_shape.len());
+    output
+      .axis_iter_mut(nd::Axis(0))
+      .enumerate()
+      .for_each(|(i, mut view)| {
+        view
+          .axis_iter_mut(nd::Axis(0))
+          .enumerate()
+          .for_each(|(j, mut x)| {
+            //Just to be clear, the first two axes are the axes of the hesse
+            //matrix. All the other axes are the field-space axes (we do not
+            //know how many of these there are). We will thus be calculating the
+            //ijth component of the hesse matrix for ALL field space points x,
+            //and then moving on to ij+1 etc...
+            x
+              .indexed_iter_mut()
+              .for_each(|(idx, val)| {
+                //Convert index into field_space point
+                field_space_point.clear();
+                field_space_point.extend(
+                  (0..self.n_fields as usize).into_iter().map(|k| idx[k] as f64 * spacings[k] + offsets[k]),
+                );
+                //Calculate the ijth matrix element
+                let x_ptr = field_space_point.as_ptr(); 
+                let p_ptr = p.as_ptr();
+                *val = unsafe { (self.hesse_cmp[(i,j)])(x_ptr, p_ptr) };
+              })
+          });
+      });
+    //Return this insane array
+    output
   }
 
   #[inline]
@@ -317,5 +389,12 @@ impl<'a> Grad<'a> {
     assert!(x.len() == self.lib.get_n_fields());
     assert!(p.len() == self.lib.get_n_params());
     unsafe { self.fns[idx](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+  }
+
+  #[inline]
+  pub fn grad_square(&self, x: &[f64], p: &[f64]) -> f64 {
+    assert!(x.len() == self.lib.get_n_fields());
+    assert!(p.len() == self.lib.get_n_params());
+    unsafe { (self.lib.grad_square)(x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 }

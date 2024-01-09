@@ -36,6 +36,7 @@ class SymbolicOutput():
     basis: list[list[sympy.Expr]],
     coordinates: list[sympy.Symbol],
     potential: sympy.Expr,
+    gradient_size: sympy.Expr,
     model_name: str
   ):
     self.hesse_cmp = hesse_cmp
@@ -44,6 +45,7 @@ class SymbolicOutput():
     self.coordinates = coordinates
     self.potential = potential
     self.model_name = model_name
+    self.gradient_square = gradient_size
     if len(hesse_cmp[0]) != len(hesse_cmp):
       raise Exception('The Hesse matrix is square; the provided list was not (number of columns != number of rows)')
     if len(hesse_cmp[0]) != len(basis[0]):
@@ -309,7 +311,12 @@ class SymbolicCalculation():
         if a == 0: a = 'v'
         if b == 0: b = 'v'
         self.display(component, lhs=f'H_{{{a}{b}}}')
-    return SymbolicOutput(H_proj, w, self.coords, self.V, self.model_name)
+        
+    #(4) Calculate the size of the gradient
+    print("Calculating the norm of the gradient...")
+    gradnorm = self.calc_gradient_square()
+        
+    return SymbolicOutput(H_proj, w, self.coords, self.V, gradnorm, self.model_name)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of v1 and v2 with respect to configured metric.
@@ -396,6 +403,31 @@ class SymbolicCalculation():
         cmp = da_dbV - gamma_ab
         Vab[a][b] = self.simplify(cmp) if self.simp >= 2 else cmp
     return Vab
+  
+  def calc_gradient_square(self) -> sympy.Expr:
+    """Calculates the size of the gradient of the potential given the metric g_ab.
+    
+    ### Precise formulation of calculated quantities
+      output(ϕ) = g^ab(ϕ) ∂_a V(ϕ) ∂_b V(ϕ)
+    Note that the output is actual the size of the gradient *squared*.
+    
+    ### Simplification
+    If the simplification depth is set to 2 or higher, this function will
+    simplify its output before returning.
+
+    Returns:
+      sympy.Expr: size of the gradient squared (V_a V^a)
+    """
+    dim = len(self.coords)
+    #non-normalised components of grad V
+    gradient = [sympy.diff(self.V, φ) for φ in self.coords]
+    out = 0.
+    
+    #contract v with the inverse of the metric tensor
+    for a in range(dim):
+      for b in range(dim):
+        out = out + self.g.inv().arr[a][b] * gradient[a] * gradient[b]
+    return self.simplify(out) if self.simp >= 2 else out
 
   def calc_v(self) -> list[sympy.Expr]:
     """calculates a normalized vector pointing in the direction of the gradient of

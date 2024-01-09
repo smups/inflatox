@@ -32,8 +32,8 @@ crate_type = ["cdylib", "rlib"]
 
 [dependencies]
 ndarray = { version = "0.15", features = ['rayon'] }
-numpy = "0.19"
-pyo3 = { version = "0.19", features = ['extension-module', 'abi3-py37'] }
+numpy = "0.20"
+pyo3 = { version = "0.20", features = ['extension-module', 'abi3-py37'] }
 rayon = "1"
 libloading = "0.8"
 indicatif = { version = "0.17", features = ["rayon",  "improved_unicode"] }

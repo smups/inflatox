@@ -70,57 +70,6 @@ fn validate<'lib, T>(
   Ok((h, g))
 }
 
-#[pyfunction]
-/// python-facing function that evaluates Anguelova & Lazaroiu's consistency
-/// condition for a two-field model for the supplied input field-space array x
-/// and the parameter array p. The order of the calculation may be specified using
-/// the order parameter. Console output will be generated if progress=true.
-pub fn anguelova_py(
-  lib: PyRef<crate::InflatoxPyDyLib>,
-  p: PyReadonlyArray1<f64>,
-  mut x: PyReadwriteArray2<f64>,
-  start_stop: PyReadonlyArray2<f64>,
-  order: isize,
-  progress: bool,
-) -> PyResult<()> {
-  //(1) Convert the PyArrays to nd::Arrays
-  let lib = &lib.0;
-  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
-  let x = x.as_array_mut();
-  let start_stop = start_stop.as_array();
-
-  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, _) = validate(lib, x.view(), p)?;
-
-  //(3) Convert start-stop
-  let start_stop = crate::convert_start_stop(start_stop, 2)?;
-
-  //(4) Say hello
-  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
-  let _ = std::io::stderr().flush();
-  let start = std::time::Instant::now();
-
-  //(5) evaluate anguelova's condition up to the specified order
-  match order {
-    o if o < -1 => anguelova_exact(h, x, p, &start_stop, progress),
-    -1 => anguelova_leading_order(h, x, p, &start_stop, progress),
-    0 => anguelova_0th_order(h, x, p, &start_stop, progress),
-    2 => anguelova_2nd_order(h, x, p, &start_stop, progress),
-    o => {
-      return Err(PySystemError::new_err(format!(
-        "expected order to be -1, 0, 2 or smaller than -1. Found {o}"
-      )))
-    }
-  }
-
-  //(6) Report how long we took, and return.
-  eprintln!(
-    "[Inflatox] Calculation finished. Took {}.",
-    indicatif::HumanDuration(start.elapsed()).to_string()
-  );
-  Ok(())
-}
-
 /// Converts start-stop ranges into offset-spacing ranges. Order of return arguments
 /// is x_spacing, y_spacing, x_ofst, y_ofst
 fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f64) {
@@ -259,8 +208,9 @@ fn anguelova_exact(
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     *val = {
       let (v, v00, v10, v11) = (h.potential(x, p), h.v00(x, p), h.v10(x, p), h.v11(x, p));
-      let delta = (v10 / v00).atan();
-      let lhs = 3.0 * delta.sin().powi(-2) + v10.powi(2) / (v * v00);
+      let tan2_delta = (v10 / v00).powi(2);
+      let csc2_delta = 1.0 + tan2_delta.recip(); //csc²(x) = 1 + cot²(x)
+      let lhs = 3.0 * csc2_delta + (v00 / v) * tan2_delta;
       let rhs = v11 / v;
       ((lhs / rhs) - 1.0).abs()
     }
@@ -271,6 +221,57 @@ fn anguelova_exact(
   } else {
     iter.for_each(op);
   }
+}
+
+#[pyfunction]
+/// python-facing function that evaluates Anguelova & Lazaroiu's consistency
+/// condition for a two-field model for the supplied input field-space array x
+/// and the parameter array p. The order of the calculation may be specified using
+/// the order parameter. Console output will be generated if progress=true.
+pub fn anguelova_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  order: isize,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating consistency condition using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) evaluate anguelova's condition up to the specified order
+  match order {
+    o if o < -1 => anguelova_exact(h, x, p, &start_stop, progress),
+    -1 => anguelova_leading_order(h, x, p, &start_stop, progress),
+    0 => anguelova_0th_order(h, x, p, &start_stop, progress),
+    2 => anguelova_2nd_order(h, x, p, &start_stop, progress),
+    o => {
+      return Err(PySystemError::new_err(format!(
+        "expected order to be -1, 0, 2 or smaller than -1. Found {o}"
+      )))
+    }
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+  Ok(())
 }
 
 #[pyfunction]
@@ -298,7 +299,7 @@ pub fn delta_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  eprintln!("[Inflatox] Calculating alignment angle δ using {} threads.", rayon::current_num_threads());
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -307,6 +308,187 @@ pub fn delta_py(
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
   let op = |(ref x, val): ([f64; 2], &mut f64)| *val = (h.v01(x, p) / h.v00(x, p)).atan();
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
+/// python-facing function used to calculate the relative turn rate omega given
+/// the supplied input field-space array and the parameter array p. The order of
+/// the calculation may be specified using the order parameter. Console output
+/// will be generated if progress=true.
+pub fn omega_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating turn rate ω using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    let (v, v00, v01, v11) = (h.potential(x, p), h.v00(x, p), h.v01(x, p), h.v11(x, p));
+    let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
+    let vtt = cos2d * v11 + sin2d * v00 - 2.0 * sincosd * v01;
+    *val = (3.0 * vtt / v).abs().sqrt();
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
+/// python-facing function used to calculate the first slow-roll parameter
+/// epsilon given the supplied input field-space array and the parameter array p.
+/// Console output will be generated if progress=true.
+pub fn epsilon_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, grad) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating first slow-roll paramter ε using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    //Calculate omega
+    let (v, v00, v01, v11) = (h.potential(x, p), h.v00(x, p), h.v01(x, p), h.v11(x, p));
+    let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
+    let vtt_byv = cos2d * (v11/v) + sin2d * (v00/v) - 2.0 * sincosd * (v01/v);
+    let omega2_by9 = (vtt_byv / 3.0).abs();
+
+    //Calculate epsilon_V
+    let epsilon_v = grad.grad_square(x, p) / (2.0 * v.powi(2));
+
+    //Calculate epsilon
+    *val = epsilon_v / (1. + omega2_by9);
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
+/// python-facing function used to calculate the second slow-roll parameter
+/// eta given the supplied input field-space array and the parameter array p.
+/// Console output will be generated if progress=true.
+pub fn eta_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating second slow-roll parameter η using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    //Calculate omega
+    let (v, v00, v01, v11) = (h.potential(x, p), h.v00(x, p), h.v01(x, p), h.v11(x, p));
+    let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
+    let vtt_byv = cos2d * (v11/v) + sin2d * (v00/v) - 2.0 * sincosd * (v01/v);
+    let omega = (vtt_byv * 3.0).abs().sqrt();
+
+    //Calculate tan(delta)
+    let tandelta = h.v01(x, p) / h.v00(x, p);
+    *val = (3. - (omega * tandelta).abs()).abs()
+  };
 
   if progress {
     iter.progress_with(set_pbar(len)).for_each(op);
@@ -349,7 +531,7 @@ pub fn flag_quantum_dif_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Starting calculation using {} threads.", rayon::current_num_threads());
+  eprintln!("[Inflatox] Calculating zeros of the potential gradient using {} threads.", rayon::current_num_threads());
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 

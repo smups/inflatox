@@ -32,11 +32,11 @@ use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
-use numpy::{PyArray2, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn};
+use numpy::{PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn, PyArrayDyn, IntoPyArray};
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([2, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
 
 //Register errors
 create_exception!(libinflx_rs, ShapeError, PyException);
@@ -48,6 +48,8 @@ fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::anguelova_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::delta_py, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::omega_py, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::epsilon_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::flag_quantum_dif_py, pymod)?)?;
 
   //Register exceptions
@@ -186,5 +188,47 @@ impl InflatoxPyDyLib {
 
     //(4) Calculate
     Ok(PyArray2::from_owned_array(py, self.0.hesse(x, p)))
+  }
+
+  fn hesse_array<'py>(
+    &self,
+    py: Python<'py>,
+    nx: PyReadonlyArray1<usize>,
+    p: PyReadonlyArrayDyn<f64>,
+    start_stop: PyReadonlyArray2<f64>,
+  ) -> PyResult<&'py PyArrayDyn<f64>> {
+    //(0) Convert the PyArrays to nd::Arrays
+    let p = p.as_array();
+    let nx = nx.as_array();
+    let nx = nx.as_slice().unwrap();
+    let start_stop = start_stop.as_array();
+
+    //(1) Make sure that the number of supplied fields matches the number
+    //specified by the dynamic lib
+    if nx.len() != self.0.get_n_fields() as usize {
+      raise_shape_err(format!(
+        "expected a 1D-array with {} entries specifying the number of samples along each field-space axis. Found array with {:?} entries.",
+        self.0.get_n_fields(),
+        nx.len()
+      ))?;
+    }
+
+    //(2) Convert start_stop array
+    let start_stop = convert_start_stop(start_stop.view(), self.0.get_n_fields())?;
+
+    //(3) Make sure that the number of supplied model parameters matches the number
+    //specified by the dynamic lib
+    if p.shape() != &[self.0.get_n_params() as usize] {
+      raise_shape_err(format!(
+        "expected a 1D array with {} elements as parameters set. Found array with shape {:?}",
+        self.0.get_n_params(),
+        p.shape()
+      ))?;
+    }
+    let p = p.as_slice().unwrap();
+
+    //(4) Evaluate the hesse matrix
+    let out = self.0.hesse_array(nx, p, &start_stop);
+    Ok(out.into_pyarray(py))
   }
 }
