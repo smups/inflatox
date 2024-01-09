@@ -1,4 +1,4 @@
-#  Copyright© 2023 Raúl Wolters(1)
+#  Copyright© 2024 Raúl Wolters(1)
 #
 #  This file is part of Inflatox.
 #
@@ -19,9 +19,9 @@
 
 [project]
 name = "inflatox"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
-  { name="Raúl Wolters", email="rawolters11@gmail.com" },
+  { name="Raúl Wolters", email="r.wolters@uu.nl" },
 ]
 description = "Framework for implementing high-performance numerical consistency conditions for multifield inflation models."
 readme = "README.md"
