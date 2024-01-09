@@ -265,6 +265,91 @@ fn consistency_rapidturn_only(
   Ok(())
 }
 
+#[pyfunction]
+/// Calculate the potential slow-roll parameter ε_V only
+fn epsilon_v_only(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut out: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+  threads: usize
+) -> PyResult<()> {
+  //(0) Set number of threads to use
+  let num_threads = if threads != 0 { threads } else {rayon::current_num_threads()};
+
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut out = out.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, g) = validate(lib, out.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating potential slow-roll parameter ε_V ONLY using {num_threads} threads.");
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = out.len();
+  let shape = &[out.shape()[0], out.shape()[1]];
+  let out = out.as_slice_mut().expect("[LIBINFLX_RS_PANIC]: OUTPUT ARRAY NOT C-CONTIGUOUS");
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
+
+  //(5a) Define the calculation
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    *val = g.grad_square(x, p) / h.potential(x, p).powi(2);
+  };
+
+  //(5b) setup the threadpool (if necessary)
+  if threads == 1 {
+    //Single-threaded mode
+    let iter = out.into_iter()
+      .enumerate()
+      //(2a) convert flat index into array index
+      .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+      //(2b) convert array index into field-space point
+      .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+    if progress {
+      iter.progress_with(set_pbar(len)).for_each(op);
+    } else {
+      iter.for_each(op);
+    }
+  } else {
+    //Multi-threaded mode
+    let threadpool = rayon::ThreadPoolBuilder::new()
+      .num_threads(num_threads)
+      .build()
+      .expect("[LIBINFLX_RS_PANIC]: COULD NOT INITIALISE THREADPOOL");
+    threadpool.install(move || {
+      let iter = out.into_par_iter()
+        .enumerate()
+        //(2a) convert flat index into array index
+        .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+        //(2b) convert array index into field-space point
+        .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(op);
+      } else {
+        iter.for_each(op);
+      }
+    });
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
 fn iter_array<'a, T: Send>(
   x: &'a mut [T],
   start_stop: &[[f64; 2]],
