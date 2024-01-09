@@ -1,5 +1,5 @@
 /*
-  Copyright© 2023 Raúl Wolters(1)
+  Copyright© 2024 Raúl Wolters(1)
 
   This file is part of libinflx_rs (rust bindings for inflatox).
 
@@ -21,7 +21,7 @@
 
 use std::io::Write;
 
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressStyle};
+use indicatif::{ProgressIterator, ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
@@ -40,7 +40,7 @@ fn validate<'lib, T>(
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
     crate::raise_shape_err(format!(
-      "the Anguelova consistency condition requires a 2-field model. Model \"{}\" has only {} fields.",
+      "the Anguelova & Lazaroiu consistency condition requires a 2-field model. Model \"{}\" has only {} fields.",
       lib.name(),
       lib.get_n_fields()
     ))?;
@@ -82,6 +82,96 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   let y_spacing = (y_stop - y_start) / shape[1] as f64;
 
   (x_spacing, y_spacing, x_start, y_start)
+}
+
+#[pyfunction]
+/// Evaluate the consistency condition ONLY, not considering any additional
+/// parameters.
+fn consistency_only(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut out: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+  threads: usize
+) -> PyResult<()> {
+  //(0) Set number of threads to use
+  let num_threads = if threads != 0 { threads } else {rayon::current_num_threads()};
+
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut out = out.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate(lib, out.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating consistency condition ONLY using {num_threads} threads.");
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = out.len();
+  let shape = &[out.shape()[0], out.shape()[1]];
+  let out = out.as_slice_mut().expect("[LIBINFLX_RS_PANIC]: OUTPUT ARRAY NOT C-CONTIGUOUS");
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
+
+  //(5a) Define the calculation
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
+    let lhs = v11/v - 3.;
+    let rhs = (3. + v00/v) * (v10/v00).powi(2);
+    //Return left-hand-side minus right-hand-side
+    *val = (lhs - rhs).abs()
+  };
+
+  //(5b) setup the threadpool (if necessary)
+  if threads == 1 {
+    //Single-threaded mode
+    let iter = out.into_iter()
+      .enumerate()
+      //(2a) convert flat index into array index
+      .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+      //(2b) convert array index into field-space point
+      .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+    if progress {
+      iter.progress_with(set_pbar(len)).for_each(op);
+    } else {
+      iter.for_each(op);
+    }
+  } else {
+    //Multi-threaded mode
+    let threadpool = rayon::ThreadPoolBuilder::new()
+      .num_threads(num_threads)
+      .build()
+      .expect("[LIBINFLX_RS_PANIC]: COULD NOT INITIALISE THREADPOOL");
+    threadpool.install(move || {
+      let iter = out.into_par_iter()
+        .enumerate()
+        //(2a) convert flat index into array index
+        .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+        //(2b) convert array index into field-space point
+        .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(op);
+      } else {
+        iter.for_each(op);
+      }
+    });
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
 }
 
 fn iter_array<'a, T: Send>(
