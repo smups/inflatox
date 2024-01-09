@@ -24,7 +24,7 @@ use std::io::Write;
 use indicatif::{ProgressIterator, ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use nd::ArrayView2;
 use ndarray as nd;
-use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2};
+use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2, PyReadwriteArray3};
 use pyo3::exceptions::PySystemError;
 use pyo3::prelude::*;
 use rayon::prelude::*;
@@ -337,6 +337,126 @@ fn epsilon_v_only(
         iter.progress_with(set_pbar(len)).for_each(op);
       } else {
         iter.for_each(op);
+      }
+    });
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
+/// Calculate everything calculable at once from the consistency condition. The
+/// output array is 3D: the last axis consists of the following items (in order):
+///   1. Consistency condition (lhs - rhs)
+///   2. ε_V
+///   3. ε_H
+///   4. η_H
+///   5. δ
+///   6. ω
+fn complete_analysis(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut out: PyReadwriteArray3<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+  threads: usize
+) -> PyResult<()> {
+  //(0) Set number of threads to use
+  let num_threads = if threads != 0 { threads } else {rayon::current_num_threads()};
+
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut out = out.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, g) = validate(lib, out.slice(nd::s![..,..,0]), p)?;
+  if out.shape()[2] != 6 {
+    crate::raise_shape_err(format!(
+      "expected output array with shape (x,y,6). Found array with shape {:?}",
+      out.shape()
+    ))?;
+  }
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating full analysis using {num_threads} threads.");
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = out.len();
+  let shape = &[out.shape()[0], out.shape()[1]];
+  let out = out.as_slice_mut().expect("[LIBINFLX_RS_PANIC]: OUTPUT ARRAY NOT C-CONTIGUOUS");
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
+
+  //(5a) Define the calculation
+  fn op(x: [f64; 2], val: &mut [f64], h: &Hesse2D<'_>, g: &Grad<'_>, p: &[f64]) {
+    let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
+    //(1) Calculate consistency condition
+    let consistency = {
+      let lhs = v11/v - 3.;
+      let rhs = (3. + v00/v) * (v10/v00).powi(2);
+      (lhs - rhs).abs()
+    };
+    //(2) Calculate ε_V
+    let epsilon_v = g.grad_square(&x, p) / v.powi(2);
+    //(3) Calculate Vtt
+    let vtt = (v00*v10.powi(2) + v11*v00.powi(2) - 2.*v00*v10.powi(2)) / (v00.powi(2) + v10.powi(2));
+    //(4) Calculate ε_H
+    let epsilon_h = (3. * epsilon_v) / (epsilon_v + 3. + vtt/(3.*v));
+    //(5) Calculate η_H
+    let eta_h = (3.*(3.-epsilon_h)).sqrt() - 3.;
+    //(6) Calculate δ
+    let delta = v10.atan2(v00);
+    //(7) Calculate ω
+    let omega = ((vtt/v) * (3.-epsilon_h)).sqrt();
+
+    val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_h, delta, omega]);
+  }
+
+  //(5b) setup the threadpool (if necessary)
+  if threads == 1 {
+    //Single-threaded mode
+    let iter = out
+      .chunks_exact_mut(6)
+      .enumerate()
+      //(2a) convert flat index into array index
+      .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+      //(2b) convert array index into field-space point
+      .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+    if progress {
+      iter.progress_with(set_pbar(len)).for_each(|(x, val)| op(x, val, &h, &g, p));
+    } else {
+      iter.for_each(|(x, val)| op(x, val, &h, &g, p));
+    }
+  } else {
+    //Multi-threaded mode
+    let threadpool = rayon::ThreadPoolBuilder::new()
+      .num_threads(num_threads)
+      .build()
+      .expect("[LIBINFLX_RS_PANIC]: COULD NOT INITIALISE THREADPOOL");
+    threadpool.install(move || {
+      let iter = out
+        .par_chunks_exact_mut(6)
+        .enumerate()
+        //(2a) convert flat index into array index
+        .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+        //(2b) convert array index into field-space point
+        .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| op(x, val, &h, &g, p));
+      } else {
+        iter.for_each(|(x, val)| op(x, val, &h, &g, p));
       }
     });
   }
