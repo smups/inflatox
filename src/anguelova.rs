@@ -87,7 +87,7 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
 #[pyfunction]
 /// Evaluate the consistency condition ONLY, not considering any additional
 /// parameters.
-fn consistency_only(
+pub fn consistency_only(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut out: PyReadwriteArray2<f64>,
@@ -178,7 +178,7 @@ fn consistency_only(
 /// Evaluate the consistency condition ONLY using the rapid-turn approximations
 /// from Anguelova & Lazaroiu's original paper (not considering any additional
 /// parameters).
-fn consistency_rapidturn_only(
+pub fn consistency_rapidturn_only(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut out: PyReadwriteArray2<f64>,
@@ -267,7 +267,7 @@ fn consistency_rapidturn_only(
 
 #[pyfunction]
 /// Calculate the potential slow-roll parameter ε_V only
-fn epsilon_v_only(
+pub fn epsilon_v_only(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut out: PyReadwriteArray2<f64>,
@@ -359,7 +359,7 @@ fn epsilon_v_only(
 ///   4. η_H
 ///   5. δ
 ///   6. ω
-fn complete_analysis(
+pub fn complete_analysis(
   lib: PyRef<crate::InflatoxPyDyLib>,
   p: PyReadonlyArray1<f64>,
   mut out: PyReadwriteArray3<f64>,

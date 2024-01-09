@@ -52,6 +52,12 @@ fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(anguelova::epsilon_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::flag_quantum_dif_py, pymod)?)?;
 
+  //new functions
+  pymod.add_function(wrap_pyfunction!(anguelova::consistency_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::consistency_rapidturn_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::epsilon_v_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(anguelova::complete_analysis, pymod)?)?;
+
   //Register exceptions
   pymod.add("DimensionalityError", py.get_type::<ShapeError>())?;
   Ok(())
