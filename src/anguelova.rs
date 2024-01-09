@@ -405,7 +405,7 @@ pub fn epsilon_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Calculating first potential slow-roll paramter ε using {} threads.", rayon::current_num_threads());
+  eprintln!("[Inflatox] Calculating first slow-roll paramter ε using {} threads.", rayon::current_num_threads());
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -427,6 +427,67 @@ pub fn epsilon_py(
 
     //Calculate epsilon
     *val = epsilon_v / (1. + omega2_by9);
+  };
+
+  if progress {
+    iter.progress_with(set_pbar(len)).for_each(op);
+  } else {
+    iter.for_each(op);
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "[Inflatox] Calculation finished. Took {}.",
+    indicatif::HumanDuration(start.elapsed()).to_string()
+  );
+
+  Ok(())
+}
+
+#[pyfunction]
+/// python-facing function used to calculate the second slow-roll parameter
+/// eta given the supplied input field-space array and the parameter array p.
+/// Console output will be generated if progress=true.
+pub fn eta_py(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut x: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+) -> PyResult<()> {
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let mut x = x.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate(lib, x.view(), p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("[Inflatox] Calculating second slow-roll parameter η using {} threads.", rayon::current_num_threads());
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = x.len();
+  let shape = &[x.shape()[0], x.shape()[1]];
+  let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
+  let op = |(ref x, val): ([f64; 2], &mut f64)| {
+    //Calculate omega
+    let (v, v00, v01, v11) = (h.potential(x, p), h.v00(x, p), h.v01(x, p), h.v11(x, p));
+    let cos2d = v00.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sin2d = v01.powi(2) / (v00.powi(2) + v01.powi(2));
+    let sincosd = (v01 * v00) / (v00.powi(2) + v01.powi(2));
+    let vtt_byv = cos2d * (v11/v) + sin2d * (v00/v) - 2.0 * sincosd * (v01/v);
+    let omega = (vtt_byv * 3.0).abs().sqrt();
+
+    //Calculate tan(delta)
+    let tandelta = h.v01(x, p) / h.v00(x, p);
+    *val = (3. - (omega * tandelta).abs()).abs()
   };
 
   if progress {
