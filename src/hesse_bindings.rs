@@ -24,6 +24,7 @@ use std::{ffi::{OsStr, c_char}, mem::MaybeUninit};
 use ndarray as nd;
 
 use crate::inflatox_version::InflatoxVersion;
+use crate::PANIC_BADGE;
 
 type ExFn = unsafe extern "C" fn(*const f64, *const f64) -> f64;
 type HdylibFn<'a> = libloading::Symbol<'a, ExFn>;
@@ -184,8 +185,8 @@ impl InflatoxDylib {
   /// the loaded model. Similarly, if `p.len()` does not equal the number of
   /// model parameters, this function will panic.
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.n_fields as usize);
-    assert!(p.len() == self.n_param as usize);
+    assert!(x.len() == self.n_fields as usize, "{}", *PANIC_BADGE);
+    assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
     unsafe { (self.potential)(x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
@@ -198,8 +199,8 @@ impl InflatoxDylib {
   /// fields of the loaded model. Similarly, if `p.len()` does not equal the
   /// number of model parameters, this function will panic.
   pub fn potential_array(&self, mut x: nd::ArrayViewMutD<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
-    assert!(x.shape().len() == self.n_fields as usize);
-    assert!(p.len() == self.n_param as usize);
+    assert!(x.shape().len() == self.n_fields as usize, "{}", *PANIC_BADGE);
+    assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
     //(1) Convert start-stop ranges
     let (spacings, offsets) = start_stop
       .iter()
@@ -226,8 +227,8 @@ impl InflatoxDylib {
   /// the loaded model. Similarly, if `p.len()` does not equal the number of
   /// model parameters, this function will panic.
   pub fn hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
-    assert!(x.len() == self.n_fields as usize);
-    assert!(p.len() == self.n_param as usize);
+    assert!(x.len() == self.n_fields as usize, "{}", *PANIC_BADGE);
+    assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
     self.hesse_cmp.mapv(|func| unsafe {
       func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
     })
@@ -247,8 +248,8 @@ impl InflatoxDylib {
   /// model parameters, this function will panic.
   pub fn hesse_array(&self, x_shape: &[usize], p: &[f64], start_stop: &[[f64; 2]]) -> nd::ArrayD<f64> {
     let n_fields = self.n_fields as usize;
-    assert!(x_shape.len() == n_fields);
-    assert!(p.len() == self.n_param as usize);
+    assert!(x_shape.len() == n_fields, "{}", *PANIC_BADGE);
+    assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
 
     //(1) Convert start-stop ranges
     let (spacings, offsets) = start_stop
@@ -336,29 +337,29 @@ impl<'a> Hesse2D<'a> {
 
   #[inline]
   pub fn v00(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_n_fields());
-    assert!(p.len() == self.lib.get_n_params());
+    assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
+    assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[0](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
   #[inline]
   pub fn v01(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_n_fields());
-    assert!(p.len() == self.lib.get_n_params());
+    assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
+    assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[1](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
   #[inline]
   pub fn v10(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_n_fields());
-    assert!(p.len() == self.lib.get_n_params());
+    assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
+    assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[2](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
   #[inline]
   pub fn v11(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_n_fields());
-    assert!(p.len() == self.lib.get_n_params());
+    assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
+    assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[3](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
@@ -386,15 +387,15 @@ impl<'a> Grad<'a> {
 
   #[inline]
   pub fn cmp(&self, x: &[f64], p: &[f64], idx: usize) -> f64 {
-    assert!(x.len() == self.lib.get_n_fields());
-    assert!(p.len() == self.lib.get_n_params());
+    assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
+    assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[idx](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
   #[inline]
   pub fn grad_square(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_n_fields());
-    assert!(p.len() == self.lib.get_n_params());
+    assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
+    assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { (self.lib.grad_square)(x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 }
