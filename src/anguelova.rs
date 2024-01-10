@@ -29,6 +29,7 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib, Grad};
+use crate::PANIC_BADGE;
 
 #[inline]
 fn validate<'lib, T>(
@@ -99,7 +100,7 @@ pub fn consistency_only(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -117,7 +118,7 @@ pub fn consistency_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect("[LIBINFLX_RS_PANIC]: OUTPUT ARRAY NOT C-CONTIGUOUS");
+  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -190,7 +191,7 @@ pub fn consistency_rapidturn_only(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -208,7 +209,7 @@ pub fn consistency_rapidturn_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect("[LIBINFLX_RS_PANIC]: OUTPUT ARRAY NOT C-CONTIGUOUS");
+  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -279,7 +280,7 @@ pub fn epsilon_v_only(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -297,7 +298,7 @@ pub fn epsilon_v_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect("[LIBINFLX_RS_PANIC]: OUTPUT ARRAY NOT C-CONTIGUOUS");
+  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -371,7 +372,7 @@ pub fn complete_analysis(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -395,7 +396,7 @@ pub fn complete_analysis(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect("[LIBINFLX_RS_PANIC]: OUTPUT ARRAY NOT C-CONTIGUOUS");
+  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -511,7 +512,7 @@ pub fn flag_quantum_dif_py(
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect("[LIBINFLX_RS_PANIC]: PARAMETER ARRAY NOT C-CONTIGUOUS");
+  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut x = x.as_array_mut();
   let start_stop = start_stop.as_array();
 
