@@ -296,7 +296,7 @@ impl InflatoxDylib {
     output
   }
 
-  #[inline]
+  #[inline(always)]
   /// Load symbol from underlying dynamic inflatox library.
   pub unsafe fn get_symbol<T>(
     &self,
@@ -305,14 +305,14 @@ impl InflatoxDylib {
     self.lib.get(symbol)
   }
 
-  #[inline]
+  #[inline(always)]
   /// Returns number of fields (=dimensionality of the scalar manifold)
   /// of this inflatox model.
   pub const fn get_n_fields(&self) -> usize {
     self.n_fields as usize
   }
 
-  #[inline]
+  #[inline(always)]
   /// Returns the number of model parameters (excluding fields) of this inflatox
   /// model.
   pub const fn get_n_params(&self) -> usize {
@@ -326,6 +326,7 @@ pub struct Hesse2D<'a> {
 }
 
 impl<'a> Hesse2D<'a> {
+  #[inline(always)]
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     assert!(lib.get_n_fields() == 2);
     let v00 = *lib.hesse_cmp.get((0, 0)).unwrap();
@@ -335,33 +336,33 @@ impl<'a> Hesse2D<'a> {
     Hesse2D { lib, fns: [v00, v01, v10, v11] }
   }
 
-  #[inline]
+  #[inline(always)]
   pub fn v00(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[0](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
-  #[inline]
+  #[inline(always)]
   pub fn v10(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[2](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
-  #[inline]
+  #[inline(always)]
   pub fn v11(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[3](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
-  #[inline]
+  #[inline(always)]
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
     self.lib.potential(x, p)
   }
 
-  #[inline]
+  #[inline(always)]
   pub const fn get_n_params(&self) -> usize {
     self.lib.get_n_params()
   }
@@ -373,19 +374,19 @@ pub struct Grad<'a> {
 }
 
 impl<'a> Grad<'a> {
-  #[inline]
+  #[inline(always)]
   pub fn new(lib: &'a InflatoxDylib) -> Self {
     Grad { lib, fns: &lib.grad_cmp }
   }
 
-  #[inline]
+  #[inline(always)]
   pub fn cmp(&self, x: &[f64], p: &[f64], idx: usize) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
     unsafe { self.fns[idx](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
   }
 
-  #[inline]
+  #[inline(always)]
   pub fn grad_square(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
