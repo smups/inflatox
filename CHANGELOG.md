@@ -1,6 +1,18 @@
 # Inflatox Changelog
 
-### v0.6.0
+# v0.7.0 - major refactor (💣BREAKING CHANGES💣)
+- Reworked console output
+- Removed `evaluate()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `consistency_only()`.
+- Removed `calc_delta()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()`.
+- Removed `calc_epsilon()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()` and `epsilon_v_only()`.
+- Removed `calc_omega()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()`.
+- Upgraded rayon 1.7.0 -> 1.8.0
+
+# v0.6.0 - More quantities: $\varepsilon_H$ and $\omega$
 - Specified that package is only compatible with python 3.7 - 3.11, because
   no version of `Numba` dependency (which is a dependency of EinsteinPy) that is
   compatible with python 3.12 has been released yet. Package still interfaces
