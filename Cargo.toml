@@ -1,4 +1,4 @@
-#  Copyright© 2023 Raúl Wolters(1)
+#  Copyright© 2024 Raúl Wolters(1)
 #
 #  This file is part of Inflatox.
 #
@@ -37,6 +37,7 @@ pyo3 = { version = "0.20", features = ['extension-module', 'abi3-py37'] }
 rayon = "1"
 libloading = "0.8"
 indicatif = { version = "0.17", features = ["rayon",  "improved_unicode"] }
+console = { version = "0.15" }
 
 [build]
 rustflags = ["-C", "link-arg=-lm"]
