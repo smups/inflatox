@@ -160,54 +160,6 @@ class AnguelovaLazaroiuCondition(InflationCondition):
   
   def __init__(self, compiled_artifact: CompilationArtifact):
     super().__init__(compiled_artifact)
-    
-  def flag_quantum_dif(self,
-      args: np.ndarray,
-      x0_start: float,
-      x0_stop: float,
-      x1_start: float,
-      x1_stop: float,
-      N_x0: int = 10_000,
-      N_x1: int = 10_000,
-      progress = True,
-      accuracy = 1e-3
-    ) -> np.ndarray:
-    """returns boolean array where `True` values indicate that both components
-    of the gradient of the scalar potential are smaller than the specified
-    `accuracy` parameter. This is useful to identify points in the potential where
-    quantum diffusion may have a large impact (saddle points in the potential).
-    This calculation explicitly *does not* take into account the full inner product
-    using the metric to avoid measuring where the metric goes to zero or becomes
-    signular.
-
-    Args:
-    - `args` (`np.ndarray`): values of the model-dependent parameters. 
-    - `x0_start` (`float`): minimum value of first field `x[0]`.
-    - `x0_stop` (`float`): maximum value of first field `x[0]`.
-    - `x1_start` (`float`): minimum value of second field `x[1]`.
-    - `y_stop` (`float`): maximum value of second field `x[1]`.
-    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
-    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
-    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
-      progressbar may slightly degrade performance. Defaults to True.
-    - `accuracy` (`float`, optional): 
-
-    Returns:
-    `np.ndarray`: boolean array. `True` where the absolute value of both components
-      of the gradient are smaller than `accuracy`, `False` otherwise.
-    """
-    
-    #set up args for anguelova's condition
-    x = np.zeros((N_x0, N_x1), dtype=bool)
-    
-    start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
-    ])
-    
-    #evaluate and return
-    flag_quantum_dif_py(self.dylib, args, x, start_stop, progress, accuracy)
-    return x
   
   def complete_analysis(self,
       args: np.ndarray,
@@ -321,3 +273,51 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     #evaluate and return
     consistency_rapidturn_only(self.dylib, args, out, start_stop, progress, threads)
     return out
+  
+  def flag_quantum_dif(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 10_000,
+      N_x1: int = 10_000,
+      progress = True,
+      accuracy = 1e-3
+    ) -> np.ndarray:
+    """returns boolean array where `True` values indicate that both components
+    of the gradient of the scalar potential are smaller than the specified
+    `accuracy` parameter. This is useful to identify points in the potential where
+    quantum diffusion may have a large impact (saddle points in the potential).
+    This calculation explicitly *does not* take into account the full inner product
+    using the metric to avoid measuring where the metric goes to zero or becomes
+    signular.
+
+    Args:
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x0_start` (`float`): minimum value of first field `x[0]`.
+    - `x0_stop` (`float`): maximum value of first field `x[0]`.
+    - `x1_start` (`float`): minimum value of second field `x[1]`.
+    - `y_stop` (`float`): maximum value of second field `x[1]`.
+    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+    - `accuracy` (`float`, optional): 
+
+    Returns:
+    `np.ndarray`: boolean array. `True` where the absolute value of both components
+      of the gradient are smaller than `accuracy`, `False` otherwise.
+    """
+    
+    #set up args for anguelova's condition
+    x = np.zeros((N_x0, N_x1), dtype=bool)
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #evaluate and return
+    flag_quantum_dif_py(self.dylib, args, x, start_stop, progress, accuracy)
+    return x
