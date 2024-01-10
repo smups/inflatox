@@ -125,7 +125,7 @@ pub fn consistency_only(
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
     let lhs = v11/v - 3.;
-    let rhs = (3. + v00/v) * (v10/v00).powi(2);
+    let rhs = 3.*(v00/v10).powi(2) + (v00/v)*(v10/v00).powi(2);
     //Return left-hand-side minus right-hand-side
     *val = (lhs - rhs).abs()
   };
@@ -405,7 +405,7 @@ pub fn complete_analysis(
     //(1) Calculate consistency condition
     let consistency = {
       let lhs = v11/v - 3.;
-      let rhs = (3. + v00/v) * (v10/v00).powi(2);
+      let rhs = 3.*(v00/v10).powi(2) + (v00/v)*(v10/v00).powi(2);
       (lhs - rhs).abs()
     };
     //(2) Calculate ε_V
