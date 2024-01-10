@@ -126,8 +126,8 @@ pub fn consistency_only(
     let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
     let lhs = v11/v - 3.;
     let rhs = 3.*(v00/v10).powi(2) + (v00/v)*(v10/v00).powi(2);
-    //Return left-hand-side minus right-hand-side
-    *val = (lhs - rhs).abs()
+    //Return left-hand-side / right-hand-side minus one
+    *val = ((lhs/rhs).abs() - 1.).abs()
   };
 
   //(5b) setup the threadpool (if necessary)
@@ -217,8 +217,8 @@ pub fn consistency_rapidturn_only(
     let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
     let lhs = v11/v;
     let rhs = 3. * (v10/v00).powi(2);
-    //Return left-hand-side minus right-hand-side
-    *val = (lhs - rhs).abs()
+    //Return left-hand-side / right-hand-side minus one
+    *val = ((lhs/rhs).abs() - 1.).abs()
   };
 
   //(5b) setup the threadpool (if necessary)
@@ -404,9 +404,9 @@ pub fn complete_analysis(
     let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
     //(1) Calculate consistency condition
     let consistency = {
-      let lhs = v11/v - 3.;
-      let rhs = 3.*(v00/v10).powi(2) + (v00/v)*(v10/v00).powi(2);
-      (lhs - rhs).abs()
+      let lhs = v11/v;
+      let rhs = 3. + 3.*(v00/v10).powi(2) + (v00/v)*(v10/v00).powi(2);
+      ((lhs/rhs).abs() - 1.).abs()
     };
     //(2) Calculate ε_V
     let epsilon_v = g.grad_square(&x, p) / v.powi(2);
