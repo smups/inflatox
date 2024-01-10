@@ -21,14 +21,16 @@
 
 use std::io::Write;
 
-use indicatif::{ProgressIterator, ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressStyle};
+use indicatif::{
+  ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressIterator, ProgressStyle,
+};
 use nd::ArrayView2;
 use ndarray as nd;
 use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2, PyReadwriteArray3};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::{Hesse2D, InflatoxDylib, Grad};
+use crate::hesse_bindings::{Grad, Hesse2D, InflatoxDylib};
 use crate::PANIC_BADGE;
 
 type Error = crate::err::LibInflxRsErr;
@@ -52,32 +54,32 @@ fn validate<'lib, T>(
 ) -> Result<(Hesse2D<'lib>, Grad<'lib>)> {
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
-    return Err(Error::ShapeErr{
+    return Err(Error::ShapeErr {
       expected: vec![2],
       got: vec![lib.get_n_fields()],
-      msg: "the Anguelova & Lazaroiu consistency condition requires a 2-field model.".to_string()
-    })
+      msg: "the Anguelova & Lazaroiu consistency condition requires a 2-field model.".to_string(),
+    });
   }
   let h = Hesse2D::new(lib);
   let g = Grad::new(lib);
 
   //(2) Make sure the field-space array is actually 2d
   if x.shape().len() != 2 {
-    return Err(Error::ShapeErr{
+    return Err(Error::ShapeErr {
       expected: vec![2],
       got: x.shape().to_vec(),
-      msg: "expected 2D field-space array".to_string()
-    })
+      msg: "expected 2D field-space array".to_string(),
+    });
   }
 
   //(3) Make sure that the number of supplied model parameters matches the number
   //specified by the dynamic lib
   if p.len() != h.get_n_params() {
-    return Err(Error::ShapeErr{
+    return Err(Error::ShapeErr {
       expected: vec![2],
       got: vec![p.len()],
-      msg: format!("model \"{}\" has {} paramters", lib.name(), lib.get_n_params())
-    })
+      msg: format!("model \"{}\" has {} paramters", lib.name(), lib.get_n_params()),
+    });
   }
 
   Ok((h, g))
@@ -106,10 +108,10 @@ pub fn consistency_only(
   mut out: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
   progress: bool,
-  threads: usize
+  threads: usize,
 ) -> PyResult<()> {
   //(0) Set number of threads to use
-  let num_threads = if threads != 0 { threads } else {rayon::current_num_threads()};
+  let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -131,22 +133,24 @@ pub fn consistency_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out =
+    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
-    let lhs = v11/v - 3.;
-    let rhs = 3.*(v00/v10).powi(2) + (v00/v)*(v10/v00).powi(2);
+    let lhs = v11 / v - 3.;
+    let rhs = 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
-    *val = ((lhs/rhs).abs() - 1.).abs()
+    *val = ((lhs / rhs).abs() - 1.).abs()
   };
 
   //(5b) setup the threadpool (if necessary)
   if threads == 1 {
     //Single-threaded mode
-    let iter = out.into_iter()
+    let iter = out
+      .into_iter()
       .enumerate()
       //(2a) convert flat index into array index
       .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -164,7 +168,8 @@ pub fn consistency_only(
       .build()
       .map_err(|err| Error::from(err))?;
     threadpool.install(move || {
-      let iter = out.into_par_iter()
+      let iter = out
+        .into_par_iter()
         .enumerate()
         //(2a) convert flat index into array index
         .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -197,10 +202,10 @@ pub fn consistency_rapidturn_only(
   mut out: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
   progress: bool,
-  threads: usize
+  threads: usize,
 ) -> PyResult<()> {
   //(0) Set number of threads to use
-  let num_threads = if threads != 0 { threads } else {rayon::current_num_threads()};
+  let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -222,22 +227,24 @@ pub fn consistency_rapidturn_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out =
+    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
     let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
-    let lhs = v11/v;
-    let rhs = 3. * (v10/v00).powi(2);
+    let lhs = v11 / v;
+    let rhs = 3. * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
-    *val = ((lhs/rhs).abs() - 1.).abs()
+    *val = ((lhs / rhs).abs() - 1.).abs()
   };
 
   //(5b) setup the threadpool (if necessary)
   if threads == 1 {
     //Single-threaded mode
-    let iter = out.into_iter()
+    let iter = out
+      .into_iter()
       .enumerate()
       //(2a) convert flat index into array index
       .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -255,7 +262,8 @@ pub fn consistency_rapidturn_only(
       .build()
       .map_err(|err| Error::from(err))?;
     threadpool.install(move || {
-      let iter = out.into_par_iter()
+      let iter = out
+        .into_par_iter()
         .enumerate()
         //(2a) convert flat index into array index
         .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -286,10 +294,10 @@ pub fn epsilon_v_only(
   mut out: PyReadwriteArray2<f64>,
   start_stop: PyReadonlyArray2<f64>,
   progress: bool,
-  threads: usize
+  threads: usize,
 ) -> PyResult<()> {
   //(0) Set number of threads to use
-  let num_threads = if threads != 0 { threads } else {rayon::current_num_threads()};
+  let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -304,14 +312,17 @@ pub fn epsilon_v_only(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Calculating potential slow-roll parameter ε_V ONLY using {num_threads} threads.");
+  eprintln!(
+    "[Inflatox] Calculating potential slow-roll parameter ε_V ONLY using {num_threads} threads."
+  );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out =
+    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -322,7 +333,8 @@ pub fn epsilon_v_only(
   //(5b) setup the threadpool (if necessary)
   if threads == 1 {
     //Single-threaded mode
-    let iter = out.into_iter()
+    let iter = out
+      .into_iter()
       .enumerate()
       //(2a) convert flat index into array index
       .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -340,7 +352,8 @@ pub fn epsilon_v_only(
       .build()
       .map_err(|err| Error::from(err))?;
     threadpool.install(move || {
-      let iter = out.into_par_iter()
+      let iter = out
+        .into_par_iter()
         .enumerate()
         //(2a) convert flat index into array index
         .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -378,10 +391,10 @@ pub fn complete_analysis(
   mut out: PyReadwriteArray3<f64>,
   start_stop: PyReadonlyArray2<f64>,
   progress: bool,
-  threads: usize
+  threads: usize,
 ) -> PyResult<()> {
   //(0) Set number of threads to use
-  let num_threads = if threads != 0 { threads } else {rayon::current_num_threads()};
+  let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -390,12 +403,12 @@ pub fn complete_analysis(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, g) = validate(lib, out.slice(nd::s![..,..,0]), p)?;
+  let (h, g) = validate(lib, out.slice(nd::s![.., .., 0]), p)?;
   if out.shape()[2] != 6 {
-    Err(Error::ShapeErr{
+    Err(Error::ShapeErr {
       expected: vec![out.shape()[0], out.shape()[1], 6],
       got: out.shape().to_vec(),
-      msg: "Output array should be 3D. Last axis must have lenght 6".to_string()
+      msg: "Output array should be 3D. Last axis must have lenght 6".to_string(),
     })?
   }
 
@@ -410,7 +423,8 @@ pub fn complete_analysis(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out = out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out =
+    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -418,22 +432,23 @@ pub fn complete_analysis(
     let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
     //(1) Calculate consistency condition
     let consistency = {
-      let lhs = v11/v;
-      let rhs = 3. + 3.*(v00/v10).powi(2) + (v00/v)*(v10/v00).powi(2);
-      ((lhs/rhs).abs() - 1.).abs()
+      let lhs = v11 / v;
+      let rhs = 3. + 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
+      ((lhs / rhs).abs() - 1.).abs()
     };
     //(2) Calculate ε_V
     let epsilon_v = g.grad_square(&x, p) / v.powi(2);
     //(3) Calculate Vtt
-    let vtt = (v00*v10.powi(2) + v11*v00.powi(2) - 2.*v00*v10.powi(2)) / (v00.powi(2) + v10.powi(2));
+    let vtt = (v00 * v10.powi(2) + v11 * v00.powi(2) - 2. * v00 * v10.powi(2))
+      / (v00.powi(2) + v10.powi(2));
     //(4) Calculate ε_H
-    let epsilon_h = (3. * epsilon_v) / (epsilon_v + 3. + vtt/(3.*v));
+    let epsilon_h = (3. * epsilon_v) / (epsilon_v + 3. + vtt / (3. * v));
     //(5) Calculate η_H
-    let eta_h = (3.*(3.-epsilon_h)).sqrt() - 3.;
+    let eta_h = (3. * (3. - epsilon_h)).sqrt() - 3.;
     //(6) Calculate δ
     let delta = v10.atan2(v00);
     //(7) Calculate ω
-    let omega = ((vtt/v) * (3.-epsilon_h)).sqrt();
+    let omega = ((vtt / v) * (3. - epsilon_h)).sqrt();
 
     val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_h, delta, omega]);
   }
@@ -512,7 +527,7 @@ pub fn flag_quantum_dif_py(
   mut x: PyReadwriteArray2<bool>,
   start_stop: PyReadonlyArray2<f64>,
   progress: bool,
-  accuracy: f64
+  accuracy: f64,
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
@@ -527,7 +542,10 @@ pub fn flag_quantum_dif_py(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Calculating zeros of the potential gradient using {} threads.", rayon::current_num_threads());
+  eprintln!(
+    "[Inflatox] Calculating zeros of the potential gradient using {} threads.",
+    rayon::current_num_threads()
+  );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 

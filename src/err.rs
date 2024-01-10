@@ -29,7 +29,7 @@ pub enum LibInflxRsErr {
   MissingSymbolErr { symbol: Vec<u8>, lib_path: String },
   VersionErr(InflatoxVersion),
   RayonErr(String),
-  ShapeErr{ expected: Vec<usize>, got: Vec<usize>, msg: String }
+  ShapeErr { expected: Vec<usize>, got: Vec<usize>, msg: String },
 }
 
 impl std::fmt::Display for LibInflxRsErr {
@@ -61,7 +61,7 @@ impl From<LibInflxRsErr> for pyo3::PyErr {
     match err {
       IoErr { .. } => PyIOError::new_err(msg),
       MissingSymbolErr { .. } | VersionErr(_) | RayonErr(_) => PySystemError::new_err(msg),
-      ShapeErr { .. } => PyException::new_err(msg)
+      ShapeErr { .. } => PyException::new_err(msg),
     }
   }
 }

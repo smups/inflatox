@@ -32,7 +32,10 @@ use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
-use numpy::{PyArray2, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn, PyArrayDyn, IntoPyArray};
+use numpy::{
+  IntoPyArray, PyArray2, PyArrayDyn, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn,
+  PyReadwriteArrayDyn,
+};
 use pyo3::{create_exception, exceptions::PyException, prelude::*};
 
 type Error = crate::err::LibInflxRsErr;
@@ -42,7 +45,7 @@ type Result<T> = std::result::Result<T, Error>;
 pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
 
 // Badge in front of inflatox output
-lazy_static::lazy_static!{
+lazy_static::lazy_static! {
   pub static ref BADGE: console::StyledObject<&'static str> = {
     let magenta = console::Style::new().magenta().bold();
     magenta.apply_to("Inflatox - ")
@@ -85,16 +88,19 @@ pub fn convert_start_stop(
     || start_stop.shape()[1] != n_fields
     || start_stop.shape()[0] != 2
   {
-    Err(Error::ShapeErr{
+    Err(Error::ShapeErr {
       expected: vec![2, n_fields],
       got: start_stop.shape().to_vec(),
-      msg: "start_stop array should have 2 rows and as many columns as there are fields".to_string()
+      msg: "start_stop array should have 2 rows and as many columns as there are fields"
+        .to_string(),
     })
   } else {
-    Ok(start_stop
+    Ok(
+      start_stop
         .axis_iter(nd::Axis(0))
         .map(|start_stop| [start_stop[0], start_stop[1]])
-        .collect::<Vec<_>>())
+        .collect::<Vec<_>>(),
+    )
   }
 }
 
@@ -108,22 +114,23 @@ impl InflatoxPyDyLib {
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
     if x.shape() != &[self.0.get_n_fields() as usize] {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_fields()],
         got: x.shape().to_vec(),
-        msg: "expected a 1D array with as many elements as there are field-space coordinates".to_string()
-      })
+        msg: "expected a 1D array with as many elements as there are field-space coordinates"
+          .to_string(),
+      });
     }
     let x = x.as_slice().unwrap();
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
     if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
-        msg: "expected a 1D array with as many elements as there are model parameters".to_string()
-      })
+        msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
+      });
     }
     let p = p.as_slice().unwrap();
 
@@ -145,11 +152,13 @@ impl InflatoxPyDyLib {
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
     if x.shape().len() != self.0.get_n_fields() as usize {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: Vec::new(),
         got: x.shape().to_vec(),
-        msg: "expected an array with with the same number of axes as there are field-space coordinates".to_string()
-      })
+        msg:
+          "expected an array with with the same number of axes as there are field-space coordinates"
+            .to_string(),
+      });
     }
 
     //(2) Convert start_stop array
@@ -158,11 +167,11 @@ impl InflatoxPyDyLib {
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
     if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
-        msg: "expected a 1D array with as many elements as there are model parameters".to_string()
-      })
+        msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
+      });
     }
     let p = p.as_slice().unwrap();
 
@@ -185,22 +194,23 @@ impl InflatoxPyDyLib {
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
     if x.shape() != &[self.0.get_n_fields() as usize] {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_fields()],
         got: x.shape().to_vec(),
-        msg: "expected a 1D array with as many elements as there are field-space coordinates".to_string()
-      })
+        msg: "expected a 1D array with as many elements as there are field-space coordinates"
+          .to_string(),
+      });
     }
     let x = x.as_slice().unwrap();
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
     if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
-        msg: "expected a 1D array with as many elements as there are model parameters".to_string()
-      })
+        msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
+      });
     }
     let p = p.as_slice().unwrap();
 
@@ -224,11 +234,12 @@ impl InflatoxPyDyLib {
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
     if nx.len() != self.0.get_n_fields() as usize {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_fields()],
         got: vec![nx.len()],
-        msg: "expected a 1D array with as many elements as there are field-space coordinates".to_string()
-      })
+        msg: "expected a 1D array with as many elements as there are field-space coordinates"
+          .to_string(),
+      });
     }
 
     //(2) Convert start_stop array
@@ -237,11 +248,11 @@ impl InflatoxPyDyLib {
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
     if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr{
+      return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
-        msg: "expected a 1D array with as many elements as there are model parameters".to_string()
-      })
+        msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
+      });
     }
     let p = p.as_slice().unwrap();
 
