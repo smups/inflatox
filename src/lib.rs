@@ -1,5 +1,5 @@
 /*
-  Copyright© 2023 Raúl Wolters(1)
+  Copyright© 2024 Raúl Wolters(1)
 
   This file is part of libinflx_rs (rust bindings for inflatox).
 
@@ -38,6 +38,14 @@ use pyo3::{create_exception, exceptions::PyException, prelude::*};
 /// Version of Inflatox ABI that this crate is compatible with
 pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
 
+// Badge in front of inflatox output
+lazy_static::lazy_static!{
+  pub static ref BADGE: console::StyledObject<&'static str> = {
+    let magenta = console::Style::new().magenta().bold();
+    magenta.apply_to("Inflatox >")
+  };
+}
+
 //Register errors
 create_exception!(libinflx_rs, ShapeError, PyException);
 
@@ -46,13 +54,8 @@ create_exception!(libinflx_rs, ShapeError, PyException);
 fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::anguelova_py, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::delta_py, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::omega_py, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::epsilon_py, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::flag_quantum_dif_py, pymod)?)?;
 
-  //new functions
+  pymod.add_function(wrap_pyfunction!(anguelova::flag_quantum_dif_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::consistency_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::consistency_rapidturn_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::epsilon_v_only, pymod)?)?;
