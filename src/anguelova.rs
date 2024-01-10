@@ -31,6 +31,19 @@ use rayon::prelude::*;
 use crate::hesse_bindings::{Hesse2D, InflatoxDylib, Grad};
 use crate::PANIC_BADGE;
 
+type Error = crate::err::LibInflxRsErr;
+type Result<T> = std::result::Result<T, Error>;
+
+fn set_pbar(len: usize) -> ProgressBar {
+  const PBAR_REFRESH: u8 = 5;
+  const PBAR_STYLE: &str =
+    "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
+  let style = ProgressStyle::default_bar().template(PBAR_STYLE).unwrap();
+  let target = ProgressDrawTarget::stderr_with_hz(PBAR_REFRESH);
+
+  ProgressBar::with_draw_target(Some(len as u64), target).with_style(style)
+}
+
 #[inline]
 fn validate<'lib, T>(
   lib: &'lib InflatoxDylib,
@@ -149,7 +162,7 @@ pub fn consistency_only(
     let threadpool = rayon::ThreadPoolBuilder::new()
       .num_threads(num_threads)
       .build()
-      .expect("[LIBINFLX_RS_PANIC]: COULD NOT INITIALISE THREADPOOL");
+      .map_err(|err| Error::from(err))?;
     threadpool.install(move || {
       let iter = out.into_par_iter()
         .enumerate()
@@ -240,7 +253,7 @@ pub fn consistency_rapidturn_only(
     let threadpool = rayon::ThreadPoolBuilder::new()
       .num_threads(num_threads)
       .build()
-      .expect("[LIBINFLX_RS_PANIC]: COULD NOT INITIALISE THREADPOOL");
+      .map_err(|err| Error::from(err))?;
     threadpool.install(move || {
       let iter = out.into_par_iter()
         .enumerate()
@@ -325,7 +338,7 @@ pub fn epsilon_v_only(
     let threadpool = rayon::ThreadPoolBuilder::new()
       .num_threads(num_threads)
       .build()
-      .expect("[LIBINFLX_RS_PANIC]: COULD NOT INITIALISE THREADPOOL");
+      .map_err(|err| Error::from(err))?;
     threadpool.install(move || {
       let iter = out.into_par_iter()
         .enumerate()
@@ -444,7 +457,7 @@ pub fn complete_analysis(
     let threadpool = rayon::ThreadPoolBuilder::new()
       .num_threads(num_threads)
       .build()
-      .expect("[LIBINFLX_RS_PANIC]: COULD NOT INITIALISE THREADPOOL");
+      .map_err(|err| Error::from(err))?;
     threadpool.install(move || {
       let iter = out
         .par_chunks_exact_mut(6)
@@ -485,16 +498,6 @@ fn iter_array<'a, T: Send>(
     .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
     //(2b) convert array index into field-space point
     .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val))
-}
-
-fn set_pbar(len: usize) -> ProgressBar {
-  const PBAR_REFRESH: u8 = 5;
-  const PBAR_STYLE: &str =
-    "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
-  let style = ProgressStyle::default_bar().template(PBAR_STYLE).unwrap();
-  let target = ProgressDrawTarget::stderr_with_hz(PBAR_REFRESH);
-
-  ProgressBar::with_draw_target(Some(len as u64), target).with_style(style)
 }
 
 #[pyfunction]

@@ -26,6 +26,7 @@ pub enum LibInflxRsErr {
   IoErr { lib_path: String, msg: String },
   MissingSymbolErr { symbol: Vec<u8>, lib_path: String },
   VersionErr(InflatoxVersion),
+  RayonErr(String),
 }
 
 impl std::fmt::Display for LibInflxRsErr {
@@ -36,12 +37,13 @@ impl std::fmt::Display for LibInflxRsErr {
       IoErr { lib_path, msg } => write!(f, "Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{msg}\""),
       MissingSymbolErr { symbol, lib_path } => {
         if let Ok(string) = std::str::from_utf8(&symbol) {
-          write!(f, "Could not find symbol \"{string}\" in {lib_path}.")
+          write!(f, "Could not find symbol \"{string}\" in {lib_path}")
         } else {
           write!(f, "Could not find symbol {symbol:?} in {lib_path}")
         }
       },
       VersionErr(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
+      RayonErr(msg) => write!(f, "Could not initialise threadpool. Error: \"{msg}\"")
     }
   }
 }
@@ -53,7 +55,13 @@ impl From<LibInflxRsErr> for pyo3::PyErr {
     use LibInflxRsErr::*;
     match err {
       IoErr { .. } => PyIOError::new_err(format!("{err}")),
-      MissingSymbolErr { .. } | VersionErr(_) => PySystemError::new_err(format!("{err}")),
+      MissingSymbolErr { .. } | VersionErr(_) | RayonErr(_) => PySystemError::new_err(format!("{err}")),
     }
+  }
+}
+
+impl From<rayon::ThreadPoolBuildError> for LibInflxRsErr {
+  fn from(err: rayon::ThreadPoolBuildError) -> Self {
+    Self::RayonErr(format!("{err}"))
   }
 }
