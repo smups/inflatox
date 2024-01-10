@@ -343,13 +343,6 @@ impl<'a> Hesse2D<'a> {
   }
 
   #[inline]
-  pub fn v01(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
-    unsafe { self.fns[1](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
-  }
-
-  #[inline]
   pub fn v10(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
