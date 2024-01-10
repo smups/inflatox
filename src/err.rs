@@ -19,6 +19,8 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
+use pyo3::exceptions::PyException;
+
 use crate::inflatox_version::InflatoxVersion;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,6 +29,7 @@ pub enum LibInflxRsErr {
   MissingSymbolErr { symbol: Vec<u8>, lib_path: String },
   VersionErr(InflatoxVersion),
   RayonErr(String),
+  ShapeErr{ expected: Vec<usize>, got: Vec<usize>, msg: String }
 }
 
 impl std::fmt::Display for LibInflxRsErr {
@@ -43,7 +46,8 @@ impl std::fmt::Display for LibInflxRsErr {
         }
       },
       VersionErr(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
-      RayonErr(msg) => write!(f, "Could not initialise threadpool. Error: \"{msg}\"")
+      RayonErr(msg) => write!(f, "Could not initialise threadpool. Error: \"{msg}\""),
+      ShapeErr { expected, got, msg } => write!(f, "Expected array with shape {expected:?}, received array with shape {got:?}. Context: {msg}")
     }
   }
 }
@@ -53,9 +57,11 @@ impl From<LibInflxRsErr> for pyo3::PyErr {
   fn from(err: LibInflxRsErr) -> Self {
     use pyo3::exceptions::{PyIOError, PySystemError};
     use LibInflxRsErr::*;
+    let msg = format!("{err}");
     match err {
-      IoErr { .. } => PyIOError::new_err(format!("{err}")),
-      MissingSymbolErr { .. } | VersionErr(_) | RayonErr(_) => PySystemError::new_err(format!("{err}")),
+      IoErr { .. } => PyIOError::new_err(msg),
+      MissingSymbolErr { .. } | VersionErr(_) | RayonErr(_) => PySystemError::new_err(msg),
+      ShapeErr { .. } => PyException::new_err(msg)
     }
   }
 }

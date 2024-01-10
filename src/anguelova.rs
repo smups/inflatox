@@ -49,35 +49,35 @@ fn validate<'lib, T>(
   lib: &'lib InflatoxDylib,
   x: ArrayView2<T>,
   p: &[f64],
-) -> PyResult<(Hesse2D<'lib>, Grad<'lib>)> {
+) -> Result<(Hesse2D<'lib>, Grad<'lib>)> {
   //(1) Make sure we have a two field model
   if !lib.get_n_fields() == 2 {
-    crate::raise_shape_err(format!(
-      "the Anguelova & Lazaroiu consistency condition requires a 2-field model. Model \"{}\" has only {} fields.",
-      lib.name(),
-      lib.get_n_fields()
-    ))?;
+    return Err(Error::ShapeErr{
+      expected: vec![2],
+      got: vec![lib.get_n_fields()],
+      msg: "the Anguelova & Lazaroiu consistency condition requires a 2-field model.".to_string()
+    })
   }
   let h = Hesse2D::new(lib);
   let g = Grad::new(lib);
 
   //(2) Make sure the field-space array is actually 2d
   if x.shape().len() != 2 {
-    crate::raise_shape_err(format!(
-      "expected a 2D field-space array. Found array with shape {:?}",
-      x.shape()
-    ))?;
+    return Err(Error::ShapeErr{
+      expected: vec![2],
+      got: x.shape().to_vec(),
+      msg: "expected 2D field-space array".to_string()
+    })
   }
 
   //(3) Make sure that the number of supplied model parameters matches the number
   //specified by the dynamic lib
   if p.len() != h.get_n_params() {
-    crate::raise_shape_err(format!(
-      "model \"{}\" expected {} parameters. Parameter array has {}.",
-      lib.name(),
-      h.get_n_params(),
-      p.len()
-    ))?;
+    return Err(Error::ShapeErr{
+      expected: vec![2],
+      got: vec![p.len()],
+      msg: format!("model \"{}\" has {} paramters", lib.name(), lib.get_n_params())
+    })
   }
 
   Ok((h, g))
@@ -392,10 +392,11 @@ pub fn complete_analysis(
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
   let (h, g) = validate(lib, out.slice(nd::s![..,..,0]), p)?;
   if out.shape()[2] != 6 {
-    crate::raise_shape_err(format!(
-      "expected output array with shape (x,y,6). Found array with shape {:?}",
-      out.shape()
-    ))?;
+    Err(Error::ShapeErr{
+      expected: vec![out.shape()[0], out.shape()[1], 6],
+      got: out.shape().to_vec(),
+      msg: "Output array should be 3D. Last axis must have lenght 6".to_string()
+    })?
   }
 
   //(3) Convert start-stop
