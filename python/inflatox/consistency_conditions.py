@@ -505,3 +505,57 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     #evaluate and return
     complete_analysis(self.dylib, args, out, start_stop, progress, threads)
     return (out[:,:,0], out[:,:,1], out[:,:,2], out[:,:,3], out[:,:,4], out[:,:,5])
+
+  def consistency_only_old(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 1_000,
+      N_x1: int = 1_000,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """returns boolean array where `True` values indicate that both components
+    of the gradient of the scalar potential are smaller than the specified
+    `accuracy` parameter. This is useful to identify points in the potential where
+    quantum diffusion may have a large impact (saddle points in the potential).
+    This calculation explicitly *does not* take into account the full inner product
+    using the metric to avoid measuring where the metric goes to zero or becomes
+    signular.
+
+    Args:
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x0_start` (`float`): minimum value of first field `x[0]`.
+    - `x0_stop` (`float`): maximum value of first field `x[0]`.
+    - `x1_start` (`float`): minimum value of second field `x[1]`.
+    - `y_stop` (`float`): maximum value of second field `x[1]`.
+    - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+    - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
+
+    Returns:
+    `np.ndarray` (✕6): arrays filled with Anguelova & Lazaroiu's original consistency
+      condition.
+    """
+    
+    #set up args for anguelova's condition
+    out = np.zeros((N_x0, N_x1), dtype=float)
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #calculate 
+    threads = threads if threads is not None else 0
+    
+    #evaluate and return
+    consistency_rapidturn_only(self.dylib, args, out, start_stop, progress, threads)
+    return out
