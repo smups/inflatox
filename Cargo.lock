@@ -132,6 +132,7 @@ version = "0.0.0"
 dependencies = [
  "console",
  "indicatif",
+ "lazy_static",
  "libloading",
  "ndarray",
  "numpy",
