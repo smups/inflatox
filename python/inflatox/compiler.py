@@ -1,4 +1,4 @@
-#  Copyright© 2023 Raúl Wolters(1)
+#  Copyright© 2024 Raúl Wolters(1)
 #
 #  This file is part of Inflatox.
 #
@@ -153,7 +153,8 @@ class Compiler:
   def __init__(self,
     symbolic_out: SymbolicOutput,
     output_path: str|None = None,
-    cleanup: bool = True
+    cleanup: bool = True,
+    silent: bool|None = None,
   ):
     """Constructor for a C Compiler (provided by zig-cc), which can be used
     to convert the provided `HesseMatrix` object into a platform- and arch-specific
@@ -176,6 +177,9 @@ class Compiler:
       `None`. Defaults to `None`.
     - `cleanup` (bool, optional): if `True`, generated artifacts will be deleted
       when they are no longer necessary. Defaults to True.
+    - `silent` (bool|None, optional): if `True`, no console output will be
+      generated. If `None`, the `silent` setting from the symbolic calculation
+      will be used. Defaults to `None`
     """
     self.output_file = open(output_path) if output_path is not None else tempfile.NamedTemporaryFile(
       mode='wt',
@@ -186,6 +190,7 @@ class Compiler:
     self.symbolic_out = symbolic_out
     self._set_preamble(symbolic_out.model_name)
     self.cleanup = cleanup
+    self.silent = silent if silent is not None else symbolic_out.silent
     self.zigcc_opts = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-shared']
    
   def _set_preamble(self, model_name: str):
@@ -271,16 +276,18 @@ char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
     lib_path = f'{tempfile.tempdir}/{lib_name}'
     
     # Compile source with zig
-    subprocess.call([
-      sys.executable,
-      "-m", "ziglang",
-      "cc", "-o",
-      lib_path, #out
-      source_path, #in
-      *self.zigcc_opts #compiler options
-    ])
+    result = subprocess.run([
+        sys.executable,
+        "-m", "ziglang",
+        "cc", "-o",
+        lib_path, #out
+        source_path, #in
+        *self.zigcc_opts #compiler options
+      ],
+      capture_output = True
+    )
     
-    return (source_path, lib_path)
+    return (source_path, lib_path, result)
     
   def compile(self) -> CompilationArtifact:
     """Compiles the Hesse matrix specified in the constructor of this class into
@@ -303,15 +310,27 @@ char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
       It contains info about the model and inflatox version used to create the
       artifact.
     """
+    #(0) Say hello
+    if not self.silent:
+      print("Compiling model...")
+    
     #(1) generate the actual C-source
     self._generate_c_file()
     
     #(2) run compiler and linker
-    source_path, dylib_path = self._zigcc_compile_and_link()
+    source_path, dylib_path, output = self._zigcc_compile_and_link()
     
     #(3) cleanup unused artifacts
     if self.cleanup:
       os.remove(source_path)
+      
+    #(4) print output
+    if output.returncode != 0:
+      print("[COMPILER ERROR]")
+      print(f"{output.stdout}")
+    elif not self.silent:
+      print("Compiler output:")
+      print(f"{output.stderr}")
     
     #(R) return compilation artifact
     return CompilationArtifact(
