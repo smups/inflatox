@@ -37,7 +37,8 @@ class SymbolicOutput():
     coordinates: list[sympy.Symbol],
     potential: sympy.Expr,
     gradient_size: sympy.Expr,
-    model_name: str
+    model_name: str,
+    silent: bool,
   ):
     self.hesse_cmp = hesse_cmp
     self.basis = basis
@@ -46,6 +47,7 @@ class SymbolicOutput():
     self.potential = potential
     self.model_name = model_name
     self.gradient_square = gradient_size
+    self.silent = silent
     if len(hesse_cmp[0]) != len(hesse_cmp):
       raise Exception('The Hesse matrix is square; the provided list was not (number of columns != number of rows)')
     if len(hesse_cmp[0]) != len(basis[0]):
@@ -316,7 +318,7 @@ class SymbolicCalculation():
     print("Calculating the norm of the gradient...")
     gradnorm = self.calc_gradient_square()
         
-    return SymbolicOutput(H_proj, w, self.coords, self.V, gradnorm, self.model_name)
+    return SymbolicOutput(H_proj, w, self.coords, self.V, gradnorm, self.model_name, self.silent)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of v1 and v2 with respect to configured metric.
