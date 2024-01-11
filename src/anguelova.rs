@@ -39,7 +39,7 @@ type Result<T> = std::result::Result<T, Error>;
 fn set_pbar(len: usize) -> ProgressBar {
   const PBAR_REFRESH: u8 = 5;
   const PBAR_STYLE: &str =
-    "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.blue/gray} {percent}%";
+    "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.magenta/gray} {percent}%";
   let style = ProgressStyle::default_bar().template(PBAR_STYLE).unwrap();
   let target = ProgressDrawTarget::stderr_with_hz(PBAR_REFRESH);
 

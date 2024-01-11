@@ -36,7 +36,7 @@ use numpy::{
   IntoPyArray, PyArray2, PyArrayDyn, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn,
   PyReadwriteArrayDyn,
 };
-use pyo3::{create_exception, exceptions::PyException, prelude::*};
+use pyo3::prelude::*;
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
@@ -58,7 +58,7 @@ lazy_static::lazy_static! {
 
 #[pymodule]
 /// PyO3 wrapper for libinflx_rs rust api
-fn libinflx_rs(py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+fn libinflx_rs(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
 
