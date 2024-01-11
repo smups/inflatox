@@ -172,15 +172,22 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       progress: bool = True,
       threads: None | int = None,
     ) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray):
-    """returns boolean array where `True` values indicate that both components
-    of the gradient of the scalar potential are smaller than the specified
-    `accuracy` parameter. This is useful to identify points in the potential where
-    quantum diffusion may have a large impact (saddle points in the potential).
-    This calculation explicitly *does not* take into account the full inner product
-    using the metric to avoid measuring where the metric goes to zero or becomes
-    signular.
-
-    Args:
+    """This function performs a complete analysis of possible slow-roll (rapid)
+    turn trajectories using the methods described in (paper), based on the AL
+    consistency condition. It returns six arrays filled with:
+      1. The absolute difference between one and the quotient of th
+        left-hand-side (lhs) and right-hand-side (rhs) of the AL condition.
+      2. ε_V (first potential slow-roll parameter)
+      3. ε_H (first dynamical slow-roll parameter), calculated assuming that the
+        AL condition holds.
+      4. η_H (second dynamical slow-roll parameter), calculated assuming that the
+        AL condition holds.
+      5. δ (characteristic angle), calculated assuming that the AL condition holds.
+      6. ω (relative turn rate), calculated assuming that the AL condition holds.
+    Using (1) and (3), slow-roll trajectories with |ε_H|, |η_H| << 1 can be
+    identified. See (paper) for a more complete discussion.
+    
+    ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
     - `x0_stop` (`float`): maximum value of first field `x[0]`.
@@ -195,7 +202,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       to the number of CPU's). When set to 1, a single-threaded implementation
       will be used. 
 
-    Returns:
+    ### Returns:
     `np.ndarray` (✕6): arrays filled with the following quantities (in order):
       1. Consistency condition (lhs - rhs)
       2. ε_V (first potential slow-roll parameter)
@@ -231,15 +238,18 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       progress: bool = True,
       threads: None | int = None,
     ) -> np.ndarray:
-    """returns boolean array where `True` values indicate that both components
-    of the gradient of the scalar potential are smaller than the specified
-    `accuracy` parameter. This is useful to identify points in the potential where
-    quantum diffusion may have a large impact (saddle points in the potential).
-    This calculation explicitly *does not* take into account the full inner product
-    using the metric to avoid measuring where the metric goes to zero or becomes
-    signular.
-
-    Args:
+    """returns array filled with the absolute difference between one and the
+    quotient of the left-hand-side (lhs) and right-hand-side (rhs) of
+    Anguelova & Lazaroiu's original consistency condition (`arXiv:2210.00031v2`).
+    
+    ### Exact formulation of calculated quantities
+    This function returns:
+      |lhs/rhs - 1|
+    Where
+      lhs = Vvv/V
+      rhs = 3 (Vvw/Vvv)²
+      
+    ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
     - `x0_stop` (`float`): maximum value of first field `x[0]`.
@@ -254,7 +264,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       to the number of CPU's). When set to 1, a single-threaded implementation
       will be used. 
 
-    Returns:
+    ### Returns:
     `np.ndarray` (✕6): arrays filled with Anguelova & Lazaroiu's original consistency
       condition.
     """
