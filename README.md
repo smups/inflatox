@@ -71,10 +71,14 @@ out = inflatox.Compiler(hesse).compile()
 from inflatox.consistency_conditions import AnguelovaLazaroiuCondition
 anguelova = AnguelovaLazaroiuCondition(out)
 
-args = np.array([1.0, 1.0, 1.0])
+p = np.array([1.0, 1.0, 1.0])
 x = np.array([2.0, 2.0])
-print(anguelova.calc_V(x, args))
-print(anguelova.calc_H(x, args))
+print(anguelova.calc_V(x, p))
+print(anguelova.calc_H(x, p))
+
+extent = (-1, 1, -1, 1)
+consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega =
+    anguelova.full_analysis(p, *extent)
 ```
 
 ## Supported Architectures
