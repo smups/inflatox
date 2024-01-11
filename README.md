@@ -4,20 +4,27 @@
 [![PyPi](https://img.shields.io/pypi/v/inflatox)](https://pypi.org/project/inflatox)
 [![CI](https://github.com/smups/inflatox/actions/workflows/CI.yml/badge.svg)](https://github.com/smups/inflatox/actions/workflows/CI.yml)
 
-Inflatox provides a framework to implement high-performance numerical consistency
-conditions for multifield inflation models. As an example, an implementation of
-the potential consistency condition for slow-roll rapid-turn two-field inflation
-from Anguelova & Lazaroiu (2023)[^1] is built right into the package.
+Inflatox provides utilities to compute slow-roll parameters and turn-rates for
+two-field inflation models, based on the consistency condition from Anguelova &
+Lazaroiu (2023)[^1]. These can be used in a parameter sweep of a two-field
+model to find possible inflation trajectories.
+
+If this software has proven useful to your research, please consider citing
+(_paper in preparation_).
 
 ## Features
 - symbolic solver for components of the Hesse matrix of an inflationary model
   with non-canonical kinetic terms, powered by [`sympy`](https://www.sympy.org).
-- transpiler to transform `sympy` expressions into executable compiled (`C`) code
+- transpiler to transform `sympy` expressions into executable compiled (`C`) code.
 - built-in multithreaded `rust` module for high-performance calculations of
   consistency conditions that interfaces directly with `numpy` and python.
+- utilities for performing parameter sweeps.
+- extendability: inflatox' exposes a python interface to calculate any intermediate
+  quantity, which can be used to extend it with additional consistency conditions.
 - no need to read, write or compile any `rust` or `C` code manually
-  (this is all done automatically behind the scenes)
-- no external dependencies, everything needed to run the package is included
+  (this is all done automatically behind the scenes).
+- no system dependencies, everything needed to run the package can be automatically
+  installed by `pip`.
 
 ## Installation and Dependencies
 Inflatox requires at least python (ABI) version `3.7`. The latest version of
@@ -88,6 +95,11 @@ print(anguelova.calc_H(x, args))
 - IBM s390x (64 bit)
   - linux/gnu (glibc >= 2.17, kernel >= 3.2)
 *Note: Apple silicon M-series chips are supported (aarch64)*
+
+## Citing
+If this software package contributed meaningfully to your research, please
+consider citing the following papers:
+- (in preparation)
 
 ## License
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
