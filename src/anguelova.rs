@@ -425,7 +425,7 @@ pub fn complete_analysis(
   let start = std::time::Instant::now();
 
   //(5) Fill output array
-  let len = out.len();
+  let len = out.len()/6;
   let shape = &[out.shape()[0], out.shape()[1]];
   let out =
     out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
