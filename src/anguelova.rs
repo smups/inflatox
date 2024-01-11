@@ -31,7 +31,7 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 use crate::hesse_bindings::{Grad, Hesse2D, InflatoxDylib};
-use crate::PANIC_BADGE;
+use crate::{BADGE, PANIC_BADGE};
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
@@ -126,7 +126,7 @@ pub fn consistency_only(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Calculating consistency condition ONLY using {num_threads} threads.");
+  eprintln!("{}Calculating consistency condition ONLY using {num_threads} threads.", *BADGE);
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -185,7 +185,8 @@ pub fn consistency_only(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}.",
+    "{}Calculation finished. Took {}.",
+    *BADGE,
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 
@@ -220,7 +221,7 @@ pub fn consistency_rapidturn_only(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Calculating consistency condition ONLY assuming rapid-turn using {num_threads} threads.");
+  eprintln!("{}Calculating consistency condition ONLY assuming rapid-turn using {num_threads} threads.", *BADGE);
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -279,7 +280,8 @@ pub fn consistency_rapidturn_only(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}.",
+    "{}Calculation finished. Took {}.",
+    *BADGE,
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 
@@ -313,7 +315,8 @@ pub fn epsilon_v_only(
 
   //(4) Say hello
   eprintln!(
-    "[Inflatox] Calculating potential slow-roll parameter ε_V ONLY using {num_threads} threads."
+    "{}Calculating potential slow-roll parameter ε_V ONLY using {num_threads} threads.",
+    *BADGE
   );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
@@ -369,7 +372,8 @@ pub fn epsilon_v_only(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}.",
+    "{}Calculation finished. Took {}.",
+    *BADGE,
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 
@@ -416,7 +420,7 @@ pub fn complete_analysis(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("[Inflatox] Calculating full analysis using {num_threads} threads.");
+  eprintln!("{}Calculating full analysis using {num_threads} threads.", *BADGE);
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -492,7 +496,8 @@ pub fn complete_analysis(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}.",
+    "{}Calculation finished. Took {}.",
+    *BADGE,
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 
@@ -543,7 +548,8 @@ pub fn flag_quantum_dif_py(
 
   //(4) Say hello
   eprintln!(
-    "[Inflatox] Calculating zeros of the potential gradient using {} threads.",
+    "{}Calculating zeros of the potential gradient using {} threads.",
+    *BADGE,
     rayon::current_num_threads()
   );
   let _ = std::io::stderr().flush();
@@ -565,7 +571,8 @@ pub fn flag_quantum_dif_py(
 
   //(6) Report how long we took, and return.
   eprintln!(
-    "[Inflatox] Calculation finished. Took {}.",
+    "{}Calculation finished. Took {}.",
+    *BADGE,
     indicatif::HumanDuration(start.elapsed()).to_string()
   );
 

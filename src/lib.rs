@@ -48,7 +48,7 @@ pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
 lazy_static::lazy_static! {
   pub static ref BADGE: console::StyledObject<&'static str> = {
     let magenta = console::Style::new().magenta().bold();
-    magenta.apply_to("Inflatox - ")
+    magenta.apply_to("[Inflatox] ")
   };
   pub static ref PANIC_BADGE: console::StyledObject<&'static str> = {
     let magenta = console::Style::new().white().on_red().bold();
