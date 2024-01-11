@@ -1,6 +1,18 @@
 # Inflatox Changelog
 
 # v0.7.0 - major refactor (💣BREAKING CHANGES💣)
+- Added functionality to calculate the potential slow-roll parameter $\varepsilon_V$
+- Added functionality to calculate $\varepsilon_H$ assuming the AL condition holds.
+- Added functionality to calculate $\eta_{\parallel}$ and $\eta_H$ assuming
+  the AL condition holds.
+- Added new `complete_analysis()` method that is able to calculate six dynamical
+  quantities at once. This cuts computation time by about a factor six.
+- Added `consistency_only()` method for situations when `full_analysis()` is
+  overkill (no real speed-up).
+- Added `consistency_only_old()` method for computing the original AL condition
+  only (not included in `complete_analysis`)
+- Added `epsilon_v_only()` method for computing the first potential slow-roll
+  parameter.
 - Reworked console output
 - Removed `evaluate()` method of `AnguelovaLazaroiuCondition`. Functionality
   replaced by `consistency_only()`.
