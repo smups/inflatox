@@ -237,7 +237,7 @@ class SymbolicCalculation():
       lhs = expr
     """
     if not self.silent and lhs is not None:
-      display(Math(f"{lhs}={sympy.latex(expr)}"))
+      display(Math(f"{lhs}={expr}"))
     elif not self.silent:
       display(expr)
     
