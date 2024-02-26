@@ -272,22 +272,22 @@ class SymbolicCalculation():
     #(1) Calculate an orthonormal basis
     #(1a)...starting with a vector parallel to the potential gradient
     self.print("Calculating orthonormal basis...")
-    w = [self.calc_v()]
-    self.display(w[0], lhs='v')
+    basis = [self.calc_v()]
+    self.display(basis[0], lhs='v')
     
     #(1b) followed by other gramm-schmidt produced vectors
     for (i, guess) in enumerate(basis):
-      w.append(self.gramm_schmidt(w, guess))
-      self.display(w[-1], lhs=f'w_{i+1}')
+      basis.append(self.gramm_schmidt(basis, guess))
+      self.display(basis[-1], lhs=f'w_{i+1}')
     
     #(1b) make sure the basis is orthonormal
     if self.assertions:
       for a in range(dim):
         for b in range(dim):
           if a == b:
-            assert(sympy.Eq(1, self.inner_prod(w[a], w[b])).simplify())
+            assert(sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify())
           else:
-            assert(sympy.Eq(0, self.inner_prod(w[a], w[b])).simplify())
+            assert(sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify())
         
     #(2) Calculate the components of the covariant Hesse Matrix
     print("Calculating covariant Hesse matrix...")
@@ -299,7 +299,7 @@ class SymbolicCalculation():
       Hab = 0
       for x in range(dim):
         for y in range(dim):
-          Hab = Hab + H[x][y] * w[a][x] * w[b][y]
+          Hab = Hab + H[x][y] * basis[a][x] * basis[b][y]
       return ([a, b], powdenest(Hab.simplify(), force=True) if self.simp >= 5 else Hab)
   
     print("Projecting the Hesse matrix on the vielbein basis...")
@@ -318,7 +318,7 @@ class SymbolicCalculation():
     print("Calculating the norm of the gradient...")
     gradnorm = self.calc_gradient_square()
         
-    return SymbolicOutput(H_proj, w, self.coords, self.V, gradnorm, self.model_name, self.silent)
+    return SymbolicOutput(H_proj, basis, self.coords, self.V, gradnorm, self.model_name, self.silent)
    
   def inner_prod(self, v1: list[sympy.Expr], v2: list[sympy.Expr]) -> sympy.Expr:
     """returns the inner product of v1 and v2 with respect to configured metric.
