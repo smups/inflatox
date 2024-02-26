@@ -241,7 +241,7 @@ class SymbolicCalculation():
     elif not self.silent:
       display(expr)
     
-  def execute(self, basis: list[list[sympy.Expr]]) -> SymbolicOutput:
+  def execute(self, guesses: list[list[sympy.Expr]]) -> SymbolicOutput:
     """Performs fully symbolic calculation of the components of the covariant
     Hesse matrix of the potential with respect to the metric, which are then
     projected onto an orthonormal vielbein basis constructed (using the
@@ -252,7 +252,7 @@ class SymbolicCalculation():
     individual methods of this class.
 
     ### Args
-    `basis` (`list[list[sympy.Expr]]`): list of vectors to be used to calculate
+    `guesses` (`list[list[sympy.Expr]]`): list of vectors to be used to calculate
       an orthonormal vielbein basis onto which the components of the Hesse matrix
       will be projected. The supplied vectors *do not* have to be orthogonal, but
       they *must be* linearly independent.
@@ -267,7 +267,7 @@ class SymbolicCalculation():
       as well as information about the model that was used to calculate said components. 
     """
     dim = len(self.coords)
-    assert(len(basis) == dim - 1)
+    assert(len(guesses) == dim - 1)
     
     #(1) Calculate an orthonormal basis
     #(1a)...starting with a vector parallel to the potential gradient
@@ -276,7 +276,7 @@ class SymbolicCalculation():
     self.display(basis[0], lhs='v')
     
     #(1b) followed by other gramm-schmidt produced vectors
-    for (i, guess) in enumerate(basis):
+    for (i, guess) in enumerate(guesses):
       basis.append(self.gramm_schmidt(basis, guess))
       self.display(basis[-1], lhs=f'w_{i+1}')
     
