@@ -154,8 +154,9 @@ class AnguelovaLazaroiuCondition(InflationCondition):
   condition and can be used to construct an instance of this class.
   
   To run evaluate the consistency condition for various model parameters and
-  regions of field-space, use the `.evaluate()` method on an instance of this class
-  with the appropriate methods. For more info, see the `.evaluate()` method.
+  regions of field-space, use the `.complete_analysis()` method on an instance
+  of this class with the appropriate methods. For more info, see the
+  `.complete_analysis()` method.
   """
   
   def __init__(self, compiled_artifact: CompilationArtifact):
