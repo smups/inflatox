@@ -451,7 +451,7 @@ pub fn complete_analysis(
     //(5) Calculate η_H
     let eta_h = (3. * (3. - epsilon_h)).sqrt() - 3.;
     //(6) Calculate δ
-    let delta = v10.atan2(v00);
+    let delta = (v10/v00).tan();
     //(7) Calculate ω
     let omega = ((vtt / v) * (3. - epsilon_h)).sqrt();
 
