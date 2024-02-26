@@ -154,47 +154,45 @@ class AnguelovaLazaroiuCondition(InflationCondition):
   condition and can be used to construct an instance of this class.
   
   To run evaluate the consistency condition for various model parameters and
-  regions of field-space, use the `.evaluate()` method on an instance of this class
-  with the appropriate methods. For more info, see the `.evaluate()` method.
+  regions of field-space, use the `.complete_analysis()` method on an instance
+  of this class with the appropriate methods. For more info, see the
+  `.complete_analysis()` method.
   """
   
   def __init__(self, compiled_artifact: CompilationArtifact):
     super().__init__(compiled_artifact)
+  
+  def complete_analysis(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 1_000,
+      N_x1: int = 1_000,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """This function performs a complete analysis of possible slow-roll (rapid)
+    turn trajectories using the methods described in (paper), based on the AL
+    consistency condition. It returns six arrays filled with:
+      1. Let rhs and lhs denote the left-hand side and right-hand side of the AL
+        consistency condition. This first array is populated with the normalised
+        difference between the rhs and lhs:
+          out = ||lhs| - |rhs||/(|lhs| + |rhs|)
+        Note that out = 0 corresponds to the consistency condition holding
+        perfectly. Values larger than zero indicate it does not hold perfectly.
+      2. ε_V (first potential slow-roll parameter)
+      3. ε_H (first dynamical slow-roll parameter), calculated assuming that the
+        AL condition holds.
+      4. η_H (second dynamical slow-roll parameter), calculated assuming that the
+        AL condition holds.
+      5. δ (characteristic angle), calculated assuming that the AL condition holds.
+      6. ω (relative turn rate), calculated assuming that the AL condition holds.
+    Using (1) and (3), slow-roll trajectories with |ε_H|, |η_H| << 1 can be
+    identified. See (paper) for a more complete discussion.
     
-  def evaluate(self,
-    args: np.ndarray,
-    x0_start: float,
-    x0_stop: float,
-    x1_start: float,
-    x1_stop: float,
-    N_x0: int = 10_000,
-    N_x1: int = 10_000,
-    order: ['exact', 'leading', '0th', '2nd'] = '2nd',
-    progress: bool = True
-  ) -> np.ndarray:
-    """Evaluates the potential consistency condition from Anguelova and Lazaroiu
-    2022 paper (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL)
-    inflationary models.
-    
-    In their paper, the authors claim that RTSL models must satisfy a consistency
-    condition:
-      3V (V_vv)^2 = (V_vw)^2 V_ww
-    Where V_ab are the components of the covariant Hesse matrix projected along
-    the vectors a and b. v is the basis vector parallel to the gradient of the scalar
-    potential V and w is the second basis vector (orthonormal to v).
-    
-    This function returns the difference between the left-hand side (lhs) divided
-    by the right-hand side (rhs) of the consistency condition from
-    Anguelova & Lazaroiu, minus one:
-      3(V_vv / V_vw)^2 = V_ww / V
-    Hence the output will be:
-      out = lhs / rhs - 1
-    The field-space region to be investigated is specified with the arguments of
-    this function.
-
-    ### Args
-    General: See `CompilationArtifact.print_sym_lookup_table()` for an overview
-    of which sympy symbols were mapped to which arguments (args) and fields (x).
+    ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
     - `x0_stop` (`float`): maximum value of first field `x[0]`.
@@ -202,76 +200,61 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `y_stop` (`float`): maximum value of second field `x[1]`.
     - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
-    - `order (['exact', 'leading', '0th', '2nd'], optional)`: set approximation order
-      for AL consistency condition. See [reference] for details. Defaults to 2nd.
     - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
       progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
 
-    ### Returns
-    `np.ndarray`: Quotient of left-hand side and right-hand side of
-    Anguelova & Lazaroiu consistency condition (approximated to the specified
-    order), minus one.
+    ### Returns:
+    `np.ndarray` (✕6): arrays filled with the following quantities (in order):
+      1. Consistency condition ||lhs| - |rhs||/(|lhs| + |rhs|)
+      2. ε_V (first potential slow-roll parameter)
+      3. ε_H (first dynamical slow-roll parameter)
+      4. η_H (second dynamical slow-roll parameter)
+      5. δ (characteristic angle)
+      6. ω (relative turn rate)
+    """
+    
+    #set up args for anguelova's condition
+    out = np.zeros((N_x0, N_x1, 6), dtype=float)
+    
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
+    
+    #calculate 
+    threads = threads if threads is not None else 0
+    
+    #evaluate and return
+    complete_analysis(self.dylib, args, out, start_stop, progress, threads)
+    return (out[:,:,0], out[:,:,1], out[:,:,2], out[:,:,3], out[:,:,4], out[:,:,5])
+
+  def consistency_only(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 1_000,
+      N_x1: int = 1_000,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """returns array filled with the normalised difference between one and the
+    quotient of the left-hand-side (lhs) and right-hand-side (rhs) of the slow-
+    roll turn consistency condition.
+    
+    ### Exact formulation of calculated quantities
+    This function returns:
+      ||lhs| - |rhs||/(|lhs| + |rhs|)
+    Where
+      lhs = Vww/V
+      rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)² 
       
-    ### Example
-    Run and plot the consistency condition
-    ```python
-    from inflatox.consistency_conditions import AnguelovaLazaroiuCondition
-    from matplotlib import pyplot as plt
-    anguelova = AnguelovaLazaroiuCondition(comp_artifact)
-
-    #calculate condition
-    args = np.ndarray([3.4e-10, 5e-16, 2.5e-3, 1.0])
-    x = np.ndarray([2.0, 2.0])
-    extent = (-1e-3, 1e-3, -1e-3, 1e-3)
-    array = anguelova.evaluate(args, *extent)
-    
-    #plot result
-    plt.imshow(array, extent=extent)
-    plt.colorbar()
-    plt.show()
-    ```
-    """
-    #set up args for anguelova's condition
-    x = np.zeros((N_x0, N_x1))
-    
-    start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
-    ])
-    
-    order_int = 10
-    if order == 'exact': order_int = -2
-    elif order == 'leading': order_int = -1
-    elif order == '0th': order_int = 0
-    elif order == '2nd': order_int = 2
-    else: raise Exception(f'order parameter was set to \"{order}\". Expected one of the following options: [\'exact\', \'leading\', \'0th\', \'2nd\']')
-    
-    #evaluate and return
-    anguelova_py(self.dylib, args, x, start_stop, order_int, progress)
-    return x
-
-  def calc_delta(self,
-    args: np.ndarray,
-    x0_start: float,
-    x0_stop: float,
-    x1_start: float,
-    x1_stop: float,
-    N_x0: int = 10_000,
-    N_x1: int = 10_000,
-    progress = True
-  ) -> np.ndarray:
-    """Evaluates the characteristic angle δ for the field-space region specified
-    by the start/stop arguments given some model parameters. See [publication] for
-    the definition and interpretation of δ.
-    
-    ### Precise mathematical formulation
-    δ is calculated by taking the arctangent of the quotient of Vvw and Vvv. Vvw
-    is the inner product of the covariant Hesse matrix with vectors of the gradient
-    basis {v,w} where v is aligned with the gradient of the potential and w is
-    perpendicular to v. Similarly, Vvv is the covariant Hesse matrix projected
-    onto v twice. δ is clamped between -π/2 and +π/2.
-
-    ### Args
+    ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
     - `x0_stop` (`float`): maximum value of first field `x[0]`.
@@ -281,48 +264,50 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
     - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
       progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
 
-    ### Returns
-    `np.ndarray`: array with calculated δ's
+    ### Returns:
+    `np.ndarray`: array filled with slow-roll (intermediate) turn consistency
+      condition from (paper)
     """
+    
     #set up args for anguelova's condition
-    x = np.zeros((N_x0, N_x1))
+    out = np.zeros((N_x0, N_x1), dtype=float)
     
     start_stop = np.array([
       [x0_start, x0_stop],
       [x1_start, x1_stop]
     ])
     
+    #calculate 
+    threads = threads if threads is not None else 0
+    
     #evaluate and return
-    delta_py(self.dylib, args, x, start_stop, progress)
-    return x
-  
-  def calc_omega(self,
-    args: np.ndarray,
-    x0_start: float,
-    x0_stop: float,
-    x1_start: float,
-    x1_stop: float,
-    N_x0: int = 10_000,
-    N_x1: int = 10_000,
-    progress = True
-  ) -> np.ndarray:
-    """Evaluates the turn rate ω for the field-space region specified by the
-    start/stop arguments given the model parameters, assuming that all slow-roll
-    parameters are small.
+    consistency_only(self.dylib, args, out, start_stop, progress, threads)
+    return out
+
+  def epsilon_v_only(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 1_000,
+      N_x1: int = 1_000,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """returns array filled with the potential first-order slow-roll parameter
+    ε_V
     
-    ### Precise mathematical formulation
-    When the slow-roll parameters are zero, ω can be written as:
-    
-      Vtt / V = ω²/3
+    ### Exact formulation of calculated quantities
+    This function returns:
+      ε_V = 1/2 (∇V/V)²
       
-    In this range, we can thus calculate ω from the potential and field-space
-    metric alone. See [publication] for more details and examples. Vtt is written
-    in terms of Vvv, Vvw and Vww using the angle δ:
-  
-    Vtt = cos²δ Vww + sin²δ -2sinδ cosδ Vvw
-
-    ### Args
+    ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
     - `x0_stop` (`float`): maximum value of first field `x[0]`.
@@ -332,48 +317,54 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
     - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
       progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
 
-    ### Returns
-    `np.ndarray`: array with calculated ω's
+    ### Returns:
+    `np.ndarray`: array filled with slow-roll (intermediate) turn consistency
+      condition from (paper)
     """
+    
     #set up args for anguelova's condition
-    x = np.zeros((N_x0, N_x1))
+    out = np.zeros((N_x0, N_x1), dtype=float)
     
     start_stop = np.array([
       [x0_start, x0_stop],
       [x1_start, x1_stop]
     ])
     
+    #calculate 
+    threads = threads if threads is not None else 0
+    
     #evaluate and return
-    omega_py(self.dylib, args, x, start_stop, progress)
-    return x
-  
-  def calc_epsilon(self,
-    args: np.ndarray,
-    x0_start: float,
-    x0_stop: float,
-    x1_start: float,
-    x1_stop: float,
-    N_x0: int = 10_000,
-    N_x1: int = 10_000,
-    progress = True
-  ) -> np.ndarray:
-    """Evaluates the turn rate ω for the field-space region specified by the
-    start/stop arguments given the model parameters, assuming that all slow-roll
-    parameters are small.
+    epsilon_v_only(self.dylib, args, out, start_stop, progress, threads)
+    return out
+
+  def consistency_only_old(self,
+      args: np.ndarray,
+      x0_start: float,
+      x0_stop: float,
+      x1_start: float,
+      x1_stop: float,
+      N_x0: int = 1_000,
+      N_x1: int = 1_000,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """returns array filled with the normalised difference between one and the
+    quotient of the left-hand-side (lhs) and right-hand-side (rhs) of
+    Anguelova & Lazaroiu's original consistency condition (`arXiv:2210.00031v2`).
     
-    ### Precise mathematical formulation
-    When the slow-roll parameters are zero, ω can be written as:
-    
-      Vtt / V = ω²/3
+    ### Exact formulation of calculated quantities
+    This function returns:
+      ||lhs| - |rhs||/(|lhs| + |rhs|)
+    Where
+      lhs = Vww/V
+      rhs = 3 (Vvw/Vvv)²
       
-    In this range, we can thus calculate ω from the potential and field-space
-    metric alone. See [publication] for more details and examples. Vtt is written
-    in terms of Vvv, Vvw and Vww using the angle δ:
-  
-    Vtt = cos²δ Vww + sin²δ -2sinδ cosδ Vvw
-
-    ### Args
+    ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
     - `x0_start` (`float`): minimum value of first field `x[0]`.
     - `x0_stop` (`float`): maximum value of first field `x[0]`.
@@ -383,21 +374,30 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
     - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
       progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
 
-    ### Returns
-    `np.ndarray`: array with calculated ω's
+    ### Returns:
+    `np.ndarray`: array filled with Anguelova & Lazaroiu's original consistency
+      condition.
     """
+    
     #set up args for anguelova's condition
-    x = np.zeros((N_x0, N_x1))
+    out = np.zeros((N_x0, N_x1), dtype=float)
     
     start_stop = np.array([
       [x0_start, x0_stop],
       [x1_start, x1_stop]
     ])
     
+    #calculate 
+    threads = threads if threads is not None else 0
+    
     #evaluate and return
-    epsilon_py(self.dylib, args, x, start_stop, progress)
-    return x
+    consistency_rapidturn_only(self.dylib, args, out, start_stop, progress, threads)
+    return out
   
   def flag_quantum_dif(self,
       args: np.ndarray,

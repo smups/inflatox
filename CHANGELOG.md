@@ -1,6 +1,46 @@
 # Inflatox Changelog
 
-### v0.6.0
+# v0.7.0 - major refactor (💣BREAKING CHANGES💣)
+Additions
+- Added functionality to calculate the potential slow-roll parameter $\varepsilon_V$
+- Added functionality to calculate $\varepsilon_H$ assuming the AL condition holds.
+- Added functionality to calculate $\eta_{\parallel}$ and $\eta_H$ assuming
+  the AL condition holds.
+- Added new `complete_analysis()` method that is able to calculate six dynamical
+  quantities at once. This cuts computation time by about a factor six.
+- Added `consistency_only()` method for situations when `full_analysis()` is
+  overkill (no real speed-up).
+- Added `consistency_only_old()` method for computing the original AL condition
+  only (not included in `complete_analysis`)
+- Added `epsilon_v_only()` method for computing the first potential slow-roll
+  parameter.
+- Reworked console output
+
+Mathematical changes
+- All consistency conditions are now returned in the following format:
+  $$
+    \rm{out}=\left|\frac{|\rm{rhs}|-|\rm{lhs}|}{|\rm{rhs}|+|\rm{lhs}|}\right|
+  $$
+  where $\rm{lhs}$ is the left-hand side of the consistency condition and $\rm{rhs}$
+  the right-hand side.
+- The characteristic angle $\delta$ is now returned in the range $[0,\pi/2]$
+  since the sign of the angle between $w^a$ and $t^a$ is arbitrary since the 
+  given that the choice of $w^a$ is arbitrary.
+
+Deletions
+- Removed `evaluate()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `consistency_only()`.
+- Removed `calc_delta()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()`.
+- Removed `calc_epsilon()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()` and `epsilon_v_only()`.
+- Removed `calc_omega()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()`.
+
+Upgrades
+- Upgraded rayon 1.7.0 -> 1.8.0
+
+# v0.6.0 - More quantities: $\varepsilon_H$ and $\omega$
 - Specified that package is only compatible with python 3.7 - 3.11, because
   no version of `Numba` dependency (which is a dependency of EinsteinPy) that is
   compatible with python 3.12 has been released yet. Package still interfaces
