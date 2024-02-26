@@ -330,7 +330,7 @@ pub fn epsilon_v_only(
 
   //(5a) Define the calculation
   let op = |(ref x, val): ([f64; 2], &mut f64)| {
-    *val = g.grad_square(x, p) / h.potential(x, p).powi(2);
+    *val = 0.5 * g.grad_square(x, p) / h.potential(x, p).powi(2);
   };
 
   //(5b) setup the threadpool (if necessary)
