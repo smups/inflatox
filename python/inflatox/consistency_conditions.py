@@ -176,8 +176,12 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     """This function performs a complete analysis of possible slow-roll (rapid)
     turn trajectories using the methods described in (paper), based on the AL
     consistency condition. It returns six arrays filled with:
-      1. The absolute difference between one and the quotient of th
-        left-hand-side (lhs) and right-hand-side (rhs) of the AL condition.
+      1. Let rhs and lhs denote the left-hand side and right-hand side of the AL
+        consistency condition. This first array is populated with the normalised
+        difference between the rhs and lhs:
+          out = ||lhs| - |rhs||/(|lhs| + |rhs|)
+        Note that out = 0 corresponds to the consistency condition holding
+        perfectly. Values larger than zero indicate it does not hold perfectly.
       2. ε_V (first potential slow-roll parameter)
       3. ε_H (first dynamical slow-roll parameter), calculated assuming that the
         AL condition holds.
@@ -205,7 +209,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
 
     ### Returns:
     `np.ndarray` (✕6): arrays filled with the following quantities (in order):
-      1. Consistency condition (lhs - rhs)
+      1. Consistency condition ||lhs| - |rhs||/(|lhs| + |rhs|)
       2. ε_V (first potential slow-roll parameter)
       3. ε_H (first dynamical slow-roll parameter)
       4. η_H (second dynamical slow-roll parameter)
@@ -239,13 +243,13 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       progress: bool = True,
       threads: None | int = None,
     ) -> np.ndarray:
-    """returns array filled with the absolute difference between one and the
+    """returns array filled with the normalised difference between one and the
     quotient of the left-hand-side (lhs) and right-hand-side (rhs) of
     Anguelova & Lazaroiu's original consistency condition (`arXiv:2210.00031v2`).
     
     ### Exact formulation of calculated quantities
     This function returns:
-      |lhs/rhs - 1|
+      ||lhs| - |rhs||/(|lhs| + |rhs|)
     Where
       lhs = Vvv/V
       rhs = 3 (Vvw/Vvv)²
