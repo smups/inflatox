@@ -172,7 +172,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       N_x1: int = 1_000,
       progress: bool = True,
       threads: None | int = None,
-    ) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """This function performs a complete analysis of possible slow-roll (rapid)
     turn trajectories using the methods described in (paper), based on the AL
     consistency condition. It returns six arrays filled with:
