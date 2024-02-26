@@ -143,7 +143,7 @@ pub fn consistency_only(
     let lhs = v11 / v - 3.;
     let rhs = 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
-    *val = ((lhs / rhs).abs() - 1.).abs()
+    *val = (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
   };
 
   //(5b) setup the threadpool (if necessary)
@@ -238,7 +238,7 @@ pub fn consistency_rapidturn_only(
     let lhs = v11 / v;
     let rhs = 3. * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
-    *val = ((lhs / rhs).abs() - 1.).abs()
+    *val = (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
   };
 
   //(5b) setup the threadpool (if necessary)
@@ -438,7 +438,8 @@ pub fn complete_analysis(
     let consistency = {
       let lhs = v11 / v;
       let rhs = 3. + 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
-      ((lhs / rhs).abs() - 1.).abs()
+      (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
+      //(lhs - rhs).abs()
     };
     //(2) Calculate ε_V
     let epsilon_v = g.grad_square(&x, p) / v.powi(2);
