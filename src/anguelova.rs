@@ -92,6 +92,65 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   (x_spacing, y_spacing, x_start, y_start)
 }
 
+mod ops {
+  use super::*;
+
+  #[inline(always)]
+  pub fn complete_analysis(x: [f64; 2], val: &mut [f64], h: &Hesse2D<'_>, g: &Grad<'_>, p: &[f64]) {
+    let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
+    //(1) Calculate consistency condition
+    let consistency = {
+      let lhs = v11 / v;
+      let rhs = 3. + 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
+      (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
+      //(lhs - rhs).abs()
+    };
+    //(2) Calculate ε_V
+    let epsilon_v = g.grad_square(&x, p) / v.powi(2);
+    //(3) Calculate Vtt
+    let vtt = (v00 * v10.powi(2) + v11 * v00.powi(2) - 2. * v00 * v10.powi(2))
+      / (v00.powi(2) + v10.powi(2));
+    //(4) Calculate ε_H
+    let epsilon_h = (3. * epsilon_v) / (epsilon_v + 3. + vtt / (3. * v));
+    //(5) Calculate η_H
+    let eta_h = (3. * (3. - epsilon_h)).sqrt() - 3.;
+    //(6) Calculate δ
+    let delta = (v10 / v00).abs().atan();
+    //(7) Calculate ω
+    let omega = ((vtt / v) * (3. - epsilon_h)).sqrt();
+
+    val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_h, delta, omega]);
+  }
+
+  #[inline(always)]
+  pub fn epsilon_v_only(x: [f64; 2], p: &[f64], h: &Hesse2D<'_>, g: &Grad<'_>) -> f64 {
+    0.5 * g.grad_square(&x, p) / h.potential(&x, p).powi(2)
+  }
+
+  #[inline(always)]
+  pub fn consistency_rapidturn_only(x: [f64; 2], p: &[f64], h: &Hesse2D<'_>) -> f64 {
+    let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
+    let lhs = v11 / v;
+    let rhs = 3. * (v10 / v00).powi(2);
+    //Return left-hand-side / right-hand-side minus one
+    (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
+  }
+
+  #[inline(always)]
+  pub fn consistency_only(x: [f64; 2], p: &[f64], h: &Hesse2D<'_>) -> f64 {
+    let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
+    let lhs = v11 / v - 3.;
+    let rhs = 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
+    //Return left-hand-side / right-hand-side minus one
+    (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
+  }
+
+  #[inline(always)]
+  pub fn flag_quantum_diff(x: [f64; 2], p: &[f64], accuracy: f64, g: &Grad<'_>) -> bool {
+    (g.cmp(&x, p, 0).abs() <= accuracy) & (g.cmp(&x, p, 1).abs() <= accuracy)
+  }
+}
+
 #[pyfunction]
 /// Evaluate the consistency condition ONLY, not considering any additional
 /// parameters.
@@ -132,13 +191,7 @@ pub fn consistency_only(
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
-  let op = |(ref x, val): ([f64; 2], &mut f64)| {
-    let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
-    let lhs = v11 / v - 3.;
-    let rhs = 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
-    //Return left-hand-side / right-hand-side minus one
-    *val = (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
-  };
+  let op = ops::consistency_only;
 
   //(5b) setup the threadpool (if necessary)
   if threads == 1 {
@@ -151,9 +204,9 @@ pub fn consistency_only(
       //(2b) convert array index into field-space point
       .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
     if progress {
-      iter.progress_with(set_pbar(len)).for_each(op);
+      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
     } else {
-      iter.for_each(op);
+      iter.for_each(|(x, val)| *val = op(x, p, &h));
     }
   } else {
     //Multi-threaded mode
@@ -170,9 +223,9 @@ pub fn consistency_only(
         //(2b) convert array index into field-space point
         .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
       if progress {
-        iter.progress_with(set_pbar(len)).for_each(op);
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
       } else {
-        iter.for_each(op);
+        iter.for_each(|(x, val)| *val = op(x, p, &h));
       }
     });
   }
@@ -231,13 +284,7 @@ pub fn consistency_rapidturn_only(
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
-  let op = |(ref x, val): ([f64; 2], &mut f64)| {
-    let (v, v11, v10, v00) = (h.potential(x, p), h.v11(x, p), h.v10(x, p), h.v00(x, p));
-    let lhs = v11 / v;
-    let rhs = 3. * (v10 / v00).powi(2);
-    //Return left-hand-side / right-hand-side minus one
-    *val = (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
-  };
+  let op = ops::consistency_rapidturn_only;
 
   //(5b) setup the threadpool (if necessary)
   if threads == 1 {
@@ -250,9 +297,9 @@ pub fn consistency_rapidturn_only(
       //(2b) convert array index into field-space point
       .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
     if progress {
-      iter.progress_with(set_pbar(len)).for_each(op);
+      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
     } else {
-      iter.for_each(op);
+      iter.for_each(|(x, val)| *val = op(x, p, &h));
     }
   } else {
     //Multi-threaded mode
@@ -269,9 +316,9 @@ pub fn consistency_rapidturn_only(
         //(2b) convert array index into field-space point
         .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
       if progress {
-        iter.progress_with(set_pbar(len)).for_each(op);
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
       } else {
-        iter.for_each(op);
+        iter.for_each(|(x, val)| *val = op(x, p, &h));
       }
     });
   }
@@ -328,9 +375,7 @@ pub fn epsilon_v_only(
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
-  let op = |(ref x, val): ([f64; 2], &mut f64)| {
-    *val = 0.5 * g.grad_square(x, p) / h.potential(x, p).powi(2);
-  };
+  let op = ops::epsilon_v_only;
 
   //(5b) setup the threadpool (if necessary)
   if threads == 1 {
@@ -343,9 +388,9 @@ pub fn epsilon_v_only(
       //(2b) convert array index into field-space point
       .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
     if progress {
-      iter.progress_with(set_pbar(len)).for_each(op);
+      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h, &g));
     } else {
-      iter.for_each(op);
+      iter.for_each(|(x, val)| *val = op(x, p, &h, &g));
     }
   } else {
     //Multi-threaded mode
@@ -362,9 +407,9 @@ pub fn epsilon_v_only(
         //(2b) convert array index into field-space point
         .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
       if progress {
-        iter.progress_with(set_pbar(len)).for_each(op);
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h, &g))
       } else {
-        iter.for_each(op);
+        iter.for_each(|(x, val)| *val = op(x, p, &h, &g));
       }
     });
   }
@@ -424,41 +469,17 @@ pub fn complete_analysis(
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
-  //(5) Fill output array
+  // Fill output array
   let len = out.len() / 6;
   let shape = &[out.shape()[0], out.shape()[1]];
   let out =
     out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
-  //(5a) Define the calculation
-  fn op(x: [f64; 2], val: &mut [f64], h: &Hesse2D<'_>, g: &Grad<'_>, p: &[f64]) {
-    let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
-    //(1) Calculate consistency condition
-    let consistency = {
-      let lhs = v11 / v;
-      let rhs = 3. + 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
-      (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
-      //(lhs - rhs).abs()
-    };
-    //(2) Calculate ε_V
-    let epsilon_v = g.grad_square(&x, p) / v.powi(2);
-    //(3) Calculate Vtt
-    let vtt = (v00 * v10.powi(2) + v11 * v00.powi(2) - 2. * v00 * v10.powi(2))
-      / (v00.powi(2) + v10.powi(2));
-    //(4) Calculate ε_H
-    let epsilon_h = (3. * epsilon_v) / (epsilon_v + 3. + vtt / (3. * v));
-    //(5) Calculate η_H
-    let eta_h = (3. * (3. - epsilon_h)).sqrt() - 3.;
-    //(6) Calculate δ
-    let delta = (v10 / v00).abs().atan();
-    //(7) Calculate ω
-    let omega = ((vtt / v) * (3. - epsilon_h)).sqrt();
+  // shorthand for the actual calculation
+  let op = ops::complete_analysis;
 
-    val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_h, delta, omega]);
-  }
-
-  //(5b) setup the threadpool (if necessary)
+  // setup the threadpool (if necessary)
   if threads == 1 {
     //Single-threaded mode
     let iter = out
@@ -561,14 +582,12 @@ pub fn flag_quantum_dif_py(
   let len = x.len();
   let shape = &[x.shape()[0], x.shape()[1]];
   let iter = iter_array(x.as_slice_mut().unwrap(), &start_stop, shape);
-  let op = |(ref x, val): ([f64; 2], &mut bool)| {
-    *val = (g.cmp(x, p, 0).abs() <= accuracy) & (g.cmp(x, p, 1).abs() <= accuracy);
-  };
+  let op = ops::flag_quantum_diff;
 
   if progress {
-    iter.progress_with(set_pbar(len)).for_each(op);
+    iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, accuracy, &g));
   } else {
-    iter.for_each(op);
+    iter.for_each(|(x, val)| *val = op(x, p, accuracy, &g));
   }
 
   //(6) Report how long we took, and return.
