@@ -26,7 +26,9 @@ use indicatif::{
 };
 use nd::ArrayView2;
 use ndarray as nd;
-use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2, PyReadwriteArray3};
+use numpy::{
+  PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1, PyReadwriteArray2, PyReadwriteArray3,
+};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -47,12 +49,10 @@ fn set_pbar(len: usize) -> ProgressBar {
 }
 
 #[inline]
-fn validate<'lib, T>(
-  lib: &'lib InflatoxDylib,
-  x: ArrayView2<T>,
-  p: &[f64],
-) -> Result<(Hesse2D<'lib>, Grad<'lib>)> {
-  //(1) Make sure we have a two field model
+/// Parses `lib` into `Hesse2D` and `Grad` structs if possible. Returns an error (read: model is
+/// incompatible with the AL consistency condition) otherwise.
+fn validate_lib<'lib>(lib: &'lib InflatoxDylib) -> Result<(Hesse2D<'lib>, Grad<'lib>)> {
+  // The AL condition only works for 2-field models.
   if !lib.get_n_fields() == 2 {
     return Err(Error::ShapeErr {
       expected: vec![2],
@@ -60,31 +60,24 @@ fn validate<'lib, T>(
       msg: "the Anguelova & Lazaroiu consistency condition requires a 2-field model.".to_string(),
     });
   }
-  let h = Hesse2D::new(lib);
-  let g = Grad::new(lib);
+  Ok((Hesse2D::new(lib), Grad::new(lib)))
+}
 
-  //(2) Make sure the field-space array is actually 2d
-  if x.shape().len() != 2 {
-    return Err(Error::ShapeErr {
-      expected: vec![2],
-      got: x.shape().to_vec(),
-      msg: "expected 2D field-space array".to_string(),
-    });
-  }
-
-  //(3) Make sure that the number of supplied model parameters matches the number
-  //specified by the dynamic lib
-  if p.len() != h.get_n_params() {
+#[inline]
+/// Checks if the length of the paramter array `p` equals the number of paramters expected by the
+/// model
+fn validiate_p<'lib>(lib: &'lib InflatoxDylib, p: &[f64]) -> Result<()> {
+  if p.len() != lib.get_n_params() {
     return Err(Error::ShapeErr {
       expected: vec![2],
       got: vec![p.len()],
       msg: format!("model \"{}\" has {} paramters", lib.name(), lib.get_n_params()),
     });
   }
-
-  Ok((h, g))
+  Ok(())
 }
 
+#[inline(always)]
 /// Converts start-stop ranges into offset-spacing ranges. Order of return arguments
 /// is x_spacing, y_spacing, x_ofst, y_ofst
 fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f64) {
@@ -120,7 +113,8 @@ pub fn consistency_only(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, _) = validate(lib, out.view(), p)?;
+  let (h, _) = validate_lib(lib)?;
+  validiate_p(lib, p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
@@ -215,13 +209,17 @@ pub fn consistency_rapidturn_only(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, _) = validate(lib, out.view(), p)?;
+  let (h, _) = validate_lib(lib)?;
+  validiate_p(lib, p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("{}Calculating consistency condition ONLY assuming rapid-turn using {num_threads} threads.", *BADGE);
+  eprintln!(
+    "{}Calculating consistency condition ONLY assuming rapid-turn using {num_threads} threads.",
+    *BADGE
+  );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -308,7 +306,8 @@ pub fn epsilon_v_only(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, g) = validate(lib, out.view(), p)?;
+  let (h, g) = validate_lib(lib)?;
+  validiate_p(lib, p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
@@ -407,7 +406,8 @@ pub fn complete_analysis(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, g) = validate(lib, out.slice(nd::s![.., .., 0]), p)?;
+  let (h, g) = validate_lib(lib)?;
+  validiate_p(lib, p)?;
   if out.shape()[2] != 6 {
     Err(Error::ShapeErr {
       expected: vec![out.shape()[0], out.shape()[1], 6],
@@ -425,7 +425,7 @@ pub fn complete_analysis(
   let start = std::time::Instant::now();
 
   //(5) Fill output array
-  let len = out.len()/6;
+  let len = out.len() / 6;
   let shape = &[out.shape()[0], out.shape()[1]];
   let out =
     out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
@@ -451,7 +451,7 @@ pub fn complete_analysis(
     //(5) Calculate η_H
     let eta_h = (3. * (3. - epsilon_h)).sqrt() - 3.;
     //(6) Calculate δ
-    let delta = (v10/v00).abs().atan();
+    let delta = (v10 / v00).abs().atan();
     //(7) Calculate ω
     let omega = ((vtt / v) * (3. - epsilon_h)).sqrt();
 
@@ -542,7 +542,8 @@ pub fn flag_quantum_dif_py(
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (_, g) = validate(lib, x.view(), p)?;
+  let (_, g) = validate_lib(lib)?;
+  validiate_p(lib, p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
