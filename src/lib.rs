@@ -68,6 +68,8 @@ fn libinflx_rs(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(anguelova::epsilon_v_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(anguelova::complete_analysis, pymod)?)?;
 
+  pymod.add_function(wrap_pyfunction!(anguelova::on_trajectory::complete_analysis, pymod)?)?;
+
   Ok(())
 }
 

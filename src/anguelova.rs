@@ -24,11 +24,7 @@ use std::io::Write;
 use indicatif::{
   ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressIterator, ProgressStyle,
 };
-use nd::ArrayView2;
-use ndarray as nd;
-use numpy::{
-  PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1, PyReadwriteArray2, PyReadwriteArray3,
-};
+use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2, PyReadwriteArray3};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -92,6 +88,9 @@ fn convert_ranges(start_stop: &[[f64; 2]], shape: &[usize]) -> (f64, f64, f64, f
   (x_spacing, y_spacing, x_start, y_start)
 }
 
+/// Module containing the actual implementations of all the calculations performed by inflatox.
+/// These are used in various `#[pyfunction]`s and listed here to make sure they all use exactly
+/// the same expressions. All these functions should be marked as `#[inline(always)]`.
 mod ops {
   use super::*;
 
@@ -598,4 +597,107 @@ pub fn flag_quantum_dif_py(
   );
 
   Ok(())
+}
+
+/// This module contains versions of the functions found in `crate::anguelova` that only evaluate
+/// on specific points on the trajectory, rather than in a whole field-space plane. This has the
+/// benifit of having complete control over at exactly which points the consistency condition will
+/// be calculated. This is useful for evaluating the consistency condition on a already known
+/// trajectory.
+pub mod on_trajectory {
+  use super::*;
+
+  #[pyfunction]
+  #[pyo3(name = "complete_analysis_on_trajectory")]
+  /// Calculate everything calculable at once from the consistency condition. The 2D input array
+  /// `x` should contain pairs of field-space coordinates (last axis should have length 2). For
+  /// each field-space coordinate, the `out` array will be filled with:
+  ///     1. Consistency condition (lhs - rhs)
+  ///     2. ε_V
+  ///     3. ε_H
+  ///     4. η_H
+  ///     5. δ
+  ///     6. ω
+  /// In that order. Thus, the shape of the `x` array should always be (n,2) and the shape of the
+  /// output array must always be (n,6). This function will return an error if this condition is
+  /// not met.
+  pub fn complete_analysis(
+    lib: PyRef<crate::InflatoxPyDyLib>,
+    p: PyReadonlyArray1<f64>,
+    x: PyReadonlyArray2<f64>,
+    mut out: PyReadwriteArray2<f64>,
+    progress: bool,
+    threads: usize,
+  ) -> PyResult<()> {
+    // get number of threads: 0 == rayon default
+    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
+
+    // convert arguments to pure rust types
+    let lib = &lib.0;
+    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x.as_array();
+    let mut out = out.as_array_mut();
+
+    // validate that the input slices are all the correct shape etc.
+    let (h, g) = validate_lib(lib)?;
+    validiate_p(lib, p)?;
+    if out.shape()[1] != 6 {
+      Err(Error::ShapeErr {
+        expected: vec![out.shape()[0], 6],
+        got: out.shape().to_vec(),
+        msg: "Output array should be 2D. Last axis must have lenght 6".to_string(),
+      })?
+    }
+    if out.shape()[0] != x.shape()[0] {
+      Err(Error::ShapeErr {
+        expected: vec![x.shape()[0]],
+        got: vec![out.shape()[0]],
+        msg: "First axis of output array and field-space array should have the same length"
+          .to_string(),
+      })?
+    }
+
+    eprintln!("{}Calculating full analysis on trajectory using {num_threads} threads.", *BADGE);
+    let _ = std::io::stderr().flush();
+    let start = std::time::Instant::now();
+
+    let op = ops::complete_analysis;
+
+    let len = out.shape()[0];
+    let out =
+      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x.as_slice().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+
+    if threads == 1 {
+      //Single-threaded mode
+      let iter = x.chunks_exact(2).zip(out.chunks_exact_mut(6));
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| op([x[0], x[1]], val, &h, &g, p));
+      } else {
+        iter.for_each(|(x, val)| op([x[0], x[1]], val, &h, &g, p));
+      }
+    } else {
+      //Multi-threaded mode
+      let threadpool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build()
+        .map_err(|err| Error::from(err))?;
+      threadpool.install(move || {
+        let iter = x.par_chunks_exact(2).zip(out.par_chunks_exact_mut(6));
+        if progress {
+          iter.progress_with(set_pbar(len)).for_each(|(x, val)| op([x[0], x[1]], val, &h, &g, p));
+        } else {
+          iter.for_each(|(x, val)| op([x[0], x[1]], val, &h, &g, p));
+        }
+      });
+    }
+
+    eprintln!(
+      "{}Calculation finished. Took {}.",
+      *BADGE,
+      indicatif::HumanDuration(start.elapsed()).to_string()
+    );
+
+    Ok(())
+  }
 }
