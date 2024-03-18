@@ -18,7 +18,6 @@
 #  licensee subject to Dutch law as per article 15 of the EUPL.
 
 #System imports
-from IPython.display import display, Math
 from typing import Literal
 from joblib import Parallel, delayed, cpu_count
 
@@ -57,10 +56,10 @@ class SymbolicOutput():
     return f"""[Symbolic Calculation Output]
     dimensionality: {self.dim} field(s)
     model name: {self.model_name}
-    coordinates: {[display(f) for f in self.coordinates]}
-    potential: {display(self.potential)}
-    hesse matrix: {display(sympy.Matrix(self.hesse_cmp))}
-    basis vectors (cntr. var.): {[display(sympy.Matrix(vec)) for vec in self.basis]}
+    coordinates: {[f for f in self.coordinates]}
+    potential: {self.potential}
+    hesse matrix: {sympy.Matrix(self.hesse_cmp)}
+    basis vectors (cntr. var.): {[sympy.Matrix(vec) for vec in self.basis]}
     """
 
 class SymbolicCalculation():
