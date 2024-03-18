@@ -232,7 +232,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     complete_analysis(self.dylib, args, out, start_stop, progress, threads)
     return (out[:,:,0], out[:,:,1], out[:,:,2], out[:,:,3], out[:,:,4], out[:,:,5])
 
-  def consistency_only(self,
+  def consistency(self,
       args: np.ndarray,
       x0_start: float,
       x0_stop: float,
@@ -289,7 +289,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     consistency_only(self.dylib, args, out, start_stop, progress, threads)
     return out
 
-  def epsilon_v_only(self,
+  def epsilon_v(self,
       args: np.ndarray,
       x0_start: float,
       x0_stop: float,
@@ -342,7 +342,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     epsilon_v_only(self.dylib, args, out, start_stop, progress, threads)
     return out
 
-  def consistency_only_old(self,
+  def consistency_old(self,
       args: np.ndarray,
       x0_start: float,
       x0_stop: float,
@@ -451,7 +451,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
   # On_trajectory methods #
   #########################
 
-  def complete_analysis_on_trajectory(self,
+  def complete_analysis_ot(self,
       args: np.ndarray,
       x: np.ndarray,
       progress: bool = True,
@@ -503,3 +503,124 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     #evaluate and return
     complete_analysis_on_trajectory(self.dylib, args, x, out, progress, threads)
     return np.split(out, 6, 1)
+
+  def consistency_ot(self,
+      args: np.ndarray,
+      x: np.ndarray,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """returns array filled with the normalised difference between one and the
+    quotient of the left-hand-side (lhs) and right-hand-side (rhs) of the slow-
+    roll turn consistency condition.
+    
+    ### Exact formulation of calculated quantities
+    This function returns:
+      ||lhs| - |rhs||/(|lhs| + |rhs|)
+    Where
+      lhs = Vww/V
+      rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)² 
+      
+    ### Args:
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
+
+    ### Returns:
+    `np.ndarray`: array filled with slow-roll (intermediate) turn consistency
+      condition from (paper)
+    """
+    #set up args for anguelova's condition
+    out = np.zeros((x.shape[0]), dtype=float)
+        
+    # Single-threaded default is more appropriate for smaller number of iterations 
+    threads = threads if threads is not None else 1
+    
+    #evaluate and return
+    consistency_only_on_trajectory(self.dylib, args, x, out, progress, threads)
+    return out
+  
+  def consistency_old_ot(self,
+      args: np.ndarray,
+      x: np.ndarray,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """returns array filled with the normalised difference between one and the
+    quotient of the left-hand-side (lhs) and right-hand-side (rhs) of the slow-
+    roll turn consistency condition.
+    
+    ### Exact formulation of calculated quantities
+    This function returns:
+      ||lhs| - |rhs||/(|lhs| + |rhs|)
+    Where
+      lhs = Vww/V
+      rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)² 
+      
+    ### Args:
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
+
+    ### Returns:
+    `np.ndarray`: array filled with slow-roll (intermediate) turn consistency
+      condition from (paper)
+    """
+    #set up args for anguelova's condition
+    out = np.zeros((x.shape[0]), dtype=float)
+        
+    # Single-threaded default is more appropriate for smaller number of iterations 
+    threads = threads if threads is not None else 1
+    
+    #evaluate and return
+    consistency_rapidturn_only_on_trajectory(self.dylib, args, x, out, progress, threads)
+    return out
+
+  def epsilon_v_ot(self,
+      args: np.ndarray,
+      x: np.ndarray,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """returns array filled with the normalised difference between one and the
+    quotient of the left-hand-side (lhs) and right-hand-side (rhs) of
+    Anguelova & Lazaroiu's original consistency condition (`arXiv:2210.00031v2`).
+  
+    ### Exact formulation of calculated quantities
+    This function returns:
+      ||lhs| - |rhs||/(|lhs| + |rhs|)
+    Where
+      lhs = Vww/V
+      rhs = 3 (Vvw/Vvv)²
+    
+    ### Args:
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `x` (`np.ndarray`):
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually equal
+      to the number of CPU's). When set to 1, a single-threaded implementation
+      will be used. 
+
+    ### Returns:
+    `np.ndarray`: array filled with Anguelova & Lazaroiu's original consistency
+      condition.
+    """
+    #set up args for anguelova's condition
+    out = np.zeros((x.shape[0]), dtype=float)
+      
+    # Single-threaded default is more appropriate for smaller number of iterations 
+    threads = threads if threads is not None else 1
+  
+    #evaluate and return
+    epsilon_v_on_trajectory(self.dylib, args, x, out, progress, threads)
+    return out

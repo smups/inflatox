@@ -24,7 +24,9 @@ use std::io::Write;
 use indicatif::{
   ParallelProgressIterator, ProgressBar, ProgressDrawTarget, ProgressIterator, ProgressStyle,
 };
-use numpy::{PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray2, PyReadwriteArray3};
+use numpy::{
+  PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1, PyReadwriteArray2, PyReadwriteArray3,
+};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -688,6 +690,243 @@ pub mod on_trajectory {
           iter.progress_with(set_pbar(len)).for_each(|(x, val)| op([x[0], x[1]], val, &h, &g, p));
         } else {
           iter.for_each(|(x, val)| op([x[0], x[1]], val, &h, &g, p));
+        }
+      });
+    }
+
+    eprintln!(
+      "{}Calculation finished. Took {}.",
+      *BADGE,
+      indicatif::HumanDuration(start.elapsed()).to_string()
+    );
+
+    Ok(())
+  }
+
+  #[pyfunction]
+  #[pyo3(name = "consistency_only_on_trajectory")]
+  /// TODO: add docs
+  pub fn consistency_only(
+    lib: PyRef<crate::InflatoxPyDyLib>,
+    p: PyReadonlyArray1<f64>,
+    x: PyReadonlyArray2<f64>,
+    mut out: PyReadwriteArray1<f64>,
+    progress: bool,
+    threads: usize,
+  ) -> PyResult<()> {
+    // get number of threads: 0 == rayon default
+    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
+
+    // convert arguments to pure rust types
+    let lib = &lib.0;
+    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x.as_array();
+    let out =
+      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+
+    // validate that the input slices are all the correct shape etc.
+    let (h, _) = validate_lib(lib)?;
+    validiate_p(lib, p)?;
+    if out.len() != x.shape()[0] {
+      Err(Error::ShapeErr {
+        expected: vec![x.shape()[0]],
+        got: vec![out.len()],
+        msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
+          .to_string(),
+      })?
+    }
+
+    eprintln!(
+      "{}Calculating consistency condition ONLY on trajectory using {num_threads} threads.",
+      *BADGE
+    );
+    let _ = std::io::stderr().flush();
+    let start = std::time::Instant::now();
+
+    let op = ops::consistency_only;
+
+    let len = out.len();
+    let x =
+      x.as_slice().expect(&format!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+
+    if threads == 1 {
+      //Single-threaded mode
+      let iter = x.chunks_exact(2).zip(out.iter_mut());
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+      } else {
+        iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+      }
+    } else {
+      //Multi-threaded mode
+      let threadpool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build()
+        .map_err(|err| Error::from(err))?;
+      threadpool.install(move || {
+        let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
+        if progress {
+          iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+        } else {
+          iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+        }
+      });
+    }
+
+    eprintln!(
+      "{}Calculation finished. Took {}.",
+      *BADGE,
+      indicatif::HumanDuration(start.elapsed()).to_string()
+    );
+
+    Ok(())
+  }
+
+  #[pyfunction]
+  #[pyo3(name = "consistency_rapidturn_only_on_trajectory")]
+  /// TODO: add docs
+  pub fn consistency_rapidturn_only(
+    lib: PyRef<crate::InflatoxPyDyLib>,
+    p: PyReadonlyArray1<f64>,
+    x: PyReadonlyArray2<f64>,
+    mut out: PyReadwriteArray1<f64>,
+    progress: bool,
+    threads: usize,
+  ) -> PyResult<()> {
+    // get number of threads: 0 == rayon default
+    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
+
+    // convert arguments to pure rust types
+    let lib = &lib.0;
+    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x.as_array();
+    let out =
+      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+
+    // validate that the input slices are all the correct shape etc.
+    let (h, _) = validate_lib(lib)?;
+    validiate_p(lib, p)?;
+    if out.len() != x.shape()[0] {
+      Err(Error::ShapeErr {
+        expected: vec![x.shape()[0]],
+        got: vec![out.len()],
+        msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
+          .to_string(),
+      })?
+    }
+
+    eprintln!(
+      "{}Calculating consistency condition (rapid turn approx.) ONLY on trajectory using {num_threads} threads.",
+      *BADGE
+    );
+    let _ = std::io::stderr().flush();
+    let start = std::time::Instant::now();
+
+    let op = ops::consistency_rapidturn_only;
+
+    let len = out.len();
+    let x =
+      x.as_slice().expect(&format!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+
+    if threads == 1 {
+      //Single-threaded mode
+      let iter = x.chunks_exact(2).zip(out.iter_mut());
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+      } else {
+        iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+      }
+    } else {
+      //Multi-threaded mode
+      let threadpool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build()
+        .map_err(|err| Error::from(err))?;
+      threadpool.install(move || {
+        let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
+        if progress {
+          iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+        } else {
+          iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
+        }
+      });
+    }
+
+    eprintln!(
+      "{}Calculation finished. Took {}.",
+      *BADGE,
+      indicatif::HumanDuration(start.elapsed()).to_string()
+    );
+
+    Ok(())
+  }
+
+  #[pyfunction]
+  #[pyo3(name = "epsilon_v_only_on_trajectory")]
+  /// TODO: add docs
+  pub fn epsilon_v_only(
+    lib: PyRef<crate::InflatoxPyDyLib>,
+    p: PyReadonlyArray1<f64>,
+    x: PyReadonlyArray2<f64>,
+    mut out: PyReadwriteArray1<f64>,
+    progress: bool,
+    threads: usize,
+  ) -> PyResult<()> {
+    // get number of threads: 0 == rayon default
+    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
+
+    // convert arguments to pure rust types
+    let lib = &lib.0;
+    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x.as_array();
+    let out =
+      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+
+    // validate that the input slices are all the correct shape etc.
+    let (h, g) = validate_lib(lib)?;
+    validiate_p(lib, p)?;
+    if out.len() != x.shape()[0] {
+      Err(Error::ShapeErr {
+        expected: vec![x.shape()[0]],
+        got: vec![out.len()],
+        msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
+          .to_string(),
+      })?
+    }
+
+    eprintln!(
+      "{}Calculating potential slow-roll parameter ε_V ONLY on trajectory using {num_threads} threads.",
+      *BADGE
+    );
+    let _ = std::io::stderr().flush();
+    let start = std::time::Instant::now();
+
+    let op = ops::epsilon_v_only;
+
+    let len = out.len();
+    let x =
+      x.as_slice().expect(&format!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+
+    if threads == 1 {
+      //Single-threaded mode
+      let iter = x.chunks_exact(2).zip(out.iter_mut());
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+      } else {
+        iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+      }
+    } else {
+      //Multi-threaded mode
+      let threadpool = rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build()
+        .map_err(|err| Error::from(err))?;
+      threadpool.install(move || {
+        let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
+        if progress {
+          iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+        } else {
+          iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
         }
       });
     }
