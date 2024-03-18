@@ -446,3 +446,60 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     #evaluate and return
     flag_quantum_dif_py(self.dylib, args, x, start_stop, progress, accuracy)
     return x
+
+  #########################
+  # On_trajectory methods #
+  #########################
+
+  def complete_analysis_on_trajectory(self,
+      args: np.ndarray,
+      x: np.ndarray,
+      progress: bool = True,
+      threads: None | int = None,
+    ) -> np.ndarray:
+    """This function performs a complete analysis of possible slow-roll (rapid)
+    turn trajectories using the methods described in (paper), based on the AL
+    consistency condition. It returns six arrays filled with:
+      1. Let rhs and lhs denote the left-hand side and right-hand side of the AL
+        consistency condition. This first array is populated with the normalised
+        difference between the rhs and lhs:
+          out = ||lhs| - |rhs||/(|lhs| + |rhs|)
+        Note that out = 0 corresponds to the consistency condition holding
+        perfectly. Values larger than zero indicate it does not hold perfectly.
+      2. ε_V (first potential slow-roll parameter)
+      3. ε_H (first dynamical slow-roll parameter), calculated assuming that the
+        AL condition holds.
+      4. η_H (second dynamical slow-roll parameter), calculated assuming that the
+        AL condition holds.
+      5. δ (characteristic angle), calculated assuming that the AL condition holds.
+      6. ω (relative turn rate), calculated assuming that the AL condition holds.
+    Using (1) and (3), slow-roll trajectories with |ε_H|, |η_H| << 1 can be
+    identified. See (paper) for a more complete discussion.
+    
+    ### Args:
+    - `args` (`np.ndarray`): values of the model-dependent parameters. 
+    - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+      progressbar may slightly degrade performance. Defaults to True.
+    - `threads` (`None | int`, optional): number of threads to use for calculation.
+      When set to `None`, inflatox will choose the optimum number (usually 1).
+      When set to 1, a single-threaded implementation will be used. 
+
+    ### Returns:
+    `np.ndarray` (✕6): arrays filled with the following quantities (in order):
+      1. Consistency condition ||lhs| - |rhs||/(|lhs| + |rhs|)
+      2. ε_V (first potential slow-roll parameter)
+      3. ε_H (first dynamical slow-roll parameter)
+      4. η_H (second dynamical slow-roll parameter)
+      5. δ (characteristic angle)
+      6. ω (relative turn rate)
+    """
+    
+    #set up args for anguelova's condition
+    out = np.zeros((x.shape[0], 6), dtype=float)
+        
+    # Single-threaded default is more appropriate for smaller number of iterations 
+    threads = threads if threads is not None else 1
+    
+    #evaluate and return
+    complete_analysis_on_trajectory(self.dylib, args, x, out, progress, threads)
+    return np.split(out, 6, 1)
