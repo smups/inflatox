@@ -17,5 +17,5 @@
 #  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
 #  licensee subject to Dutch law as per article 15 of the EUPL.
 
-__version__ = '0.6.0'
+__version__ = '0.8.0'
 __abi_version__ = '3.0.0'
