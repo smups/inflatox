@@ -239,7 +239,7 @@ impl InflatoxPyDyLib {
 
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if nx.len() != self.0.get_n_fields() as usize {
+    if nx.len() != self.0.get_n_fields() {
       return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_fields()],
         got: vec![nx.len()],

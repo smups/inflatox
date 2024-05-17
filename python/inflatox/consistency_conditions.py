@@ -107,8 +107,10 @@ class InflationCondition():
   
   def calc_H_array(self,
     args: list[float] | np.ndarray,
-    start: list[float] | np.ndarray,
-    stop: list[float] | np.ndarray,
+    x0_start: float,
+    x0_stop: float,
+    x1_start: float,
+    x1_stop: float,
     N: list[int] | None = None
   ) -> np.ndarray:
     """constructs an array of field space coordinates and fills it with the
@@ -135,9 +137,12 @@ class InflationCondition():
       The other axes correspond to the field-space components. 
     """
     n_fields = self.artifact.n_fields
-    start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
+    start_stop = np.array([
+      [x0_start, x0_stop],
+      [x1_start, x1_stop]
+    ])
     N = N if N is not None else (8000 for _ in range(n_fields))
-    return self.dylib.hesse_array(N, args, start_stop)
+    return self.dylib.hesse_array(np.ones(n_fields,dtype=np.uint64)*N, args, start_stop)
 
 class AnguelovaLazaroiuCondition(InflationCondition):
   """This class extends the generic `InflationCondition` with the potential
