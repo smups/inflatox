@@ -620,7 +620,7 @@ pub mod on_trajectory {
   ///     1. Consistency condition (lhs - rhs)
   ///     2. ε_V
   ///     3. ε_H
-  ///     4. η_||
+  ///     4. η_
   ///     5. δ
   ///     6. ω
   /// In that order. Thus, the shape of the `x` array should always be (n,2) and the shape of the

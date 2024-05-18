@@ -142,12 +142,16 @@ class InflationCondition():
       [x1_start, x1_stop]
     ])
     N = N if N is not None else (8000 for _ in range(n_fields))
-    return self.dylib.hesse_array(np.ones(n_fields,dtype=np.uint64)*N, args, start_stop)
+    return self.dylib.hesse_array(np.array(n_fields, dtype=np.int64), args, start_stop)
 
 class AnguelovaLazaroiuCondition(InflationCondition):
-  """This class extends the generic `InflationCondition` with the potential
-  consistency condition from Anguelova and Lazaroiu 2022 paper
-  (`arXiv:2210.00031v2`) for rapid-turn, slow-roll (RTSL) inflationary models.
+  """This class extends the generic `InflationCondition` with the generalised rapid-turn (ω>>ε^½)
+  consistency condition from (paper in preparation).
+
+  In addition, related quantities that may be estimated from the potential and field-space metric,
+  such as the slow-roll parameters εH, η_||, the angle δ and turn-rate ω can also be computed.
+  The rapid-turn limit of the consistency condition derived in the 2022 Anguelova and Lazaroiu 2022
+  (`arXiv:2210.00031v2`) is also available.
 
   ### Usage
   To construct an instance of this class, a `CompilationArtifact` is required.
@@ -190,12 +194,19 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       2. ε_V (first potential slow-roll parameter)
       3. ε_H (first dynamical slow-roll parameter), calculated assuming that the
         AL condition holds.
-      4. η_H (second dynamical slow-roll parameter), calculated assuming that the
+      4. η_|| (second dynamical slow-roll parameter), calculated assuming that the
         AL condition holds.
       5. δ (characteristic angle), calculated assuming that the AL condition holds.
       6. ω (relative turn rate), calculated assuming that the AL condition holds.
-    Using (1) and (3), slow-roll trajectories with |ε_H|, |η_H| << 1 can be
+    Using (1) and (3), slow-roll trajectories with |ε_H|, |η_||| << 1 can be
     identified. See (paper) for a more complete discussion.
+
+    ### *NOTE*
+    The consistency condition or ε_H *on their own* are usually insufficient to discriminate
+    determine the location of the rapid-turn attractor. Always verify that:
+    1. The consistency condition holds AND
+    2. ε_H << 1 AND
+    3. ε_H > 0 
     
     ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
@@ -217,7 +228,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       1. Consistency condition ||lhs| - |rhs||/(|lhs| + |rhs|)
       2. ε_V (first potential slow-roll parameter)
       3. ε_H (first dynamical slow-roll parameter)
-      4. η_H (second dynamical slow-roll parameter)
+      4. η_|| (speed-up parameter)
       5. δ (characteristic angle)
       6. ω (relative turn rate)
     """
@@ -474,12 +485,19 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       2. ε_V (first potential slow-roll parameter)
       3. ε_H (first dynamical slow-roll parameter), calculated assuming that the
         AL condition holds.
-      4. η_H (second dynamical slow-roll parameter), calculated assuming that the
+      4. η_|| (second dynamical slow-roll parameter), calculated assuming that the
         AL condition holds.
       5. δ (characteristic angle), calculated assuming that the AL condition holds.
       6. ω (relative turn rate), calculated assuming that the AL condition holds.
-    Using (1) and (3), slow-roll trajectories with |ε_H|, |η_H| << 1 can be
+    Using (1) and (3), slow-roll trajectories with |ε_H|, |η_||| << 1 can be
     identified. See (paper) for a more complete discussion.
+
+    ### *NOTE*
+    The consistency condition or ε_H *on their own* are usually insufficient to discriminate
+    determine the location of the rapid-turn attractor. Always verify that:
+    1. The consistency condition holds AND
+    2. ε_H << 1 AND
+    3. ε_H > 0 
     
     ### Args:
     - `args` (`np.ndarray`): values of the model-dependent parameters. 
@@ -494,7 +512,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
       1. Consistency condition ||lhs| - |rhs||/(|lhs| + |rhs|)
       2. ε_V (first potential slow-roll parameter)
       3. ε_H (first dynamical slow-roll parameter)
-      4. η_H (second dynamical slow-roll parameter)
+      4. η_|| (speed-up parameter)
       5. δ (characteristic angle)
       6. ω (relative turn rate)
     """
