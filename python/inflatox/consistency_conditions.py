@@ -347,7 +347,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     epsilon_v_only(self.dylib, args, out, start_stop, progress, threads)
     return out
 
-  def consistency_old(self,
+  def consistency_rapidturn(self,
       args: np.ndarray,
       x0_start: float,
       x0_stop: float,
@@ -549,7 +549,7 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     consistency_only_on_trajectory(self.dylib, args, x, out, progress, threads)
     return out
   
-  def consistency_old_ot(self,
+  def consistency_rapidturn_ot(self,
       args: np.ndarray,
       x: np.ndarray,
       progress: bool = True,
@@ -627,5 +627,5 @@ class AnguelovaLazaroiuCondition(InflationCondition):
     threads = threads if threads is not None else 1
   
     #evaluate and return
-    epsilon_v_on_trajectory(self.dylib, args, x, out, progress, threads)
+    epsilon_v_only_on_trajectory(self.dylib, args, x, out, progress, threads)
     return out
