@@ -116,14 +116,14 @@ mod ops {
     let vt2 = epsilon_v * (1. + (v00/v10).powi(2)).recip();
     // Calculate ε_H
     let epsilon_h = 3. * (epsilon_v - vt2) * (epsilon_v + vtt.abs()/v - vt2).recip();
-    // Calculate η_H
-    let eta_h = (3. * (3. - epsilon_h)).sqrt() - 3.;
     // Calculate δ
     let delta = (v10 / v00).abs().atan();
     // Calculate ω
     let omega = ((vtt / v) * (3. - epsilon_h)).sqrt();
+    // Calculate η_H
+    let eta_parallel = omega * delta.tan() - 3.;
 
-    val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_h, delta, omega]);
+    val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_parallel, delta, omega]);
   }
 
   #[inline(always)]
@@ -434,7 +434,7 @@ pub fn epsilon_v_only(
 ///   1. Consistency condition (lhs - rhs)
 ///   2. ε_V
 ///   3. ε_H
-///   4. η_H
+///   4. η_|| (eta parallel)
 ///   5. δ
 ///   6. ω
 pub fn complete_analysis(
@@ -620,7 +620,7 @@ pub mod on_trajectory {
   ///     1. Consistency condition (lhs - rhs)
   ///     2. ε_V
   ///     3. ε_H
-  ///     4. η_H
+  ///     4. η_||
   ///     5. δ
   ///     6. ω
   /// In that order. Thus, the shape of the `x` array should always be (n,2) and the shape of the
