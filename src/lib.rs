@@ -51,8 +51,8 @@ lazy_static::lazy_static! {
     magenta.apply_to("[Inflatox] ")
   };
   pub static ref PANIC_BADGE: console::StyledObject<&'static str> = {
-    let magenta = console::Style::new().white().on_red().bold();
-    magenta.apply_to("INFLATOX PANIC - ")
+    let red = console::Style::new().white().on_red().bold();
+    red.apply_to("INFLATOX PANIC - ")
   };
 }
 
