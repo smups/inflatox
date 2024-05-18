@@ -1,5 +1,23 @@
 # Inflatox Changelog
 
+# v0.8.0
+General
+- Bumped the minimum required python version from 3.7 to 3.8. This was already the case (due to the
+  usage of `std`'s `typing` lib), but not reflected in the package manifest.
+- Improved and updated documentation where necessary
+
+Mathematical changes
+- Moved away from the $\kappa=3$ paradigm to a more sensible calculation for 
+  $\varepsilon_H$:
+  $$
+    \varepsilon_H=3 \times \frac{\varepsilon_V - 1/2 (V_t/V)^2}
+    {\varepsilon_V+V_{tt}/V - 1/2 (V_t/V)^2}
+  $$
+  Where $V_{tt}$ is calculated using the assumption $\tan\delta=V_{vw}/V_{vv}$ and $1/2(V_t/V)^2=
+  \varepsilon_V\sin^2\delta$. Note that this new equation gives different results: it is less
+  restrictive than the previous $\kappa=3$ paradigm, although it is better motivated from a 
+  theoretical standpoint.
+
 # v0.7.0 - major refactor (💣BREAKING CHANGES💣)
 Additions
 - Added functionality to calculate the potential slow-roll parameter $\varepsilon_V$
