@@ -103,24 +103,27 @@ mod ops {
     let consistency = {
       let lhs = v11 / v;
       let rhs = 3. + 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
-      (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
+      (lhs - rhs).abs() / (lhs.abs() + rhs.abs())
       //(lhs - rhs).abs()
     };
-    //(2) Calculate ε_V
+    // Calculate ε_V
     let epsilon_v = g.grad_square(&x, p) / v.powi(2);
-    //(3) Calculate Vtt
+    // Calculate Vtt
     let vtt = (v00 * v10.powi(2) + v11 * v00.powi(2) - 2. * v00 * v10.powi(2))
       / (v00.powi(2) + v10.powi(2));
-    //(4) Calculate ε_H
-    let epsilon_h = (3. * epsilon_v) / (epsilon_v + 3. + vtt / (3. * v));
-    //(5) Calculate η_H
-    let eta_h = (3. * (3. - epsilon_h)).sqrt() - 3.;
-    //(6) Calculate δ
+    // 3. * (1. + (v10/v00).powi(2)).recip() * (1. + (v00/v10).powi(2));
+    // Calculate (Vt)²
+    let vt2 = epsilon_v * (1. + (v00/v10).powi(2)).recip();
+    // Calculate ε_H
+    let epsilon_h = 3. * (epsilon_v - vt2) * (epsilon_v + vtt.abs()/v - vt2).recip();
+    // Calculate δ
     let delta = (v10 / v00).abs().atan();
-    //(7) Calculate ω
+    // Calculate ω
     let omega = ((vtt / v) * (3. - epsilon_h)).sqrt();
+    // Calculate η_H
+    let eta_parallel = omega * delta.tan() - 3.;
 
-    val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_h, delta, omega]);
+    val.swap_with_slice(&mut [consistency, epsilon_v, epsilon_h, eta_parallel, delta, omega]);
   }
 
   #[inline(always)]
@@ -431,7 +434,7 @@ pub fn epsilon_v_only(
 ///   1. Consistency condition (lhs - rhs)
 ///   2. ε_V
 ///   3. ε_H
-///   4. η_H
+///   4. η_|| (eta parallel)
 ///   5. δ
 ///   6. ω
 pub fn complete_analysis(
@@ -617,7 +620,7 @@ pub mod on_trajectory {
   ///     1. Consistency condition (lhs - rhs)
   ///     2. ε_V
   ///     3. ε_H
-  ///     4. η_H
+  ///     4. η_
   ///     5. δ
   ///     6. ω
   /// In that order. Thus, the shape of the `x` array should always be (n,2) and the shape of the

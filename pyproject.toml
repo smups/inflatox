@@ -25,7 +25,7 @@ authors = [
 ]
 description = "Framework for implementing high-performance numerical consistency conditions for multifield inflation models."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = "EUPL-1.2"
 classifiers = [
   "Programming Language :: Rust",

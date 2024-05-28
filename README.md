@@ -1,16 +1,18 @@
 ![inflatox_banner](https://raw.githubusercontent.com/smups/inflatox/dev/logos/banner.png)
 # Inflatox - multifield inflation consistency conditions in python
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
+[![arXiv](https://img.shields.io/badge/arXiv-2405.11628-b31b1b.svg)](https://arxiv.org/abs/2405.11628)
 [![PyPi](https://img.shields.io/pypi/v/inflatox)](https://pypi.org/project/inflatox)
 [![CI](https://github.com/smups/inflatox/actions/workflows/CI.yml/badge.svg)](https://github.com/smups/inflatox/actions/workflows/CI.yml)
 
 Inflatox provides utilities to compute slow-roll parameters and turn-rates for
-two-field inflation models, based on the consistency condition from Anguelova &
-Lazaroiu (2023)[^1]. These can be used in a parameter sweep of a two-field
-model to find possible inflation trajectories.
+two-field inflation models, based on the consistency condition from Generalised consistency condition
+first presented in Anguelova & Lazaroiu (2023)[^1] and later expanded for the purposes of this package
+in [arXiv:2405.11628](https://arxiv.org/abs/2405.11628). The consistency conditions can be used in a
+parameter sweep of a two-field model to find possible inflation trajectories.
 
-If this software has proven useful to your research, please consider citing
-(_paper in preparation_).
+> If this software has proven useful to your research, please consider citing
+[arXiv:2405.11628](https://arxiv.org/abs/2405.11628) (_paper in preparation_).
 
 ## Features
 - symbolic solver for components of the Hesse matrix of an inflationary model
@@ -27,7 +29,7 @@ If this software has proven useful to your research, please consider citing
   installed by `pip`.
 
 ## Installation and Dependencies
-Inflatox requires at least python (ABI) version `3.7`. The latest version of
+Inflatox requires at least python (ABI) version `3.8`. The latest version of
 inflatox can be installed using pip:
 ```console
 pip install inflatox
@@ -68,8 +70,8 @@ hesse = calc.execute([[0,1]])
 out = inflatox.Compiler(hesse).compile()
 
 #evaluate the compiled potential and Hesse matrix
-from inflatox.consistency_conditions import AnguelovaLazaroiuCondition
-anguelova = AnguelovaLazaroiuCondition(out)
+from inflatox.consistency_conditions import GeneralisedAL
+anguelova = GeneralisedAL(out)
 
 p = np.array([1.0, 1.0, 1.0])
 x = np.array([2.0, 2.0])
@@ -94,16 +96,7 @@ consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega =
 - ARM aarch64 (64 bit)
   - linux/gnu (glibc >= 2.17, kernel >= 4.1)
   - macOS 11.0+ / Big Sur+
-- PowerPC ppc64le (64 bit)
-  - linux/gnu (glibc >= 2.17, kernel >= 3.10)
-- IBM s390x (64 bit)
-  - linux/gnu (glibc >= 2.17, kernel >= 3.2)
 *Note: Apple silicon M-series chips are supported (aarch64)*
-
-## Citing
-If this software package contributed meaningfully to your research, please
-consider citing the following papers:
-- (in preparation)
 
 ## License
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)

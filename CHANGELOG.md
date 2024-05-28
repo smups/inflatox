@@ -1,5 +1,40 @@
 # Inflatox Changelog
 
+# v0.8.0 (💣BREAKING CHANGES💣)
+General
+- Bumped the minimum required python version from 3.7 to 3.8. This was already the case (due to the
+  usage of `std`'s `typing` lib), but not reflected in the package manifest.
+- Improved and updated documentation where necessary
+- Added `docs.md` documentation file
+- Added `builds.md` wiht build instructions
+
+Mathematical changes
+- Moved away from the $\kappa=3$ paradigm to a more sensible calculation for 
+  $\varepsilon_H$:
+  $$
+    \varepsilon_H=3 \times \frac{\varepsilon_V - 1/2 (V_t/V)^2}
+    {\varepsilon_V+V_{tt}/V - 1/2 (V_t/V)^2}
+  $$
+  Where $V_{tt}$ is calculated using the assumption $\tan\delta=V_{vw}/V_{vv}$ and $1/2(V_t/V)^2=
+  \varepsilon_V\sin^2\delta$. Note that this new equation gives different results: it is less
+  restrictive than the previous $\kappa=3$ paradigm, although it is better motivated from a 
+  theoretical standpoint.
+- Replaced $\varepsilon_H$ calculation with $\eta_{\parallel}$ calculation, where $\eta_{\parallel}$
+  is calculated as:
+  $$
+    \eta_{\parallel}=\omega\tan\delta -3
+  $$
+
+API changes
+- Renamed `AnguelovaLazaroiuCondition` to `GeneralisedAL`
+- `SymbolicCalculation` no longer requires the vector $w \perp \nabla V$ to be speficied by default
+  (it is still possible to do so as an option)
+
+Upgrades
+- Updated Rayon 1.8 -> 1.10
+- Upgraded PyO3 0.20 -> 0.21
+- Upgraded numpy 0.20 -> 0.21
+
 # v0.7.0 - major refactor (💣BREAKING CHANGES💣)
 Additions
 - Added functionality to calculate the potential slow-roll parameter $\varepsilon_V$

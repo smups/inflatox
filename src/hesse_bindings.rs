@@ -372,10 +372,6 @@ impl<'a> Hesse2D<'a> {
     self.lib.potential(x, p)
   }
 
-  #[inline(always)]
-  pub const fn get_n_params(&self) -> usize {
-    self.lib.get_n_params()
-  }
 }
 
 pub struct Grad<'a> {
