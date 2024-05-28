@@ -240,7 +240,7 @@ class SymbolicCalculation():
     elif not self.silent:
       display(expr)
     
-  def execute(self, guesses: list[list[sympy.Expr]]) -> SymbolicOutput:
+  def execute(self, guesses: list[list[sympy.Expr]] | None = None) -> SymbolicOutput:
     """Performs fully symbolic calculation of the components of the covariant
     Hesse matrix of the potential with respect to the metric, which are then
     projected onto an orthonormal vielbein basis constructed (using the
@@ -251,10 +251,12 @@ class SymbolicCalculation():
     individual methods of this class.
 
     ### Args
-    `guesses` (`list[list[sympy.Expr]]`): list of vectors to be used to calculate
+    `guesses` (`list[list[sympy.Expr]] | None`): list of vectors to be used to calculate
       an orthonormal vielbein basis onto which the components of the Hesse matrix
       will be projected. The supplied vectors *do not* have to be orthogonal, but
-      they *must be* linearly independent.
+      they *must be* linearly independent. If this argument equals `None` and the model under
+      consideration is only two-dimensional, the code is able to determine the basis on its own.
+      Otherwise, it will throw an error.
     
     ### Simplification
     If the simplification depth is set to 1 or higher, this function will
@@ -266,18 +268,24 @@ class SymbolicCalculation():
       as well as information about the model that was used to calculate said components. 
     """
     dim = len(self.coords)
-    assert(len(guesses) == dim - 1)
+    if guesses is not None: assert(len(guesses) == dim - 1)
     
     #(1) Calculate an orthonormal basis
     #(1a)...starting with a vector parallel to the potential gradient
     self.print("Calculating orthonormal basis...")
     basis = [self.calc_v()]
     self.display(basis[0], lhs='v')
-    
-    #(1b) followed by other gramm-schmidt produced vectors
-    for (i, guess) in enumerate(guesses):
-      basis.append(self.gramm_schmidt(basis, guess))
-      self.display(basis[-1], lhs=f'w_{i+1}')
+
+    if guesses is None and dim == 2:
+      basis.append([-basis[0][1], basis[0][0]])
+      self.display(basis[-1], lhs=f'w_1')
+    elif guesses is None:
+      raise Exception("guesses argument cannot be None if model has more than two fields")
+    else:    
+      #(1b) followed by other gramm-schmidt produced vectors
+      for (i, guess) in enumerate(guesses):
+        basis.append(self.gramm_schmidt(basis, guess))
+        self.display(basis[-1], lhs=f'w_{i+1}')
     
     #(1b) make sure the basis is orthonormal
     if self.assertions:
