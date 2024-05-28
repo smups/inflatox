@@ -26,7 +26,7 @@ from .compiler import CompilationArtifact
 from .libinflx_rs import *
 
 #Limit exports to these items
-__all__ = ['InflationCondition', 'AnguelovaLazaroiuCondition']
+__all__ = ['InflationCondition', 'GeneralisedAL']
 
 class InflationCondition():
   """Base class for all inflation conditions. Provides native methods to evaluate
@@ -144,9 +144,9 @@ class InflationCondition():
     N = N if N is not None else (8000 for _ in range(n_fields))
     return self.dylib.hesse_array(np.array(n_fields, dtype=np.int64), args, start_stop)
 
-class AnguelovaLazaroiuCondition(InflationCondition):
+class GeneralisedAL(InflationCondition):
   """This class extends the generic `InflationCondition` with the generalised rapid-turn (ω>>ε^½)
-  consistency condition from (paper in preparation).
+  consistency condition from (`arXiv:2405.11628`).
 
   In addition, related quantities that may be estimated from the potential and field-space metric,
   such as the slow-roll parameters εH, η_||, the angle δ and turn-rate ω can also be computed.
