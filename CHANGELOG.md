@@ -1,6 +1,11 @@
 # Inflatox Changelog
 
-# v0.8.0 (💣BREAKING CHANGES💣)
+### v0.8.1 Synchronise
+Version 0.8.1 is identical to version 0.8.0. It has come to our attention that a duplicate 0.8.0
+published in March 2024 (rather than the May 2024 _real_ 0.8.0) was unintentionally published to
+PyPi. Version 0.8.1 should remedy this issue.
+
+## v0.8.0 (💣BREAKING CHANGES💣)
 General
 - Bumped the minimum required python version from 3.7 to 3.8. This was already the case (due to the
   usage of `std`'s `typing` lib), but not reflected in the package manifest.
@@ -35,7 +40,7 @@ Upgrades
 - Upgraded PyO3 0.20 -> 0.21
 - Upgraded numpy 0.20 -> 0.21
 
-# v0.7.0 - major refactor (💣BREAKING CHANGES💣)
+## v0.7.0 - major refactor (💣BREAKING CHANGES💣)
 Additions
 - Added functionality to calculate the potential slow-roll parameter $\varepsilon_V$
 - Added functionality to calculate $\varepsilon_H$ assuming the AL condition holds.
@@ -75,7 +80,7 @@ Deletions
 Upgrades
 - Upgraded rayon 1.7.0 -> 1.8.0
 
-# v0.6.0 - More quantities: $\varepsilon_H$ and $\omega$
+## v0.6.0 - More quantities: $\varepsilon_H$ and $\omega$
 - Specified that package is only compatible with python 3.7 - 3.11, because
   no version of `Numba` dependency (which is a dependency of EinsteinPy) that is
   compatible with python 3.12 has been released yet. Package still interfaces
