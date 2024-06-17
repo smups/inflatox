@@ -11,6 +11,7 @@ first presented in Anguelova & Lazaroiu (2023)[^1] and later expanded for the pu
 in [arXiv:2405.11628](https://arxiv.org/abs/2405.11628). The consistency conditions can be used in a
 parameter sweep of a two-field model to find possible inflation trajectories.
 
+> [!NOTE]
 > If this software has proven useful to your research, please consider citing
 [arXiv:2405.11628](https://arxiv.org/abs/2405.11628) (_paper in preparation_).
 
@@ -29,8 +30,10 @@ parameter sweep of a two-field model to find possible inflation trajectories.
   installed by `pip`.
 
 ## Installation and Dependencies
-Inflatox requires at least python (ABI) version `3.8`. The latest version of
-inflatox can be installed using pip:
+> [!IMPORTANT]
+> Inflatox requires at least python version `3.8`.
+
+The latest version of inflatox can be installed using pip:
 ```console
 pip install inflatox
 ```
@@ -84,6 +87,10 @@ consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega =
 ```
 
 ## Supported Architectures
+The combinations of OS and CPU architecture listed down below
+have pre-compiled binary distributions of `inflatox` available
+via `PiPy`. If your arch is not listed here, you will have to
+[compile `inflatox` manually](/BUILD.md).
 - Intel/AMD x86/i686 (32 bit)
   - linux/gnu (glibc >= 2.17, kernel >= 3.2)
   - windows 7+ [^2]
@@ -96,13 +103,15 @@ consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega =
 - ARM aarch64 (64 bit)
   - linux/gnu (glibc >= 2.17, kernel >= 4.1)
   - macOS 11.0+ / Big Sur+
-*Note: Apple silicon M-series chips are supported (aarch64)*
+> [!NOTE]
+> Apple silicon M-series chips are supported (aarch64)*
 
 ## License
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
->**Inflatox is explicitly not licensed under the dual
-Apache/MIT license common to the Rust ecosystem. Instead it is licensed under
-the terms of the [European Union Public License v1.2](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)**.
+>[!NOTE]
+> Inflatox is explicitly not licensed under the dual
+> Apache/MIT license common to the Rust ecosystem. Instead it is licensed under
+> the terms of the [European Union Public License v1.2](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
 
 Inflatox is a science project and embraces the values of open science and free
 and open software. Closed and paid scientific software suites hinder the
