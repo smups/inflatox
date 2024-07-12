@@ -283,7 +283,8 @@ class SymbolicCalculation():
       as well as information about the model that was used to calculate said components. 
     """
     dim = len(self.coords)
-    if guesses is not None: assert(len(guesses) == dim - 1)
+    if guesses is not None: assert(len(guesses) == dim - 1,
+                                   'number of guessed vectors must equal the number of fields minus one (n-1)')
     
     #(1) Calculate an orthonormal basis
     #(1a)...starting with a vector parallel to the potential gradient
@@ -307,9 +308,11 @@ class SymbolicCalculation():
       for a in range(dim):
         for b in range(dim):
           if a == b:
-            assert(sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify())
+            assert(sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify(),
+                   'normalisation error: v•v does not equal 1')
           else:
-            assert(sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify())
+            assert(sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify(),
+                   'orthogonality error: v•w does not equal 0')
         
     #(2) Calculate the components of the covariant Hesse Matrix
     print("Calculating covariant Hesse matrix...")
@@ -518,7 +521,7 @@ class SymbolicCalculation():
     """
     dim = len(current_basis[0])
     #make sure the supplied basis is not already complete
-    assert(len(current_basis) < dim)
+    assert(len(current_basis) < dim, 'current basis is already complete. No need for more vecs.')
     
     #start with vector y
     y = guess
