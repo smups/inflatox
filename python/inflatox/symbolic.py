@@ -248,7 +248,12 @@ class SymbolicCalculation():
       lhs = expr
     """
     if self.silent: return
-    print(sympy.Eq(lhs, expr, evaluate=False)) if lhs is not None else print(expr)
+    eq = sympy.Eq(lhs, expr, evaluate=False) if lhs is not None else expr
+    try:
+      from IPython.display import display
+      display(eq)
+    except NameError:
+      sympy.pprint(eq)
     
   def execute(self, guesses: list[list[sympy.Expr]] | None = None) -> SymbolicOutput:
     """Performs fully symbolic calculation of the components of the covariant
