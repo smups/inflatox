@@ -67,7 +67,7 @@ display(g, V)
 
 #symbolic calculation
 calc = inflatox.SymbolicCalculation.new_from_list(fields, g, V)
-hesse = calc.execute([[0,1]])
+hesse = calc.execute()
 
 #run the compiler
 out = inflatox.Compiler(hesse).compile()

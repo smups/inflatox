@@ -1,5 +1,10 @@
 # Inflatox Changelog
 
+### v0.8.2 printing bugfix
+General
+- fixed bug with printing sympy expressions outside IPython environments
+- added assertion error messages
+
 ### v0.8.1 Synchronise
 Version 0.8.1 is identical to version 0.8.0. It has come to our attention that a duplicate 0.8.0
 published in March 2024 (rather than the May 2024 _real_ 0.8.0) was unintentionally published to
