@@ -113,6 +113,7 @@ class SymbolicCalculation():
     model_name: str|None = None,
     simplification_depth: int = 4,
     silent: bool = False,
+    init_sympy_printing: bool = True,
     assertions: bool = False,
     simplify_for: Literal['length'] | Literal['ops'] = 'ops'
   ):
@@ -129,6 +130,9 @@ class SymbolicCalculation():
       for the calculation. See class documentation. Defaults to 4.
     - `silent` (`bool`, *optional*): if True, no console output will be produced
       during the calculation. Defaults to False.
+    - `init_sympy_printing` (`bool`, *optional*): if True, pretty printing of sympy
+      expressions will be initialised with default options. Set to False if you
+      want to use your own settings for printing. Defaults to True.
     - `assertions` (`bool`, *optional*): if False, expensive intermediate
       assertions will be disabled. Defaults to False.
     - `simplify_for` (`Literal['length'] | Literal['ops']`): simplification
@@ -140,6 +144,8 @@ class SymbolicCalculation():
     `SymbolicCalculation`: object that can be used to perform the symbolic
     calculation by calling the `.execute()` method.  
     """
+    if init_sympy_printing: sympy.init_printing()
+
     return cls(
       fields,
       field_metric,
@@ -160,6 +166,7 @@ class SymbolicCalculation():
     model_name: str|None = None,
     simplification_depth: int = 4,
     silent: bool = False,
+    init_sympy_printing: bool = True,
     assertions: bool = False,
     simplify_for: Literal['length'] | Literal['ops'] = 'ops'
   ):
@@ -177,6 +184,9 @@ class SymbolicCalculation():
       for the calculation. See class documentation. Defaults to 4.
     - `silent` (`bool`, *optional*): if True, no console output will be produced
       during the calculation. Defaults to False.
+    - `init_sympy_printing` (`bool`, *optional*): if True, pretty printing of sympy
+      expressions will be initialised with default options. Set to False if you
+      want to use your own settings for printing. Defaults to True.
     - `assertions` (`bool`, *optional*): if False, expensive intermediate
       assertions will be disabled. Defaults to False.
     - `simplify_for` (`Literal['length'] | Literal['ops']`): simplification
@@ -188,6 +198,8 @@ class SymbolicCalculation():
     `SymbolicCalculation`: object that can be used to perform the symbolic
     calculation by calling the `.execute()` method.  
     """
+    if init_sympy_printing: sympy.init_printing()
+
     return cls(
       fields,
       MetricTensor(field_metric, fields, name="scalar manifold metric"),
@@ -235,10 +247,8 @@ class SymbolicCalculation():
     the result will be formatted as
       lhs = expr
     """
-    if not self.silent and lhs is not None:
-      display(Math(f"{lhs}={expr}"))
-    elif not self.silent:
-      display(expr)
+    if self.silent: return
+    print(sympy.Eq(lhs, expr, evaluate=False)) if lhs is not None else print(expr)
     
   def execute(self, guesses: list[list[sympy.Expr]] | None = None) -> SymbolicOutput:
     """Performs fully symbolic calculation of the components of the covariant
@@ -274,18 +284,18 @@ class SymbolicCalculation():
     #(1a)...starting with a vector parallel to the potential gradient
     self.print("Calculating orthonormal basis...")
     basis = [self.calc_v()]
-    self.display(basis[0], lhs='v')
+    self.display(sympy.Matrix(basis[0]), lhs=sympy.symbols('v'))
 
     if guesses is None and dim == 2:
       basis.append([-basis[0][1], basis[0][0]])
-      self.display(basis[-1], lhs=f'w_1')
+      self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols('w_1'))
     elif guesses is None:
       raise Exception("guesses argument cannot be None if model has more than two fields")
     else:    
       #(1b) followed by other gramm-schmidt produced vectors
       for (i, guess) in enumerate(guesses):
         basis.append(self.gramm_schmidt(basis, guess))
-        self.display(basis[-1], lhs=f'w_{i+1}')
+        self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols(f'w_{i+1}'))
     
     #(1b) make sure the basis is orthonormal
     if self.assertions:
@@ -299,7 +309,7 @@ class SymbolicCalculation():
     #(2) Calculate the components of the covariant Hesse Matrix
     print("Calculating covariant Hesse matrix...")
     H = self.calc_hesse()
-    self.display(sympy.Matrix(H), lhs='H')
+    self.display(sympy.Matrix(H), lhs=sympy.symbols('H'))
     
     #(3) Project Hesse matrix
     def process(a:int, b:int):
@@ -319,7 +329,7 @@ class SymbolicCalculation():
         H_proj[a][b] = component
         if a == 0: a = 'v'
         if b == 0: b = 'v'
-        self.display(component, lhs=f'H_{{{a}{b}}}')
+        self.display(component, lhs=sympy.symbols(f'H_{{{a}{b}}}'))
         
     #(4) Calculate the size of the gradient
     print("Calculating the norm of the gradient...")
