@@ -78,7 +78,7 @@ impl InflatoxDylib {
           lib_path: libp_string.clone(),
           symbol: INFLATOX_VERSION_SYM.to_vec(),
         })
-        .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
+        .map(|ptr| **ptr as *mut InflatoxVersion)?
     };
     if inflatox_version != crate::V_INFLX_ABI {
       return Err(Error::VersionErr(inflatox_version));
@@ -167,7 +167,6 @@ impl InflatoxDylib {
 
   fn get_grad_cmp(lib: &libloading::Library, lib_path: &str, n_fields: usize) -> Result<Vec<ExFn>> {
     (0..n_fields)
-      .into_iter()
       .map(|idx| unsafe {
         let c = char::from_digit(idx as u32, 10).unwrap() as u32 as u8;
         lib
@@ -176,7 +175,7 @@ impl InflatoxDylib {
             lib_path: lib_path.to_string(),
             symbol: vec![b'g', c],
           })
-          .and_then(|x| Ok(**x))
+          .map(|x| **x)
       })
       .collect()
   }
@@ -222,10 +221,9 @@ impl InflatoxDylib {
 
     for (idx, val) in x.indexed_iter_mut() {
       field_space_point.clear();
-      field_space_point.extend(
-        (0..self.n_fields as usize).into_iter().map(|i| idx[i] as f64 * spacings[i] + offsets[i]),
-      );
-      *val = unsafe { (&self.potential)(field_space_point.as_ptr(), p.as_ptr()) };
+      field_space_point
+        .extend((0..self.n_fields as usize).map(|i| idx[i] as f64 * spacings[i] + offsets[i]));
+      *val = unsafe { (self.potential)(field_space_point.as_ptr(), p.as_ptr()) };
     }
   }
 
@@ -290,11 +288,8 @@ impl InflatoxDylib {
         x.indexed_iter_mut().for_each(|(idx, val)| {
           //Convert index into field_space point
           field_space_point.clear();
-          field_space_point.extend(
-            (0..self.n_fields as usize)
-              .into_iter()
-              .map(|k| idx[k] as f64 * spacings[k] + offsets[k]),
-          );
+          field_space_point
+            .extend((0..self.n_fields as usize).map(|k| idx[k] as f64 * spacings[k] + offsets[k]));
           //Calculate the ijth matrix element
           let x_ptr = field_space_point.as_ptr();
           let p_ptr = p.as_ptr();
@@ -371,7 +366,6 @@ impl<'a> Hesse2D<'a> {
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
     self.lib.potential(x, p)
   }
-
 }
 
 pub struct Grad<'a> {
