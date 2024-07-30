@@ -103,62 +103,9 @@ class SymbolicCalculation():
   It can be beneficial to play around with this setting to see which level works
   best.
   """
-    
-  @classmethod
-  def new(
-    cls,
-    fields: list[sympy.Symbol],
-    field_metric: MetricTensor,
-    potential: sympy.Expr,
-    model_name: str|None = None,
-    simplification_depth: int = 4,
-    silent: bool = False,
-    init_sympy_printing: bool = True,
-    assertions: bool = False,
-    simplify_for: Literal['length'] | Literal['ops'] = 'ops'
-  ):
-    """Constructor for `SymbolicCalculation`
-
-    ### Args
-    - `fields` (`list[sympy.Symbol]`): list of sympy symbols that should be
-      interpreted as fields (coordinates on the scalar manifold).
-    - `field_metric` (`MetricTensor`): metric tensor on the scalar manifold.
-    - `potential` (`sympy.Expr`): potential of the scalar field theory.
-    - `model_name` (`str | None`, *optional*): name of the model (potential +
-      scalar manifold geometry). Used for printing. Defaults to None.
-    - `simplification_depth` (`int`, *optional*): sets the simplification depth
-      for the calculation. See class documentation. Defaults to 4.
-    - `silent` (`bool`, *optional*): if True, no console output will be produced
-      during the calculation. Defaults to False.
-    - `init_sympy_printing` (`bool`, *optional*): if True, pretty printing of sympy
-      expressions will be initialised with default options. Set to False if you
-      want to use your own settings for printing. Defaults to True.
-    - `assertions` (`bool`, *optional*): if False, expensive intermediate
-      assertions will be disabled. Defaults to False.
-    - `simplify_for` (`Literal['length'] | Literal['ops']`): simplification
-      strategy. When set to `length`, expressions will be optimized for code length.
-      When set to `ops`, expressions will be optimized to minimize the number of
-      operations. Defaults to `ops`.
-
-    ### Returns
-    `SymbolicCalculation`: object that can be used to perform the symbolic
-    calculation by calling the `.execute()` method.  
-    """
-    if init_sympy_printing: sympy.init_printing()
-
-    return cls(
-      fields,
-      field_metric,
-      potential,
-      model_name if model_name is not None else "None",
-      simplification_depth,
-      silent,
-      assertions,
-      simplify_for
-    )
   
   @classmethod
-  def new_from_list(
+  def new(
     cls,
     fields: list[sympy.Symbol],
     field_metric: list[list[sympy.Symbol]],
@@ -199,10 +146,10 @@ class SymbolicCalculation():
     calculation by calling the `.execute()` method.  
     """
     if init_sympy_printing: sympy.init_printing()
-
+    
     return cls(
       fields,
-      MetricTensor(field_metric, fields, name="scalar manifold metric"),
+      field_metric,
       potential,
       model_name if model_name is not None else "generic model",
       simplification_depth,
@@ -213,7 +160,7 @@ class SymbolicCalculation():
   
   def __init__(self,
     fields: list[sympy.Symbol],
-    field_metric: MetricTensor,
+    field_metric: list[list[sympy.Symbol]],
     potential: sympy.Expr,
     model_name: str,
     simplification_depth: int,
@@ -382,7 +329,10 @@ class SymbolicCalculation():
       respect to the metric tensor of the current instance.
     """
     norm = sympy.sqrt(self.inner_prod(vec, vec))
-    return [self.simplify(cmp / norm) if self.simp >= 3 else cmp / norm for cmp in vec] 
+    return [self.simplify(cmp / norm) if self.simp >= 3 else cmp / norm for cmp in vec]
+  
+  def christoffels(self) -> list[list[list[sympy.Symbols]]]:
+    dims = self.
     
   def calc_hesse(self) -> list[list[sympy.Expr]]:
     """returns the components of the covariant Hesse matrix in a twice-covariant
@@ -572,3 +522,4 @@ class SymbolicCalculation():
       for b in range(dim):
         V_proj = V_proj + hesse_matrix[a][b]*v1[a]*v2[b]
     return self.simplify(V_proj) if self.simp >= 1 else V_proj
+  
