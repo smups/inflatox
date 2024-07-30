@@ -146,7 +146,7 @@ class SymbolicCalculation():
     calculation by calling the `.execute()` method.  
     """
     if init_sympy_printing: sympy.init_printing()
-    
+
     return cls(
       fields,
       field_metric,
@@ -169,6 +169,9 @@ class SymbolicCalculation():
     simplify_for: str
   ):
     """Internal constructor"""
+    assert(len(field_metric) == len(field_metric[0]), "field metric should be square")
+    assert(len(field_metric) == len(fields), "number of fields must match dimensionality of metric tensor")
+
     self.coords = fields
     self.g = field_metric
     self.V = potential
