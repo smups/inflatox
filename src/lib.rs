@@ -33,8 +33,7 @@ use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
 use numpy::{
-  IntoPyArray, PyArray2, PyArrayDyn, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn,
-  PyReadwriteArrayDyn,
+  PyArray2, PyArrayDyn, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn,
 };
 use pyo3::prelude::*;
 
@@ -58,7 +57,7 @@ lazy_static::lazy_static! {
 
 #[pymodule]
 /// PyO3 wrapper for libinflx_rs rust api
-fn libinflx_rs(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
 
@@ -119,7 +118,7 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape() != &[self.0.get_n_fields() as usize] {
+    if x.shape() != [self.0.get_n_fields()] {
       return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_fields()],
         got: x.shape().to_vec(),
@@ -131,7 +130,7 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
+    if p.shape() != [self.0.get_n_params()] {
       return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
@@ -157,7 +156,7 @@ impl InflatoxPyDyLib {
 
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape().len() != self.0.get_n_fields() as usize {
+    if x.shape().len() != self.0.get_n_fields() {
       return Err(Error::ShapeErr {
         expected: Vec::new(),
         got: x.shape().to_vec(),
@@ -172,7 +171,7 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
+    if p.shape() != [self.0.get_n_params()] {
       return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
@@ -192,14 +191,14 @@ impl InflatoxPyDyLib {
     py: Python<'py>,
     x: PyReadonlyArrayDyn<f64>,
     p: PyReadonlyArrayDyn<f64>,
-  ) -> Result<&'py PyArray2<f64>> {
+  ) -> Result<Bound<'py, PyArray2<f64>>> {
     //(0) Convert the PyArrays to nd::Arrays
     let p = p.as_array();
     let x = x.as_array();
 
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape() != &[self.0.get_n_fields() as usize] {
+    if x.shape() != [self.0.get_n_fields()] {
       return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_fields()],
         got: x.shape().to_vec(),
@@ -211,7 +210,7 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
+    if p.shape() != [self.0.get_n_params()] {
       return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
@@ -221,7 +220,7 @@ impl InflatoxPyDyLib {
     let p = p.as_slice().unwrap();
 
     //(4) Calculate
-    Ok(PyArray2::from_owned_array(py, self.0.hesse(x, p)))
+    Ok(PyArray2::from_owned_array_bound(py, self.0.hesse(x, p)))
   }
 
   fn hesse_array<'py>(
@@ -230,7 +229,7 @@ impl InflatoxPyDyLib {
     nx: PyReadonlyArray1<usize>,
     p: PyReadonlyArrayDyn<f64>,
     start_stop: PyReadonlyArray2<f64>,
-  ) -> Result<&'py PyArrayDyn<f64>> {
+  ) -> Result<Bound<'py, PyArrayDyn<f64>>> {
     //(0) Convert the PyArrays to nd::Arrays
     let p = p.as_array();
     let nx = nx.as_array();
@@ -253,7 +252,7 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
+    if p.shape() != [self.0.get_n_params()] {
       return Err(Error::ShapeErr {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
@@ -264,6 +263,6 @@ impl InflatoxPyDyLib {
 
     //(4) Evaluate the hesse matrix
     let out = self.0.hesse_array(nx, p, &start_stop);
-    Ok(out.into_pyarray(py))
+    Ok(PyArrayDyn::from_owned_array_bound(py, out))
   }
 }

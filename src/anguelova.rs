@@ -49,7 +49,7 @@ fn set_pbar(len: usize) -> ProgressBar {
 #[inline]
 /// Parses `lib` into `Hesse2D` and `Grad` structs if possible. Returns an error (read: model is
 /// incompatible with the AL consistency condition) otherwise.
-fn validate_lib<'lib>(lib: &'lib InflatoxDylib) -> Result<(Hesse2D<'lib>, Grad<'lib>)> {
+fn validate_lib(lib: &InflatoxDylib) -> Result<(Hesse2D<'_>, Grad<'_>)> {
   // The AL condition only works for 2-field models.
   if !lib.get_n_fields() == 2 {
     return Err(Error::ShapeErr {
@@ -64,7 +64,7 @@ fn validate_lib<'lib>(lib: &'lib InflatoxDylib) -> Result<(Hesse2D<'lib>, Grad<'
 #[inline]
 /// Checks if the length of the paramter array `p` equals the number of paramters expected by the
 /// model
-fn validiate_p<'lib>(lib: &'lib InflatoxDylib, p: &[f64]) -> Result<()> {
+fn validiate_p(lib: &InflatoxDylib, p: &[f64]) -> Result<()> {
   if p.len() != lib.get_n_params() {
     return Err(Error::ShapeErr {
       expected: vec![2],
@@ -111,11 +111,10 @@ mod ops {
     // Calculate Vtt
     let vtt = (v00 * v10.powi(2) + v11 * v00.powi(2) - 2. * v00 * v10.powi(2))
       / (v00.powi(2) + v10.powi(2));
-    // 3. * (1. + (v10/v00).powi(2)).recip() * (1. + (v00/v10).powi(2));
     // Calculate (Vt)²
-    let vt2 = epsilon_v * (1. + (v00/v10).powi(2)).recip();
+    let vt2 = epsilon_v * (1. + (v00 / v10).powi(2)).recip();
     // Calculate ε_H
-    let epsilon_h = 3. * (epsilon_v - vt2) * (epsilon_v + vtt.abs()/v - vt2).recip();
+    let epsilon_h = 3. * (epsilon_v - vt2) * (epsilon_v + vtt.abs() / v - vt2).recip();
     // Calculate δ
     let delta = (v10 / v00).abs().atan();
     // Calculate ω
@@ -171,7 +170,9 @@ pub fn consistency_only(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let p = p
+    .as_slice()
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -190,8 +191,9 @@ pub fn consistency_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out =
-    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out = out
+    .as_slice_mut()
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -201,7 +203,7 @@ pub fn consistency_only(
   if threads == 1 {
     //Single-threaded mode
     let iter = out
-      .into_iter()
+      .iter_mut()
       .enumerate()
       //(2a) convert flat index into array index
       .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -214,10 +216,8 @@ pub fn consistency_only(
     }
   } else {
     //Multi-threaded mode
-    let threadpool = rayon::ThreadPoolBuilder::new()
-      .num_threads(num_threads)
-      .build()
-      .map_err(|err| Error::from(err))?;
+    let threadpool =
+      rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
     threadpool.install(move || {
       let iter = out
         .into_par_iter()
@@ -235,11 +235,7 @@ pub fn consistency_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!(
-    "{}Calculation finished. Took {}.",
-    *BADGE,
-    indicatif::HumanDuration(start.elapsed()).to_string()
-  );
+  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -261,7 +257,9 @@ pub fn consistency_rapidturn_only(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let p = p
+    .as_slice()
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -283,8 +281,9 @@ pub fn consistency_rapidturn_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out =
-    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out = out
+    .as_slice_mut()
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -294,7 +293,7 @@ pub fn consistency_rapidturn_only(
   if threads == 1 {
     //Single-threaded mode
     let iter = out
-      .into_iter()
+      .iter_mut()
       .enumerate()
       //(2a) convert flat index into array index
       .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -307,10 +306,8 @@ pub fn consistency_rapidturn_only(
     }
   } else {
     //Multi-threaded mode
-    let threadpool = rayon::ThreadPoolBuilder::new()
-      .num_threads(num_threads)
-      .build()
-      .map_err(|err| Error::from(err))?;
+    let threadpool =
+      rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
     threadpool.install(move || {
       let iter = out
         .into_par_iter()
@@ -328,11 +325,7 @@ pub fn consistency_rapidturn_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!(
-    "{}Calculation finished. Took {}.",
-    *BADGE,
-    indicatif::HumanDuration(start.elapsed()).to_string()
-  );
+  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -352,7 +345,9 @@ pub fn epsilon_v_only(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let p = p
+    .as_slice()
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -374,8 +369,9 @@ pub fn epsilon_v_only(
   //(5) Fill output array
   let len = out.len();
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out =
-    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out = out
+    .as_slice_mut()
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -385,7 +381,7 @@ pub fn epsilon_v_only(
   if threads == 1 {
     //Single-threaded mode
     let iter = out
-      .into_iter()
+      .iter_mut()
       .enumerate()
       //(2a) convert flat index into array index
       .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
@@ -398,10 +394,8 @@ pub fn epsilon_v_only(
     }
   } else {
     //Multi-threaded mode
-    let threadpool = rayon::ThreadPoolBuilder::new()
-      .num_threads(num_threads)
-      .build()
-      .map_err(|err| Error::from(err))?;
+    let threadpool =
+      rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
     threadpool.install(move || {
       let iter = out
         .into_par_iter()
@@ -419,11 +413,7 @@ pub fn epsilon_v_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!(
-    "{}Calculation finished. Took {}.",
-    *BADGE,
-    indicatif::HumanDuration(start.elapsed()).to_string()
-  );
+  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -450,7 +440,9 @@ pub fn complete_analysis(
 
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let p = p
+    .as_slice()
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -476,8 +468,9 @@ pub fn complete_analysis(
   // Fill output array
   let len = out.len() / 6;
   let shape = &[out.shape()[0], out.shape()[1]];
-  let out =
-    out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let out = out
+    .as_slice_mut()
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   // shorthand for the actual calculation
@@ -500,10 +493,8 @@ pub fn complete_analysis(
     }
   } else {
     //Multi-threaded mode
-    let threadpool = rayon::ThreadPoolBuilder::new()
-      .num_threads(num_threads)
-      .build()
-      .map_err(|err| Error::from(err))?;
+    let threadpool =
+      rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
     threadpool.install(move || {
       let iter = out
         .par_chunks_exact_mut(6)
@@ -521,11 +512,7 @@ pub fn complete_analysis(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!(
-    "{}Calculation finished. Took {}.",
-    *BADGE,
-    indicatif::HumanDuration(start.elapsed()).to_string()
-  );
+  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -562,7 +549,9 @@ pub fn flag_quantum_dif_py(
 ) -> PyResult<()> {
   //(1) Convert the PyArrays to nd::Arrays
   let lib = &lib.0;
-  let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+  let p = p
+    .as_slice()
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
   let mut x = x.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -595,11 +584,7 @@ pub fn flag_quantum_dif_py(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!(
-    "{}Calculation finished. Took {}.",
-    *BADGE,
-    indicatif::HumanDuration(start.elapsed()).to_string()
-  );
+  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -639,7 +624,9 @@ pub mod on_trajectory {
 
     // convert arguments to pure rust types
     let lib = &lib.0;
-    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let p = p
+      .as_slice()
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
     let x = x.as_array();
     let mut out = out.as_array_mut();
 
@@ -669,9 +656,11 @@ pub mod on_trajectory {
     let op = ops::complete_analysis;
 
     let len = out.shape()[0];
-    let out =
-      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
-    let x = x.as_slice().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let out = out
+      .as_slice_mut()
+      .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x =
+      x.as_slice().unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
 
     if threads == 1 {
       //Single-threaded mode
@@ -683,10 +672,8 @@ pub mod on_trajectory {
       }
     } else {
       //Multi-threaded mode
-      let threadpool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-        .map_err(|err| Error::from(err))?;
+      let threadpool =
+        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
       threadpool.install(move || {
         let iter = x.par_chunks_exact(2).zip(out.par_chunks_exact_mut(6));
         if progress {
@@ -700,7 +687,7 @@ pub mod on_trajectory {
     eprintln!(
       "{}Calculation finished. Took {}.",
       *BADGE,
-      indicatif::HumanDuration(start.elapsed()).to_string()
+      indicatif::HumanDuration(start.elapsed())
     );
 
     Ok(())
@@ -722,10 +709,13 @@ pub mod on_trajectory {
 
     // convert arguments to pure rust types
     let lib = &lib.0;
-    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let p = p
+      .as_slice()
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
     let x = x.as_array();
-    let out =
-      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let out = out
+      .as_slice_mut()
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
 
     // validate that the input slices are all the correct shape etc.
     let (h, _) = validate_lib(lib)?;
@@ -749,8 +739,9 @@ pub mod on_trajectory {
     let op = ops::consistency_only;
 
     let len = out.len();
-    let x =
-      x.as_slice().expect(&format!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x
+      .as_slice()
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
 
     if threads == 1 {
       //Single-threaded mode
@@ -762,10 +753,8 @@ pub mod on_trajectory {
       }
     } else {
       //Multi-threaded mode
-      let threadpool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-        .map_err(|err| Error::from(err))?;
+      let threadpool =
+        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
       threadpool.install(move || {
         let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
         if progress {
@@ -779,7 +768,7 @@ pub mod on_trajectory {
     eprintln!(
       "{}Calculation finished. Took {}.",
       *BADGE,
-      indicatif::HumanDuration(start.elapsed()).to_string()
+      indicatif::HumanDuration(start.elapsed())
     );
 
     Ok(())
@@ -801,10 +790,13 @@ pub mod on_trajectory {
 
     // convert arguments to pure rust types
     let lib = &lib.0;
-    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let p = p
+      .as_slice()
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
     let x = x.as_array();
-    let out =
-      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let out = out
+      .as_slice_mut()
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
 
     // validate that the input slices are all the correct shape etc.
     let (h, _) = validate_lib(lib)?;
@@ -828,8 +820,9 @@ pub mod on_trajectory {
     let op = ops::consistency_rapidturn_only;
 
     let len = out.len();
-    let x =
-      x.as_slice().expect(&format!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x
+      .as_slice()
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
 
     if threads == 1 {
       //Single-threaded mode
@@ -841,10 +834,8 @@ pub mod on_trajectory {
       }
     } else {
       //Multi-threaded mode
-      let threadpool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-        .map_err(|err| Error::from(err))?;
+      let threadpool =
+        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
       threadpool.install(move || {
         let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
         if progress {
@@ -858,7 +849,7 @@ pub mod on_trajectory {
     eprintln!(
       "{}Calculation finished. Took {}.",
       *BADGE,
-      indicatif::HumanDuration(start.elapsed()).to_string()
+      indicatif::HumanDuration(start.elapsed())
     );
 
     Ok(())
@@ -880,10 +871,13 @@ pub mod on_trajectory {
 
     // convert arguments to pure rust types
     let lib = &lib.0;
-    let p = p.as_slice().expect(&format!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let p = p
+      .as_slice()
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
     let x = x.as_array();
-    let out =
-      out.as_slice_mut().expect(&format!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let out = out
+      .as_slice_mut()
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
 
     // validate that the input slices are all the correct shape etc.
     let (h, g) = validate_lib(lib)?;
@@ -907,8 +901,9 @@ pub mod on_trajectory {
     let op = ops::epsilon_v_only;
 
     let len = out.len();
-    let x =
-      x.as_slice().expect(&format!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    let x = x
+      .as_slice()
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
 
     if threads == 1 {
       //Single-threaded mode
@@ -920,10 +915,8 @@ pub mod on_trajectory {
       }
     } else {
       //Multi-threaded mode
-      let threadpool = rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-        .map_err(|err| Error::from(err))?;
+      let threadpool =
+        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
       threadpool.install(move || {
         let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
         if progress {
@@ -937,7 +930,7 @@ pub mod on_trajectory {
     eprintln!(
       "{}Calculation finished. Took {}.",
       *BADGE,
-      indicatif::HumanDuration(start.elapsed()).to_string()
+      indicatif::HumanDuration(start.elapsed())
     );
 
     Ok(())
