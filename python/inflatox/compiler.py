@@ -276,18 +276,26 @@ char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
     lib_path = f'{tempfile.tempdir}/{lib_name}'
     
     # Compile source with zig
-    result = subprocess.run([
-        sys.executable,
-        "-m", "ziglang",
-        "cc", "-o",
-        lib_path, #out
-        source_path, #in
-        *self.zigcc_opts #compiler options
-      ],
-      capture_output = True
-    )
+    zigargs = [
+      sys.executable,
+      "-m", "ziglang",
+      "cc", "-o",
+      lib_path, #out
+      source_path, #in
+      *self.zigcc_opts #compiler options
+    ]
+
+    process = subprocess.Popen(zigargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out = b""
+
+    while process.stdout.readable():
+      line = process.stderr.readline()
+      if not line: break
+      out += line
+      if not self.silent: print(line.decode("utf-8"), end=None)
     
-    return (source_path, lib_path, result)
+    exitcode = process.wait()
+    return (source_path, lib_path, (out, exitcode))
     
   def compile(self) -> CompilationArtifact:
     """Compiles the Hesse matrix specified in the constructor of this class into
@@ -318,19 +326,17 @@ char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
     self._generate_c_file()
     
     #(2) run compiler and linker
-    source_path, dylib_path, output = self._zigcc_compile_and_link()
+    source_path, dylib_path, (output, exitcode) = self._zigcc_compile_and_link()
     
     #(3) cleanup unused artifacts
     if self.cleanup:
       os.remove(source_path)
       
     #(4) print output
-    if output.returncode != 0:
-      print("[COMPILER ERROR]")
-      print(f"{output.stdout}")
-    elif not self.silent:
-      print("Compiler output:")
-      print(f"{output.stderr}")
+    if exitcode != 0:
+      if self.silent: print(output.decode("utf-8"))
+      print(f"Problematic source file located at: \"{source_path}\"")
+      raise Exception(f"Zig compiler error (see previous output)")
     
     #(R) return compilation artifact
     return CompilationArtifact(
