@@ -52,7 +52,7 @@ fn set_pbar(len: usize) -> ProgressBar {
 fn validate_lib(lib: &InflatoxDylib) -> Result<(Hesse2D<'_>, Grad<'_>)> {
   // The AL condition only works for 2-field models.
   if !lib.get_n_fields() == 2 {
-    return Err(Error::ShapeErr {
+    return Err(Error::Shape {
       expected: vec![2],
       got: vec![lib.get_n_fields()],
       msg: "the Anguelova & Lazaroiu consistency condition requires a 2-field model.".to_string(),
@@ -66,7 +66,7 @@ fn validate_lib(lib: &InflatoxDylib) -> Result<(Hesse2D<'_>, Grad<'_>)> {
 /// model
 fn validiate_p(lib: &InflatoxDylib, p: &[f64]) -> Result<()> {
   if p.len() != lib.get_n_params() {
-    return Err(Error::ShapeErr {
+    return Err(Error::Shape {
       expected: vec![2],
       got: vec![p.len()],
       msg: format!("model \"{}\" has {} paramters", lib.name(), lib.get_n_params()),
@@ -450,7 +450,7 @@ pub fn complete_analysis(
   let (h, g) = validate_lib(lib)?;
   validiate_p(lib, p)?;
   if out.shape()[2] != 6 {
-    Err(Error::ShapeErr {
+    Err(Error::Shape {
       expected: vec![out.shape()[0], out.shape()[1], 6],
       got: out.shape().to_vec(),
       msg: "Output array should be 3D. Last axis must have lenght 6".to_string(),
@@ -634,14 +634,14 @@ pub mod on_trajectory {
     let (h, g) = validate_lib(lib)?;
     validiate_p(lib, p)?;
     if out.shape()[1] != 6 {
-      Err(Error::ShapeErr {
+      Err(Error::Shape {
         expected: vec![out.shape()[0], 6],
         got: out.shape().to_vec(),
         msg: "Output array should be 2D. Last axis must have lenght 6".to_string(),
       })?
     }
     if out.shape()[0] != x.shape()[0] {
-      Err(Error::ShapeErr {
+      Err(Error::Shape {
         expected: vec![x.shape()[0]],
         got: vec![out.shape()[0]],
         msg: "First axis of output array and field-space array should have the same length"
@@ -721,7 +721,7 @@ pub mod on_trajectory {
     let (h, _) = validate_lib(lib)?;
     validiate_p(lib, p)?;
     if out.len() != x.shape()[0] {
-      Err(Error::ShapeErr {
+      Err(Error::Shape {
         expected: vec![x.shape()[0]],
         got: vec![out.len()],
         msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
@@ -802,7 +802,7 @@ pub mod on_trajectory {
     let (h, _) = validate_lib(lib)?;
     validiate_p(lib, p)?;
     if out.len() != x.shape()[0] {
-      Err(Error::ShapeErr {
+      Err(Error::Shape {
         expected: vec![x.shape()[0]],
         got: vec![out.len()],
         msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
@@ -883,7 +883,7 @@ pub mod on_trajectory {
     let (h, g) = validate_lib(lib)?;
     validiate_p(lib, p)?;
     if out.len() != x.shape()[0] {
-      Err(Error::ShapeErr {
+      Err(Error::Shape {
         expected: vec![x.shape()[0]],
         got: vec![out.len()],
         msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"

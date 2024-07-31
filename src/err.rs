@@ -27,11 +27,11 @@ use crate::inflatox_version::InflatoxVersion;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibInflxRsErr {
-  IoErr { lib_path: String, msg: String },
-  MissingSymbolErr { symbol: Vec<u8>, lib_path: String },
-  VersionErr(InflatoxVersion),
-  RayonErr(String),
-  ShapeErr { expected: Vec<usize>, got: Vec<usize>, msg: String },
+  Io { lib_path: String, msg: String },
+  MissingSymbol { symbol: Vec<u8>, lib_path: String },
+  Version(InflatoxVersion),
+  Rayon(String),
+  Shape { expected: Vec<usize>, got: Vec<usize>, msg: String },
 }
 
 impl std::fmt::Display for LibInflxRsErr {
@@ -39,17 +39,17 @@ impl std::fmt::Display for LibInflxRsErr {
     use LibInflxRsErr::*;
     #[cfg_attr(rustfmt, rustfmt_skip)]
     match self {
-      IoErr { lib_path, msg } => write!(f, "Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{msg}\""),
-      MissingSymbolErr { symbol, lib_path } => {
+      Io { lib_path, msg } => write!(f, "Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{msg}\""),
+      MissingSymbol { symbol, lib_path } => {
         if let Ok(string) = std::str::from_utf8(symbol) {
           write!(f, "Could not find symbol \"{string}\" in {lib_path}")
         } else {
           write!(f, "Could not find symbol {symbol:?} in {lib_path}")
         }
       },
-      VersionErr(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
-      RayonErr(msg) => write!(f, "Could not initialise threadpool. Error: \"{msg}\""),
-      ShapeErr { expected, got, msg } => write!(f, "Expected array with shape {expected:?}, received array with shape {got:?}. Context: {msg}")
+      Version(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
+      Rayon(msg) => write!(f, "Could not initialise threadpool. Error: \"{msg}\""),
+      Shape { expected, got, msg } => write!(f, "Expected array with shape {expected:?}, received array with shape {got:?}. Context: {msg}")
     }
   }
 }
@@ -61,16 +61,16 @@ impl From<LibInflxRsErr> for pyo3::PyErr {
     use LibInflxRsErr::*;
     let msg = format!("{err}");
     match err {
-      IoErr { .. } => PyIOError::new_err(msg),
-      MissingSymbolErr { .. } | VersionErr(_) | RayonErr(_) => PySystemError::new_err(msg),
-      ShapeErr { .. } => PyException::new_err(msg),
+      Io { .. } => PyIOError::new_err(msg),
+      MissingSymbol { .. } | Version(_) | Rayon(_) => PySystemError::new_err(msg),
+      Shape { .. } => PyException::new_err(msg),
     }
   }
 }
 
 impl From<rayon::ThreadPoolBuildError> for LibInflxRsErr {
   fn from(err: rayon::ThreadPoolBuildError) -> Self {
-    Self::RayonErr(format!("{err}"))
+    Self::Rayon(format!("{err}"))
   }
 }
 

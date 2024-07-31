@@ -71,33 +71,33 @@ impl InflatoxDylib {
     // Open the compilation artefact
     let lib = unsafe {
       libloading::Library::new(lib_path)
-        .map_err(|err| Error::IoErr { lib_path: libp_string.clone(), msg: format!("{err}") })?
+        .map_err(|err| Error::Io { lib_path: libp_string.clone(), msg: format!("{err}") })?
     };
 
     // Check if the artefact is compatible with our version of libinflx
     let inflatox_version = unsafe {
       *lib
         .get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
-        .map_err(|_err| Error::MissingSymbolErr {
+        .map_err(|_err| Error::MissingSymbol {
           lib_path: libp_string.clone(),
           symbol: INFLATOX_VERSION_SYM.to_vec(),
         })
         .map(|ptr| **ptr as *mut InflatoxVersion)?
     };
     if inflatox_version != crate::V_INFLX_ABI {
-      return Err(Error::VersionErr(inflatox_version));
+      return Err(Error::Version(inflatox_version));
     }
 
     // Get number of fields and number of parameters
     let n_fields = unsafe {
-      ***lib.get::<HdylibInt>(SYM_DIM_SYM).map_err(|_err| Error::MissingSymbolErr {
+      ***lib.get::<HdylibInt>(SYM_DIM_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: SYM_DIM_SYM.to_vec(),
       })?
     };
 
     let n_param = unsafe {
-      ***lib.get::<HdylibInt>(PARAM_DIM_SYM).map_err(|_err| Error::MissingSymbolErr {
+      ***lib.get::<HdylibInt>(PARAM_DIM_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: PARAM_DIM_SYM.to_vec(),
       })?
@@ -106,7 +106,7 @@ impl InflatoxDylib {
     // Parse model name
     let mname_raw = unsafe {
       let mname_ptr = **lib.get::<HdyLibChar>(MODEL_NAME_SYM).map_err(|_err| {
-        Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: MODEL_NAME_SYM.to_vec() }
+        Error::MissingSymbol { lib_path: libp_string.clone(), symbol: MODEL_NAME_SYM.to_vec() }
       })?;
       std::ffi::CStr::from_ptr(mname_ptr)
     };
@@ -114,7 +114,7 @@ impl InflatoxDylib {
 
     // Get potential hesse, and gradient components
     let potential = unsafe {
-      **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbolErr {
+      **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: POTENTIAL_SYM.to_vec(),
       })?
@@ -124,7 +124,7 @@ impl InflatoxDylib {
 
     // Get the size of the gradient squared (special quantity)
     let grad_square = unsafe {
-      **lib.get::<HdylibFn>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbolErr {
+      **lib.get::<HdylibFn>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: GRADIENT_SQUARE_SYM.to_vec(),
       })?
@@ -132,14 +132,14 @@ impl InflatoxDylib {
 
     // Check if the library uses the GSL, and initialise if this is the case
     let gsl: c_char = unsafe {
-      ***lib.get::<HdyLibChar>(USE_GSL_SYM).map_err(|_err| Error::MissingSymbolErr {
+      ***lib.get::<HdyLibChar>(USE_GSL_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: MODEL_NAME_SYM.to_vec(),
       })?
     };
     if gsl == 1 {
       let gsl_init_fn = unsafe {
-        **lib.get::<HydylibInitFn>(GSL_INIT_SYM).map_err(|_err| Error::MissingSymbolErr {
+        **lib.get::<HydylibInitFn>(GSL_INIT_SYM).map_err(|_err| Error::MissingSymbol {
           lib_path: libp_string.clone(),
           symbol: MODEL_NAME_SYM.to_vec(),
         })?
@@ -175,7 +175,7 @@ impl InflatoxDylib {
         char::from_digit(idx.1 as u32, 10).unwrap() as u32 as u8,
       ];
       let symbol = unsafe {
-        **lib.get::<HdylibFn>(raw_symbol).map_err(|_err| Error::MissingSymbolErr {
+        **lib.get::<HdylibFn>(raw_symbol).map_err(|_err| Error::MissingSymbol {
           lib_path: lib_path.to_string(),
           symbol: raw_symbol.to_vec(),
         })?
@@ -192,7 +192,7 @@ impl InflatoxDylib {
         let c = char::from_digit(idx as u32, 10).unwrap() as u32 as u8;
         lib
           .get::<HdylibFn>(&[b'g', c])
-          .map_err(|_err| Error::MissingSymbolErr {
+          .map_err(|_err| Error::MissingSymbol {
             lib_path: lib_path.to_string(),
             symbol: vec![b'g', c],
           })
