@@ -19,6 +19,8 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
+use std::ffi::{c_char, c_int};
+
 use pyo3::exceptions::PyException;
 
 use crate::inflatox_version::InflatoxVersion;
@@ -39,7 +41,7 @@ impl std::fmt::Display for LibInflxRsErr {
     match self {
       IoErr { lib_path, msg } => write!(f, "Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{msg}\""),
       MissingSymbolErr { symbol, lib_path } => {
-        if let Ok(string) = std::str::from_utf8(&symbol) {
+        if let Ok(string) = std::str::from_utf8(symbol) {
           write!(f, "Could not find symbol \"{string}\" in {lib_path}")
         } else {
           write!(f, "Could not find symbol {symbol:?} in {lib_path}")
@@ -70,4 +72,27 @@ impl From<rayon::ThreadPoolBuildError> for LibInflxRsErr {
   fn from(err: rayon::ThreadPoolBuildError) -> Self {
     Self::RayonErr(format!("{err}"))
   }
+}
+
+/// Signature of gsl_err handler function
+pub type GslErrHandler = unsafe extern "C" fn(*const c_char, *const c_char, c_int, c_int) -> !;
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_panic_handler(
+  reason: *const c_char,
+  file: *const c_char,
+  lineno: c_int,
+  errno: c_int,
+) -> ! {
+  let reason_str = std::ffi::CStr::from_ptr(reason);
+  let file_str = std::ffi::CStr::from_ptr(file);
+  let redbold = console::Style::new().red().bold();
+  let errcode = redbold.apply_to(format!("(ERRCODE {errno:#00X})"));
+  let cyan = console::Style::new().cyan();
+  let msg = cyan.apply_to("Error message:");
+
+  println!("{:#?} a GSL exception ocurred {}", super::PANIC_BADGE, errcode);
+  println!("{msg} {reason_str:#?}");
+  println!("In {file_str:#?} line number {lineno}");
+  panic!();
 }

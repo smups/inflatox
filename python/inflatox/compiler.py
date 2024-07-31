@@ -104,6 +104,12 @@ class GSLInflatoxPrinter(CInflatoxPrinter):
     preamble = super().print_preamble(model_name)
     for required_header in self.required_headers:
       preamble += f"#include<gsl/{required_header}.h>"
+    preamble += """// Declare external function for gsl error handling
+#include<gsl/gsl_errno.h>
+void err_setup(gsl_error_handler_t* rust_panic) {
+    gsl_set_error_handler(rust_panic);
+}
+    """
     return preamble 
   
   def update_preamble(self, header):
@@ -156,7 +162,6 @@ class GSLInflatoxPrinter(CInflatoxPrinter):
   def _print_yn(self, expr):
     return self.generic_print_bessel(expr, {'0': 'y0', '1': 'y1', '2': 'y2', 'int': 'yl'})
   
-
 class CompilationArtifact:
   """Class representing the output of the `Compiler`. It contains all information
   necessary to access the compiled artifact.
