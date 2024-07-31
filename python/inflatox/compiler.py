@@ -195,6 +195,9 @@ class Compiler:
   
   c_prefix = "inflx_auto_"
   lib_prefix = "libinflx_auto_"
+
+  default_zigcc_flags = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-shared']
+  gsl_zigcc_flags = ['-lgsl', '-Wl,--no-as-needed', '-lgslcblas']
   
   def __init__(self,
     symbolic_out: SymbolicOutput,
@@ -202,6 +205,7 @@ class Compiler:
     cleanup: bool = True,
     silent: bool|None = None,
     link_gsl: bool = False,
+    compiler_flags: list[str]|None = None
   ):
     """Constructor for a C Compiler (provided by zig-cc), which can be used
     to convert the provided `HesseMatrix` object into a platform- and arch-specific
@@ -230,6 +234,10 @@ class Compiler:
     - `link_gsl` (bool, optional): enables experimental gsl (GNU Scientific Library) support for
       output binary. This enables some special functions to be compiled by inflatox. Enabling this
       binary requires the gls library to be installed and available to the linker. Defaults to False.
+    - `copiler_flags` (list(str)|None, optional): replace default compiler flags with user-supplied
+      ones. Make sure to link libmath and libgsl/libgslcblas (if link_gls==True). The default compiler
+      flags can be found under `Compiler.default_zigcc_flags` and `Compiler.gsl_zigcc_flags`.
+      Defaults to None.
     """
     self.output_file = open(output_path) if output_path is not None else tempfile.NamedTemporaryFile(
       mode='wt',
@@ -241,12 +249,12 @@ class Compiler:
     self.cleanup = cleanup
     self.silent = silent if silent is not None else symbolic_out.silent
     self.gsl = link_gsl
-    self.zigcc_opts = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-shared']
+    self.zigcc_opts = [flag for flag in self.default_zigcc_flags]
+    # Add gsl linker flags
     if link_gsl:
-      self.zigcc_opts.append('-lgsl')
-      self.zigcc_opts.append('-Wl,--no-as-needed')
-      self.zigcc_opts.append('-lgslcblas')
-
+      for flag in self.gsl_zigcc_flags: self.zigcc_opts.append(flag)
+    # Override default flags if user supplied some
+    if compiler_flags is not None: self.zigcc_opts = compiler_flags
     
   def _generate_c_file(self):
     """Generates C source file from Hesse matrix specified by the constructor"""
