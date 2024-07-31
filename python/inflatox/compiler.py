@@ -234,7 +234,7 @@ class Compiler:
     - `link_gsl` (bool, optional): enables experimental gsl (GNU Scientific Library) support for
       output binary. This enables some special functions to be compiled by inflatox. Enabling this
       binary requires the gls library to be installed and available to the linker. Defaults to False.
-    - `copiler_flags` (list(str)|None, optional): replace default compiler flags with user-supplied
+    - `compiler_flags` (list(str)|None, optional): replace default compiler flags with user-supplied
       ones. Make sure to link libmath and libgsl/libgslcblas (if link_gls==True). The default compiler
       flags can be found under `Compiler.default_zigcc_flags` and `Compiler.gsl_zigcc_flags`.
       Defaults to None.
