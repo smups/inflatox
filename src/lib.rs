@@ -51,8 +51,8 @@ pub static BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(
   magenta.apply_to("[Inflatox] ")
 });
 pub static PANIC_BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(|| {
-  let red = console::Style::new().white().on_red().bold();
-  red.apply_to("[INFLATOX PANIC] - ")
+  let red = console::Style::new().red().bold();
+  red.apply_to("[INFLATOX PANIC] ")
 });
 
 #[pymodule]
