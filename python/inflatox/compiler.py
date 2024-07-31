@@ -197,6 +197,8 @@ class Compiler:
   lib_prefix = "libinflx_auto_"
 
   default_zigcc_flags = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-shared']
+  # The linker option -Wl --no-as-needed is required on Fedora/Redhat based systems. It could
+  # very well be the case that this does not work on Debian/Ubuntu based systems.
   gsl_zigcc_flags = ['-lgsl', '-Wl,--no-as-needed', '-lgslcblas']
   
   def __init__(self,
