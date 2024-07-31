@@ -38,7 +38,6 @@ rayon = "1"
 libloading = "0.8"
 indicatif = { version = "0.17", features = ["rayon",  "improved_unicode"] }
 console = { version = "0.15" }
-lazy_static = { version = "1" }
 
 [profile.release]
 opt-level = 3

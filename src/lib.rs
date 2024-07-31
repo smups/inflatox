@@ -28,6 +28,8 @@ mod err;
 mod hesse_bindings;
 mod inflatox_version;
 
+use std::sync::LazyLock;
+
 use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
 
@@ -41,19 +43,17 @@ type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVerszzion::new([3, 0, 0]);
 
 // Badge in front of inflatox output
-lazy_static::lazy_static! {
-  pub static ref BADGE: console::StyledObject<&'static str> = {
-    let magenta = console::Style::new().magenta().bold();
-    magenta.apply_to("[Inflatox] ")
-  };
-  pub static ref PANIC_BADGE: console::StyledObject<&'static str> = {
-    let red = console::Style::new().white().on_red().bold();
-    red.apply_to("INFLATOX PANIC - ")
-  };
-}
+pub static BADGE: LazyLock::<console::StyledObject<&'static str>> = LazyLock::new(|| {
+  let magenta = console::Style::new().magenta().bold();
+  magenta.apply_to("[Inflatox] ")
+});
+pub static PANIC_BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(|| {
+  let red = console::Style::new().white().on_red().bold();
+  red.apply_to("INFLATOX PANIC - ")
+});
 
 #[pymodule]
 /// PyO3 wrapper for libinflx_rs rust api
