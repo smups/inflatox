@@ -12,7 +12,7 @@
   A PARTICULAR PURPOSE. See the European Union Public License for more details.
 
   You should have received a copy of the EUPL in an/all official language(s) of
-  the European Union along with inflatox.  If not, see
+  the European Union along with inflatox. If not, see
   <https://ec.europa.eu/info/european-union-public-licence_en/>.
 
   (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
@@ -43,16 +43,16 @@ type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([4, 0, 0]);
 
 // Badge in front of inflatox output
-pub static BADGE: LazyLock::<console::StyledObject<&'static str>> = LazyLock::new(|| {
+pub static BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(|| {
   let magenta = console::Style::new().magenta().bold();
   magenta.apply_to("[Inflatox] ")
 });
 pub static PANIC_BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(|| {
   let red = console::Style::new().white().on_red().bold();
-  red.apply_to("INFLATOX PANIC - ")
+  red.apply_to("[INFLATOX PANIC] - ")
 });
 
 #[pymodule]
