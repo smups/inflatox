@@ -28,7 +28,7 @@ exclude = [
 
 [lib]
 name = "inflatox"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 ndarray = { version = "0.15", features = ['rayon'] }
