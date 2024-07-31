@@ -92,6 +92,8 @@ class CInflatoxPrinter(C99CodePrinter):
       return None
     
 class GSLInflatoxPrinter(CInflatoxPrinter):
+  """An extended version of the `CInflatoxPrinter` capable of converting some special functions to
+  their GSL counterparts. For a list of supported functions, see `Compiler` class documentation."""
 
   HYPERH = 'gsl_sf_hyperg'
   BESSELH = 'gsl_sf_bessel'
@@ -101,6 +103,8 @@ class GSLInflatoxPrinter(CInflatoxPrinter):
     self.required_headers = []
 
   def print_preamble(self, model_name: str):
+    """Print necessary gsl include directives, as well as the err_setup() function, called by
+    lib_inflx_rs when the library is loaded."""
     preamble = super().print_preamble(model_name)
     for required_header in self.required_headers:
       preamble += f"#include<gsl/{required_header}.h>"
@@ -113,9 +117,11 @@ void err_setup(gsl_error_handler_t* rust_panic) {
     return preamble 
   
   def update_preamble(self, header):
+    """Add header to preamble"""
     if not header in self.required_headers: self.required_headers.append(header)
 
   def _print_hyper(self, expr):
+    """printer for hypergeometric functions"""
     self.update_preamble(self.HYPERH)
     ap = expr.args[0]
     bq = expr.args[1]
@@ -134,6 +140,7 @@ void err_setup(gsl_error_handler_t* rust_panic) {
       raise Exception('Cannot compute hypergeometric functions other than 2F0, 2F1, 1F1 and 0F1')
   
   def generic_print_bessel(self, expr, namedict):
+    """printer for Bessel family of functions"""
     self.update_preamble(self.BESSELH)
     nu = expr.args[0]
     x = self._print_Symbol(expr.args[1])
@@ -230,6 +237,15 @@ class Compiler:
   which can be used to calculate consistency conditions. This process involves
   creating a symbol dictionary that maps all symbols used in the `HesseMatrix` to
   C-friendly symbols.
+
+  ## Special function support
+  By passing `link_gsl=True` to the constructor of this class, the GSL will be linked by the final
+  binary. This allows inflatox to map some special functons from `scipy` to their GSL counterparts.
+  Currently supported functions are:
+  - Bessel functions (besselj, besseli, besselk, bessely, jn and yn)
+  - Hypergeometric functions (2F1, 2F0, 1F1 and 2F0)
+  If you have the need for more special functions or are experiencing other issues with the gsl
+  feature, contact the authors or open an issue on [github](https://github.com/smups/inflatox/issues)
   """
   
   c_prefix = "inflx_auto_"
