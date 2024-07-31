@@ -91,7 +91,7 @@ pub unsafe extern "C" fn rust_panic_handler(
   let cyan = console::Style::new().cyan();
   let msg = cyan.apply_to("Error message:");
 
-  println!("{} a GSL exception ocurred {}", *super::PANIC_BADGE, errcode);
+  println!("{}a GSL exception ocurred {}", *super::PANIC_BADGE, errcode);
   println!("{msg} {reason_str:#?}");
   println!("In {file_str:#?} line number {lineno}");
   panic!();
