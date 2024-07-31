@@ -1,9 +1,31 @@
 # Inflatox Changelog
 
+## v0.9.0 (💣BREAKING CHANGES💣)
+API changes
+- Replaced `new` method on `SymbolicCalculation` with `new_from_list`. `new_from_list` still exists,
+  but has been deprecated.
+- Removed all support for Einsteinpy-related API's
+- Added support for passing custom compiler/linker flags directly to zigcc using the `compiler_flags`
+  option on the `Compiler` class.
+- Added experimental support for compiling inflatox binaries with special functions by linking the
+  GNU Scientific Library (GSL).
+- Added support for transpiling Bessel functions using the GSL
+- Added support for transpiling Hypergeometric functions (small subset) using the GSL
+
+General
+- Removed dependency on Einsteinpy (huge dependency reduction)
+- Started migration to new PyO3 `bound` API (slight performance improvement)
+- Improved (zig) compiler output
+
+Bugfixes
+- fixed assertions
+
 ### v0.8.2 printing bugfix
 General
-- fixed bug with printing sympy expressions outside IPython environments
 - added assertion error messages
+
+Bugfixes
+- fixed bug with printing sympy expressions outside IPython environments
 
 ### v0.8.1 Synchronise
 Version 0.8.1 is identical to version 0.8.0. It has come to our attention that a duplicate 0.8.0
@@ -46,7 +68,7 @@ Upgrades
 - Upgraded numpy 0.20 -> 0.21
 
 ## v0.7.0 - major refactor (💣BREAKING CHANGES💣)
-Additions
+API changes
 - Added functionality to calculate the potential slow-roll parameter $\varepsilon_V$
 - Added functionality to calculate $\varepsilon_H$ assuming the AL condition holds.
 - Added functionality to calculate $\eta_{\parallel}$ and $\eta_H$ assuming
@@ -59,7 +81,14 @@ Additions
   only (not included in `complete_analysis`)
 - Added `epsilon_v_only()` method for computing the first potential slow-roll
   parameter.
-- Reworked console output
+- Removed `evaluate()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `consistency_only()`.
+- Removed `calc_delta()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()`.
+- Removed `calc_epsilon()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()` and `epsilon_v_only()`.
+- Removed `calc_omega()` method of `AnguelovaLazaroiuCondition`. Functionality
+  replaced by `complete_analysis()`.
 
 Mathematical changes
 - All consistency conditions are now returned in the following format:
@@ -72,15 +101,8 @@ Mathematical changes
   since the sign of the angle between $w^a$ and $t^a$ is arbitrary since the 
   given that the choice of $w^a$ is arbitrary.
 
-Deletions
-- Removed `evaluate()` method of `AnguelovaLazaroiuCondition`. Functionality
-  replaced by `consistency_only()`.
-- Removed `calc_delta()` method of `AnguelovaLazaroiuCondition`. Functionality
-  replaced by `complete_analysis()`.
-- Removed `calc_epsilon()` method of `AnguelovaLazaroiuCondition`. Functionality
-  replaced by `complete_analysis()` and `epsilon_v_only()`.
-- Removed `calc_omega()` method of `AnguelovaLazaroiuCondition`. Functionality
-  replaced by `complete_analysis()`.
+General
+- Reworked console output
 
 Upgrades
 - Upgraded rayon 1.7.0 -> 1.8.0
