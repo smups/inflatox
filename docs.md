@@ -10,6 +10,7 @@
     - [Using `sympy` to set-up a model](#using-sympy-to-set-up-a-model)
     - [Compiling models](#compiling-models)
     - [Evaluating the consistency condition](#evaluating-the-consistency-condition)
+    - [Special function support using the GSL](#special-function-support-using-the-gsl)
 5. [Building `inflatox`](#building-inflatox)
 
 # Introduction
@@ -161,7 +162,7 @@ calculation using the `inflatox.SymbolicCalculation` class, which we provide wit
 fields, list of expressions for the metric and an expression for the potential):
 ```python
 import inflatox
-sym = inflatox.SymbolicCalculation.new_from_list(fields, metric, potential)
+sym = inflatox.SymbolicCalculation.new(fields, metric, potential)
 ```
 To execute the calculation, simply call `.execute()` on the `SymbolicCalculation` instance:
 ```python
@@ -223,6 +224,37 @@ the slow-roll attractor. One should look for areas where both hold at the same t
 
 Of course, an important part in any analysis is plotting the final data. One possible way of plotting
 `inflatox` results can be found at https://github.com/smups/srrt_models
+
+## Special function support using the GSL
+Inflatox features (experimental) support for transpiling special functions from `scipy` to C using
+the GSL library. The GSL (GNU Scientific Library) is not packaged together with inflatox due to its
+conflicting license. Inflatox merely generates code that calls GSL functions, you must still provide
+the headers and compiled shared libraries (`libgsl` and `libgslcblas`) yourself.
+
+If you intend on using this feature, make sure that:
+- The GSL is installed and can be found
+- GSLCBLAS is installed and can be found
+- The GSL headers are installed and can be found
+
+### Troubleshooting
+- **Compilation errors**
+    If you are getting compilation errors, you've probably not installed the gsl headerfiles
+    correctly. On most linux distro's these are packaged seperately from the binaries. For example,
+    on Fedora, you must install `gsl-devel` and on ubuntu `libgsl-dev`. If Inflatox cannot find the
+    header files, you can manually point the compiler to them by adding a `-I /path/to/header/folder`
+    flag when initialising the `inflatox.Compiler()`.
+- **Cannot find GSL symbols**
+    If you are getting errors about missing GSL symbols, the GSL shared library cannot be found on
+    your system. Make sure that it is installed and on the path.
+- **Cannot find GSLCBLAS symbols**
+    If you are getting errors about missing GSL*CBLAS* symbols, something else could be wrong (although
+    `libgslcblas` could still be missing on the path). Inflatox by default passes the `--no-as-needed`
+    flag to the linker when linking the gsl. This may conflict with how your linux distro is
+    configured. If you are using a Debian based distro, this could be fixed by passing a
+    `-Wl,--as-needed` flag when initialising the `inflatox.Compiler()`.
+- **Windows issues**
+    Consider using the
+    [Linux Subsystem for Windows](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 # Building `inflatox`
 TODO

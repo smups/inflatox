@@ -12,7 +12,7 @@
   A PARTICULAR PURPOSE. See the European Union Public License for more details.
 
   You should have received a copy of the EUPL in an/all official language(s) of
-  the European Union along with inflatox.  If not, see
+  the European Union along with inflatox. If not, see
   <https://ec.europa.eu/info/european-union-public-licence_en/>.
 
   (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
@@ -30,10 +30,12 @@ use crate::inflatox_version::InflatoxVersion;
 use crate::PANIC_BADGE;
 
 type ExFn = unsafe extern "C" fn(*const f64, *const f64) -> f64;
+type InitFn = unsafe extern "C" fn(crate::err::GslErrHandler);
 type HdylibFn<'a> = libloading::Symbol<'a, ExFn>;
-type HdylibStaticInt<'a> = libloading::Symbol<'a, *const u32>;
+type HydylibInitFn<'a> = libloading::Symbol<'a, InitFn>;
+type HdylibInt<'a> = libloading::Symbol<'a, *const u32>;
 type HdyLibStaticArr<'a> = libloading::Symbol<'a, *const [u16; 3]>;
-type HdyLibCharArr<'a> = libloading::Symbol<'a, *const c_char>;
+type HdyLibChar<'a> = libloading::Symbol<'a, *const c_char>;
 
 const SYM_DIM_SYM: &[u8; 3] = b"DIM";
 const PARAM_DIM_SYM: &[u8; 11] = b"N_PARAMTERS";
@@ -41,6 +43,8 @@ const POTENTIAL_SYM: &[u8; 1] = b"V";
 const GRADIENT_SQUARE_SYM: &[u8; 17] = b"grad_norm_squared";
 const INFLATOX_VERSION_SYM: &[u8; 7] = b"VERSION";
 const MODEL_NAME_SYM: &[u8; 10] = b"MODEL_NAME";
+const USE_GSL_SYM: &[u8; 7] = b"USE_GSL";
+const GSL_INIT_SYM: &[u8; 9] = b"err_setup";
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
@@ -61,56 +65,56 @@ impl InflatoxDylib {
   /// Returns an error if compilation artefact is incomplete, invalid, or built
   /// for a different inflatox ABI.
   pub(crate) fn open<P: AsRef<OsStr>>(lib_path: P) -> Result<Self> {
-    //(0) Convert library path to something more usable
+    // Convert library path to something more usable
     let libp_string = lib_path.as_ref().to_string_lossy().to_string();
 
-    //(1) Open the compilation artefact
+    // Open the compilation artefact
     let lib = unsafe {
       libloading::Library::new(lib_path)
-        .map_err(|err| Error::IoErr { lib_path: libp_string.clone(), msg: format!("{err}") })?
+        .map_err(|err| Error::Io { lib_path: libp_string.clone(), msg: format!("{err}") })?
     };
 
-    //(2) Check if the artefact is compatible with our version of libinflx
+    // Check if the artefact is compatible with our version of libinflx
     let inflatox_version = unsafe {
       *lib
         .get::<HdyLibStaticArr>(INFLATOX_VERSION_SYM)
-        .map_err(|_err| Error::MissingSymbolErr {
+        .map_err(|_err| Error::MissingSymbol {
           lib_path: libp_string.clone(),
           symbol: INFLATOX_VERSION_SYM.to_vec(),
         })
-        .and_then(|ptr| Ok(**ptr as *mut InflatoxVersion))?
+        .map(|ptr| **ptr as *mut InflatoxVersion)?
     };
     if inflatox_version != crate::V_INFLX_ABI {
-      return Err(Error::VersionErr(inflatox_version));
+      return Err(Error::Version(inflatox_version));
     }
 
-    //(3) Get number of fields and number of parameters
+    // Get number of fields and number of parameters
     let n_fields = unsafe {
-      ***lib.get::<HdylibStaticInt>(SYM_DIM_SYM).map_err(|_err| Error::MissingSymbolErr {
+      ***lib.get::<HdylibInt>(SYM_DIM_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: SYM_DIM_SYM.to_vec(),
       })?
     };
 
     let n_param = unsafe {
-      ***lib.get::<HdylibStaticInt>(PARAM_DIM_SYM).map_err(|_err| Error::MissingSymbolErr {
+      ***lib.get::<HdylibInt>(PARAM_DIM_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: PARAM_DIM_SYM.to_vec(),
       })?
     };
 
-    //(4) Parse model name
+    // Parse model name
     let mname_raw = unsafe {
-      let mname_ptr = **lib.get::<HdyLibCharArr>(MODEL_NAME_SYM).map_err(|_err| {
-        Error::MissingSymbolErr { lib_path: libp_string.clone(), symbol: MODEL_NAME_SYM.to_vec() }
+      let mname_ptr = **lib.get::<HdyLibChar>(MODEL_NAME_SYM).map_err(|_err| {
+        Error::MissingSymbol { lib_path: libp_string.clone(), symbol: MODEL_NAME_SYM.to_vec() }
       })?;
       std::ffi::CStr::from_ptr(mname_ptr)
     };
     let model_name = mname_raw.to_string_lossy().to_string();
 
-    //(5) Get potential hesse, and gradient components
+    // Get potential hesse, and gradient components
     let potential = unsafe {
-      **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbolErr {
+      **lib.get::<HdylibFn>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: POTENTIAL_SYM.to_vec(),
       })?
@@ -118,13 +122,30 @@ impl InflatoxDylib {
     let hesse_cmp = Self::get_hesse_cmp(&lib, &libp_string, n_fields as usize)?;
     let grad_cmp = Self::get_grad_cmp(&lib, &libp_string, n_fields as usize)?;
 
-    //(6) Get the size of the gradient squared (special quantity)
+    // Get the size of the gradient squared (special quantity)
     let grad_square = unsafe {
-      **lib.get::<HdylibFn>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbolErr {
+      **lib.get::<HdylibFn>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: GRADIENT_SQUARE_SYM.to_vec(),
       })?
     };
+
+    // Check if the library uses the GSL, and initialise if this is the case
+    let gsl: c_char = unsafe {
+      ***lib.get::<HdyLibChar>(USE_GSL_SYM).map_err(|_err| Error::MissingSymbol {
+        lib_path: libp_string.clone(),
+        symbol: MODEL_NAME_SYM.to_vec(),
+      })?
+    };
+    if gsl == 1 {
+      let gsl_init_fn = unsafe {
+        **lib.get::<HydylibInitFn>(GSL_INIT_SYM).map_err(|_err| Error::MissingSymbol {
+          lib_path: libp_string.clone(),
+          symbol: MODEL_NAME_SYM.to_vec(),
+        })?
+      };
+      unsafe { gsl_init_fn(crate::err::rust_panic_handler) }
+    }
 
     //(R) Return the fully constructed obj
     Ok(InflatoxDylib {
@@ -154,7 +175,7 @@ impl InflatoxDylib {
         char::from_digit(idx.1 as u32, 10).unwrap() as u32 as u8,
       ];
       let symbol = unsafe {
-        **lib.get::<HdylibFn>(raw_symbol).map_err(|_err| Error::MissingSymbolErr {
+        **lib.get::<HdylibFn>(raw_symbol).map_err(|_err| Error::MissingSymbol {
           lib_path: lib_path.to_string(),
           symbol: raw_symbol.to_vec(),
         })?
@@ -167,16 +188,15 @@ impl InflatoxDylib {
 
   fn get_grad_cmp(lib: &libloading::Library, lib_path: &str, n_fields: usize) -> Result<Vec<ExFn>> {
     (0..n_fields)
-      .into_iter()
       .map(|idx| unsafe {
         let c = char::from_digit(idx as u32, 10).unwrap() as u32 as u8;
         lib
           .get::<HdylibFn>(&[b'g', c])
-          .map_err(|_err| Error::MissingSymbolErr {
+          .map_err(|_err| Error::MissingSymbol {
             lib_path: lib_path.to_string(),
             symbol: vec![b'g', c],
           })
-          .and_then(|x| Ok(**x))
+          .map(|x| **x)
       })
       .collect()
   }
@@ -222,10 +242,9 @@ impl InflatoxDylib {
 
     for (idx, val) in x.indexed_iter_mut() {
       field_space_point.clear();
-      field_space_point.extend(
-        (0..self.n_fields as usize).into_iter().map(|i| idx[i] as f64 * spacings[i] + offsets[i]),
-      );
-      *val = unsafe { (&self.potential)(field_space_point.as_ptr(), p.as_ptr()) };
+      field_space_point
+        .extend((0..self.n_fields as usize).map(|i| idx[i] as f64 * spacings[i] + offsets[i]));
+      *val = unsafe { (self.potential)(field_space_point.as_ptr(), p.as_ptr()) };
     }
   }
 
@@ -290,11 +309,8 @@ impl InflatoxDylib {
         x.indexed_iter_mut().for_each(|(idx, val)| {
           //Convert index into field_space point
           field_space_point.clear();
-          field_space_point.extend(
-            (0..self.n_fields as usize)
-              .into_iter()
-              .map(|k| idx[k] as f64 * spacings[k] + offsets[k]),
-          );
+          field_space_point
+            .extend((0..self.n_fields as usize).map(|k| idx[k] as f64 * spacings[k] + offsets[k]));
           //Calculate the ijth matrix element
           let x_ptr = field_space_point.as_ptr();
           let p_ptr = p.as_ptr();
@@ -371,7 +387,6 @@ impl<'a> Hesse2D<'a> {
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
     self.lib.potential(x, p)
   }
-
 }
 
 pub struct Grad<'a> {

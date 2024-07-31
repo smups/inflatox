@@ -12,7 +12,7 @@
   A PARTICULAR PURPOSE. See the European Union Public License for more details.
 
   You should have received a copy of the EUPL in an/all official language(s) of
-  the European Union along with inflatox.  If not, see
+  the European Union along with inflatox. If not, see
   <https://ec.europa.eu/info/european-union-public-licence_en/>.
 
   (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
@@ -28,13 +28,14 @@ mod err;
 mod hesse_bindings;
 mod inflatox_version;
 
+use std::sync::LazyLock;
+
 use hesse_bindings::InflatoxDylib;
 use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
 use numpy::{
-  IntoPyArray, PyArray2, PyArrayDyn, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn,
-  PyReadwriteArrayDyn,
+  PyArray2, PyArrayDyn, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArrayDyn, PyReadwriteArrayDyn,
 };
 use pyo3::prelude::*;
 
@@ -42,23 +43,21 @@ type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([4, 0, 0]);
 
 // Badge in front of inflatox output
-lazy_static::lazy_static! {
-  pub static ref BADGE: console::StyledObject<&'static str> = {
-    let magenta = console::Style::new().magenta().bold();
-    magenta.apply_to("[Inflatox] ")
-  };
-  pub static ref PANIC_BADGE: console::StyledObject<&'static str> = {
-    let red = console::Style::new().white().on_red().bold();
-    red.apply_to("INFLATOX PANIC - ")
-  };
-}
+pub static BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(|| {
+  let magenta = console::Style::new().magenta().bold();
+  magenta.apply_to("[Inflatox] ")
+});
+pub static PANIC_BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(|| {
+  let red = console::Style::new().red().bold();
+  red.apply_to("[INFLATOX PANIC] ")
+});
 
 #[pymodule]
 /// PyO3 wrapper for libinflx_rs rust api
-fn libinflx_rs(_py: Python<'_>, pymod: &PyModule) -> PyResult<()> {
+fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
 
@@ -94,7 +93,7 @@ pub fn convert_start_stop(
     || start_stop.shape()[1] != n_fields
     || start_stop.shape()[0] != 2
   {
-    Err(Error::ShapeErr {
+    Err(Error::Shape {
       expected: vec![2, n_fields],
       got: start_stop.shape().to_vec(),
       msg: "start_stop array should have 2 rows and as many columns as there are fields"
@@ -119,8 +118,8 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape() != &[self.0.get_n_fields() as usize] {
-      return Err(Error::ShapeErr {
+    if x.shape() != [self.0.get_n_fields()] {
+      return Err(Error::Shape {
         expected: vec![self.0.get_n_fields()],
         got: x.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are field-space coordinates"
@@ -131,8 +130,8 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr {
+    if p.shape() != [self.0.get_n_params()] {
+      return Err(Error::Shape {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
@@ -157,8 +156,8 @@ impl InflatoxPyDyLib {
 
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape().len() != self.0.get_n_fields() as usize {
-      return Err(Error::ShapeErr {
+    if x.shape().len() != self.0.get_n_fields() {
+      return Err(Error::Shape {
         expected: Vec::new(),
         got: x.shape().to_vec(),
         msg:
@@ -172,8 +171,8 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr {
+    if p.shape() != [self.0.get_n_params()] {
+      return Err(Error::Shape {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
@@ -192,15 +191,15 @@ impl InflatoxPyDyLib {
     py: Python<'py>,
     x: PyReadonlyArrayDyn<f64>,
     p: PyReadonlyArrayDyn<f64>,
-  ) -> Result<&'py PyArray2<f64>> {
+  ) -> Result<Bound<'py, PyArray2<f64>>> {
     //(0) Convert the PyArrays to nd::Arrays
     let p = p.as_array();
     let x = x.as_array();
 
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape() != &[self.0.get_n_fields() as usize] {
-      return Err(Error::ShapeErr {
+    if x.shape() != [self.0.get_n_fields()] {
+      return Err(Error::Shape {
         expected: vec![self.0.get_n_fields()],
         got: x.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are field-space coordinates"
@@ -211,8 +210,8 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr {
+    if p.shape() != [self.0.get_n_params()] {
+      return Err(Error::Shape {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
@@ -221,7 +220,7 @@ impl InflatoxPyDyLib {
     let p = p.as_slice().unwrap();
 
     //(4) Calculate
-    Ok(PyArray2::from_owned_array(py, self.0.hesse(x, p)))
+    Ok(PyArray2::from_owned_array_bound(py, self.0.hesse(x, p)))
   }
 
   fn hesse_array<'py>(
@@ -230,7 +229,7 @@ impl InflatoxPyDyLib {
     nx: PyReadonlyArray1<usize>,
     p: PyReadonlyArrayDyn<f64>,
     start_stop: PyReadonlyArray2<f64>,
-  ) -> Result<&'py PyArrayDyn<f64>> {
+  ) -> Result<Bound<'py, PyArrayDyn<f64>>> {
     //(0) Convert the PyArrays to nd::Arrays
     let p = p.as_array();
     let nx = nx.as_array();
@@ -240,7 +239,7 @@ impl InflatoxPyDyLib {
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
     if nx.len() != self.0.get_n_fields() {
-      return Err(Error::ShapeErr {
+      return Err(Error::Shape {
         expected: vec![self.0.get_n_fields()],
         got: vec![nx.len()],
         msg: "expected a 1D array with as many elements as there are field-space coordinates"
@@ -253,8 +252,8 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != &[self.0.get_n_params() as usize] {
-      return Err(Error::ShapeErr {
+    if p.shape() != [self.0.get_n_params()] {
+      return Err(Error::Shape {
         expected: vec![self.0.get_n_params()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
@@ -264,6 +263,6 @@ impl InflatoxPyDyLib {
 
     //(4) Evaluate the hesse matrix
     let out = self.0.hesse_array(nx, p, &start_stop);
-    Ok(out.into_pyarray(py))
+    Ok(PyArrayDyn::from_owned_array_bound(py, out))
   }
 }

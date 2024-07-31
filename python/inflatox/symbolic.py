@@ -23,8 +23,8 @@ from joblib import Parallel, delayed, cpu_count
 
 #Sympy imports
 import sympy
+import numpy as np
 from sympy import powdenest
-from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols
 
 class SymbolicOutput():
   """Class containing the components of the projected Hesse matrix, as well as
@@ -103,12 +103,12 @@ class SymbolicCalculation():
   It can be beneficial to play around with this setting to see which level works
   best.
   """
-    
+
   @classmethod
-  def new(
+  def new_from_list(
     cls,
     fields: list[sympy.Symbol],
-    field_metric: MetricTensor,
+    field_metric: list[list[sympy.Symbol]],
     potential: sympy.Expr,
     model_name: str|None = None,
     simplification_depth: int = 4,
@@ -117,48 +117,21 @@ class SymbolicCalculation():
     assertions: bool = False,
     simplify_for: Literal['length'] | Literal['ops'] = 'ops'
   ):
-    """Constructor for `SymbolicCalculation`
-
-    ### Args
-    - `fields` (`list[sympy.Symbol]`): list of sympy symbols that should be
-      interpreted as fields (coordinates on the scalar manifold).
-    - `field_metric` (`MetricTensor`): metric tensor on the scalar manifold.
-    - `potential` (`sympy.Expr`): potential of the scalar field theory.
-    - `model_name` (`str | None`, *optional*): name of the model (potential +
-      scalar manifold geometry). Used for printing. Defaults to None.
-    - `simplification_depth` (`int`, *optional*): sets the simplification depth
-      for the calculation. See class documentation. Defaults to 4.
-    - `silent` (`bool`, *optional*): if True, no console output will be produced
-      during the calculation. Defaults to False.
-    - `init_sympy_printing` (`bool`, *optional*): if True, pretty printing of sympy
-      expressions will be initialised with default options. Set to False if you
-      want to use your own settings for printing. Defaults to True.
-    - `assertions` (`bool`, *optional*): if False, expensive intermediate
-      assertions will be disabled. Defaults to False.
-    - `simplify_for` (`Literal['length'] | Literal['ops']`): simplification
-      strategy. When set to `length`, expressions will be optimized for code length.
-      When set to `ops`, expressions will be optimized to minimize the number of
-      operations. Defaults to `ops`.
-
-    ### Returns
-    `SymbolicCalculation`: object that can be used to perform the symbolic
-    calculation by calling the `.execute()` method.  
-    """
-    if init_sympy_printing: sympy.init_printing()
-
-    return cls(
+    """[DEPRECATED] see SymbolicCalculation.new()"""
+    return SymbolicCalculation.new(
       fields,
       field_metric,
       potential,
-      model_name if model_name is not None else "None",
+      model_name,
       simplification_depth,
       silent,
+      init_sympy_printing,
       assertions,
       simplify_for
     )
   
   @classmethod
-  def new_from_list(
+  def new(
     cls,
     fields: list[sympy.Symbol],
     field_metric: list[list[sympy.Symbol]],
@@ -202,7 +175,7 @@ class SymbolicCalculation():
 
     return cls(
       fields,
-      MetricTensor(field_metric, fields, name="scalar manifold metric"),
+      field_metric,
       potential,
       model_name if model_name is not None else "generic model",
       simplification_depth,
@@ -213,7 +186,7 @@ class SymbolicCalculation():
   
   def __init__(self,
     fields: list[sympy.Symbol],
-    field_metric: MetricTensor,
+    field_metric: list[list[sympy.Symbol]],
     potential: sympy.Expr,
     model_name: str,
     simplification_depth: int,
@@ -222,8 +195,11 @@ class SymbolicCalculation():
     simplify_for: str
   ):
     """Internal constructor"""
+    assert len(field_metric) == len(field_metric[0]), "field metric should be square"
+    assert len(field_metric) == len(fields), "number of fields must match dimensionality of metric tensor"
+
     self.coords = fields
-    self.g = field_metric
+    self.g = sympy.Matrix(field_metric)
     self.V = potential
     self.model_name = model_name
     self.simp = simplification_depth
@@ -283,8 +259,8 @@ class SymbolicCalculation():
       as well as information about the model that was used to calculate said components. 
     """
     dim = len(self.coords)
-    if guesses is not None: assert(len(guesses) == dim - 1,
-                                   'number of guessed vectors must equal the number of fields minus one (n-1)')
+    if guesses is not None:
+      assert len(guesses) == dim - 1, 'number of guessed vectors must equal the number of fields minus one (n-1)'
     
     #(1) Calculate an orthonormal basis
     #(1a)...starting with a vector parallel to the potential gradient
@@ -308,11 +284,9 @@ class SymbolicCalculation():
       for a in range(dim):
         for b in range(dim):
           if a == b:
-            assert(sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify(),
-                   'normalisation error: v•v does not equal 1')
+            assert sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify(), 'normalisation error: v•v does not equal 1'
           else:
-            assert(sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify(),
-                   'orthogonality error: v•w does not equal 0')
+            assert sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify(), 'orthogonality error: v•w does not equal 0'
         
     #(2) Calculate the components of the covariant Hesse Matrix
     print("Calculating covariant Hesse matrix...")
@@ -364,7 +338,7 @@ class SymbolicCalculation():
     dim = len(v1)
     for a in range(dim):
       for b in range(dim):
-        ans = ans + (v1[a] * v2[b] * self.g.arr[a][b])
+        ans = ans + (v1[a] * v2[b] * self.g[a,b])
     return self.simplify(ans) if self.simp >= 4 else ans
 
   def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
@@ -382,7 +356,35 @@ class SymbolicCalculation():
       respect to the metric tensor of the current instance.
     """
     norm = sympy.sqrt(self.inner_prod(vec, vec))
-    return [self.simplify(cmp / norm) if self.simp >= 3 else cmp / norm for cmp in vec] 
+    return [self.simplify(cmp / norm) if self.simp >= 3 else cmp / norm for cmp in vec]
+  
+  def christoffels(self) -> list[list[list[sympy.Expr]]]:
+    """Computes the Christoffel symbols from the metric tensor.
+
+    Returns:
+        list[list[list[sympy.Symbols]]]: Christoffel Connection Γ^a_bc, indexed as Γ[a][b][c]
+    """
+    # Implementation taken from Einsteinpy's christoffel.py (licensed under MIT)
+    dims = len(self.coords)
+    gammas = np.zeros((dims, dims, dims), dtype=int).tolist()
+    mat = sympy.Matrix(self.g)
+    matinv = mat.inv()
+    for t in range(dims ** 3):
+      # i,j,k each goes from 0 to (dims-1)
+      # hack for codeclimate. Could be done with 3 nested for loops
+      k = t % dims
+      j = (int(t / dims)) % (dims)
+      i = (int(t / (dims ** 2))) % (dims)
+      if k <= j:
+        tmpvar = 0
+        for n in range(dims):
+          tmpvar += (matinv[i, n] / 2) * (
+            sympy.diff(mat[n, j], self.coords[k])
+            + sympy.diff(mat[n, k], self.coords[j])
+            - sympy.diff(mat[j, k], self.coords[n])
+          )
+      gammas[i][j][k] = gammas[i][k][j] = tmpvar
+    return gammas
     
   def calc_hesse(self) -> list[list[sympy.Expr]]:
     """returns the components of the covariant Hesse matrix in a twice-covariant
@@ -406,7 +408,7 @@ class SymbolicCalculation():
     """
     dim = len(self.coords)
     #The connection has indices up-down-down (opposite order that we usually use)
-    conn = ChristoffelSymbols.from_metric(self.g).tensor()
+    conn = self.christoffels()
     #output components of the Hesse matrix
     Vab = [[0 for _ in range(dim)] for _ in range(dim)]
     
@@ -453,7 +455,7 @@ class SymbolicCalculation():
     #contract v with the inverse of the metric tensor
     for a in range(dim):
       for b in range(dim):
-        out = out + self.g.inv().arr[a][b] * gradient[a] * gradient[b]
+        out = out + self.g.inv()[a,b] * gradient[a] * gradient[b]
     return self.simplify(out) if self.simp >= 2 else out
 
   def calc_v(self) -> list[sympy.Expr]:
@@ -478,7 +480,7 @@ class SymbolicCalculation():
     #contract v with the inverse of the metric tensor
     for a in range(dim):
       for b in range(dim):
-        v[a] = v[a] + self.g.inv().arr[a][b] * v[a]
+        v[a] = v[a] + self.g.inv()[a, b] * v[a]
     
     #normalize v
     v = self.normalize(v)
@@ -521,7 +523,7 @@ class SymbolicCalculation():
     """
     dim = len(current_basis[0])
     #make sure the supplied basis is not already complete
-    assert(len(current_basis) < dim, 'current basis is already complete. No need for more vecs.')
+    assert len(current_basis) < dim, 'current basis is already complete. No need for more vecs.'
     
     #start with vector y
     y = guess
@@ -572,3 +574,4 @@ class SymbolicCalculation():
       for b in range(dim):
         V_proj = V_proj + hesse_matrix[a][b]*v1[a]*v2[b]
     return self.simplify(V_proj) if self.simp >= 1 else V_proj
+  

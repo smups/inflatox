@@ -19,7 +19,7 @@
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
-#[derive(Clone, Copy, Eq, Ord)]
+#[derive(Clone, Copy, Eq)]
 #[repr(transparent)]
 /// Data structure representing the inflatox version number. This version must
 /// match between the python package and compiled artefact.

@@ -7,7 +7,7 @@
 
 Inflatox provides utilities to compute slow-roll parameters and turn-rates for
 two-field inflation models, based on the consistency condition from Generalised consistency condition
-first presented in Anguelova & Lazaroiu (2023)[^1] and later expanded for the purposes of this package
+first presented in Anguelova & Lazaroiu (2023)[^1] and later generalised for the purposes of this package
 in [arXiv:2405.11628](https://arxiv.org/abs/2405.11628). The consistency conditions can be used in a
 parameter sweep of a two-field model to find possible inflation trajectories.
 
@@ -19,6 +19,7 @@ parameter sweep of a two-field model to find possible inflation trajectories.
 - symbolic solver for components of the Hesse matrix of an inflationary model
   with non-canonical kinetic terms, powered by [`sympy`](https://www.sympy.org).
 - transpiler to transform `sympy` expressions into executable compiled (`C`) code.
+- (experimental) support for special function transpilation using the GSL
 - built-in multithreaded `rust` module for high-performance calculations of
   consistency conditions that interfaces directly with `numpy` and python.
 - utilities for performing parameter sweeps.
@@ -66,7 +67,7 @@ g = [
 display(g, V)
 
 #symbolic calculation
-calc = inflatox.SymbolicCalculation.new_from_list(fields, g, V)
+calc = inflatox.SymbolicCalculation.new(fields, g, V)
 hesse = calc.execute()
 
 #run the compiler
@@ -85,6 +86,22 @@ extent = (-1, 1, -1, 1)
 consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega =
     anguelova.full_analysis(p, *extent)
 ```
+
+## Special function support
+Inflatox features (experimental) support for transpiling special functions from `scipy` to C using
+the GSL library. The GSL (GNU Scientific Library) is not packaged together with inflatox due to its
+conflicting license. Inflatox merely generates code that calls GSL functions, you must still provide
+the headers and compiled shared libraries (`libgsl` and `libgslcblas`) yourself.
+
+If you intend on using this feature, make sure that:
+- The GSL is installed and can be found
+- GSLCBLAS is installed and can be found
+- The GSL headers are installed and can be found
+
+Check out the documentation of the `Compiler` class for a list of currently supported special
+functions, and the `docs.md` file for more technical details.
+If you are experiencing any issues with the gsl feature (or if a special function you need is missing),
+please [open an issue on github](https://github.com/smups/inflatox/issues) or contact the authors.
 
 ## Supported Architectures
 The combinations of OS and CPU architecture listed down below
