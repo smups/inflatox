@@ -93,6 +93,9 @@ class CInflatoxPrinter(C99CodePrinter):
     
 class GSLInflatoxPrinter(CInflatoxPrinter):
 
+  HYPERH = 'gsl_sf_hyperg'
+  BESSELH = 'gsl_sf_bessel'
+
   def __init__(self, coordinate_symbols: list[sympy.Symbol], settings=None):
     super().__init__(coordinate_symbols, settings)
     self.required_headers = []
@@ -102,10 +105,12 @@ class GSLInflatoxPrinter(CInflatoxPrinter):
     for required_header in self.required_headers:
       preamble += f"#include<gsl/{required_header}.h>"
     return preamble 
+  
+  def update_preamble(self, header):
+    if not header in self.required_headers: self.required_headers.append(header)
 
   def _print_hyper(self, expr):
-    HYPERH = 'gsl_sf_hyperg'
-    if not HYPERH in self.required_headers: self.required_headers.append(HYPERH)
+    self.update_preamble(self.HYPERH)
     ap = expr.args[0]
     bq = expr.args[1]
     x = self._print_Symbol(expr.args[2])
@@ -121,6 +126,35 @@ class GSLInflatoxPrinter(CInflatoxPrinter):
       return f'gsl_sf_hyperg_2F0({self._print_Symbol(ap[0])}, {self._print_Symbol(ap[1])}, {x})'
     else:
       raise Exception('Cannot compute hypergeometric functions other than 2F0, 2F1, 1F1 and 0F1')
+  
+  def generic_print_bessel(self, expr, namedict):
+    self.update_preamble(self.BESSELH)
+    nu = expr.args[0]
+    x = self._print_Symbol(expr.args[1])
+    if nu.is_integer:
+      nu = int(float(self._print_Symbol(nu)))
+      try:
+        name = namedict[f"{nu}"]
+        return f'gsl_sf_bessel_{name}({x})'
+      except KeyError:
+        return f"gsl_sf_bessel_{namedict['int']}({nu}, {x})"
+    try:
+      return f"gsl_sf_bessel_J{namedict['float']}({self._print_Symbol(nu)}, {x})"
+    except KeyError: 
+      raise KeyError('No non-integer impl found.')
+
+  def _print_besselj(self, expr):
+    return self.generic_print_bessel(expr, {'0': 'J0', '1': 'J1', 'int': 'Jn', 'float': 'Jnu' })
+  def _print_bessely(self, expr):
+    return self.generic_print_bessel(expr, {'0': 'Y0', '1': 'Y1', 'int': 'Yn', 'float': 'Ynu' })
+  def _print_besseli(self, expr):
+    return self.generic_print_bessel(expr, {'0': 'I0', '1': 'I1', 'int': 'In', 'float': 'Inu' })
+  def _print_besselk(self, expr):
+    return self.generic_print_bessel(expr, {'0': 'K0', '1': 'K1', 'int': 'Kn', 'float': 'Knu' })
+  def _print_jn(self, expr):
+    return self.generic_print_bessel(expr, {'0': 'j0', '1': 'j1', '2': 'j2', 'int': 'jl'})
+  def _print_yn(self, expr):
+    return self.generic_print_bessel(expr, {'0': 'y0', '1': 'y1', '2': 'y2', 'int': 'yl'})
   
 
 class CompilationArtifact:
