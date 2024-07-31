@@ -43,7 +43,7 @@ type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub const V_INFLX_ABI: InflatoxVersion = InflatoxVerszzion::new([3, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([3, 0, 0]);
 
 // Badge in front of inflatox output
 pub static BADGE: LazyLock::<console::StyledObject<&'static str>> = LazyLock::new(|| {
