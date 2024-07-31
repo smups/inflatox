@@ -201,7 +201,7 @@ class Compiler:
     output_path: str|None = None,
     cleanup: bool = True,
     silent: bool|None = None,
-    link_gsl: bool = False
+    link_gsl: bool = False,
   ):
     """Constructor for a C Compiler (provided by zig-cc), which can be used
     to convert the provided `HesseMatrix` object into a platform- and arch-specific
@@ -227,6 +227,9 @@ class Compiler:
     - `silent` (bool|None, optional): if `True`, no console output will be
       generated. If `None`, the `silent` setting from the symbolic calculation
       will be used. Defaults to `None`
+    - `link_gsl` (bool, optional): enables experimental gsl (GNU Scientific Library) support for
+      output binary. This enables some special functions to be compiled by inflatox. Enabling this
+      binary requires the gls library to be installed and available to the linker. Defaults to False.
     """
     self.output_file = open(output_path) if output_path is not None else tempfile.NamedTemporaryFile(
       mode='wt',
@@ -238,9 +241,10 @@ class Compiler:
     self.cleanup = cleanup
     self.silent = silent if silent is not None else symbolic_out.silent
     self.gsl = link_gsl
-    self.zigcc_opts = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-static']
+    self.zigcc_opts = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-shared']
     if link_gsl:
       self.zigcc_opts.append('-lgsl')
+      self.zigcc_opts.append('-Wl,--no-as-needed')
       self.zigcc_opts.append('-lgslcblas')
 
     
@@ -306,6 +310,8 @@ const uint32_t DIM = {self.symbolic_out.dim};
 const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
 //Model name
 char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
+// Gsl flag
+const char USE_GSL = {1 if self.gsl else 0};
 """)
       # Write actual file contents
       out.write(contents)
