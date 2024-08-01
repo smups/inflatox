@@ -8,12 +8,13 @@
 Inflatox provides utilities to compute slow-roll parameters and turn-rates for
 two-field inflation models, based on the consistency condition from Generalised consistency condition
 first presented in Anguelova & Lazaroiu (2023)[^1] and later generalised for the purposes of this package
-in [arXiv:2405.11628](https://arxiv.org/abs/2405.11628). The consistency conditions can be used in a
-parameter sweep of a two-field model to find possible inflation trajectories.
+in Wolters, Iarygina & Achúcarro (2024)[^3] [arXiv:2405.11628](https://arxiv.org/abs/2405.11628).
+The consistency conditions can be used in a parameter sweep of a two-field model to find
+possible inflation trajectories.
 
 > [!NOTE]
 > If this software has proven useful to your research, please consider citing
-[arXiv:2405.11628](https://arxiv.org/abs/2405.11628) (_paper in preparation_).
+JCAP07(2024)079[^3]
 
 ## Features
 - symbolic solver for components of the Hesse matrix of an inflationary model
@@ -146,3 +147,6 @@ English version of the license.
   May 2023(20). https://doi.org/10.1088/1475-7516/2023/ 05/020
 [^2]: Windows 7 is no longer considered a tier-1 target by the rust project. Usage
   of Windows 10+ is recommended.
+[^3]: Wolters, R, Iarygina & O. Achúcarro, A (2024). Generalised conditions for
+  rapid-turn inflation. *Journal of Cosmology and Astroparticle Physics*, July 2024(79).
+  https://doi.org/10.1088/1475-7516/2024/07/079
