@@ -33,9 +33,9 @@ jobs:
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-linux-${{ strategy.target }}
           path: dist
 
   windows:
@@ -58,7 +58,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-windows-${{ strategy.target }}
           path: dist
 
   macos:
@@ -81,7 +81,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels
+          name: wheels-macos-${{ strategy.target }}
           path: dist
 
   pypi-publish:
@@ -95,7 +95,8 @@ jobs:
     # retrieve your distributions here
     - uses: actions/download-artifact@v4
       with:
-        name: wheels
+        pattern: wheels-*
+        merge-multiple: true
         path: dist
     - name: Publish package distributions to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
