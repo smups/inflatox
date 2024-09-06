@@ -83,7 +83,7 @@ class InflationCondition():
     coordinates
     """
     n_fields = self.artifact.n_fields
-    start_stop = np.array([[start, stop] for (start, stop) in zip(start, stop)])
+    start_stop = np.array([[float(start), float(stop)] for (start, stop) in zip(start, stop)])
     N = N if N is not None else (8000 for _ in range(n_fields))
     x = np.zeros(N)
     self.dylib.potential_array(x, args, start_stop)
@@ -138,8 +138,8 @@ class InflationCondition():
     """
     n_fields = self.artifact.n_fields
     start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
+      [float(x0_start), float(x0_stop)],
+      [float(x1_start), float(x1_stop)]
     ])
     N = N if N is not None else (8000 for _ in range(n_fields))
     return self.dylib.hesse_array(np.array(n_fields, dtype=np.int64), args, start_stop)
@@ -237,8 +237,8 @@ class GeneralisedAL(InflationCondition):
     out = np.zeros((N_x0, N_x1, 6), dtype=float)
     
     start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
+      [float(x0_start), float(x0_stop)],
+      [float(x1_start), float(x1_stop)]
     ])
     
     #calculate 
@@ -294,8 +294,8 @@ class GeneralisedAL(InflationCondition):
     out = np.zeros((N_x0, N_x1), dtype=float)
     
     start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
+      [float(x0_start), float(x0_stop)],
+      [float(x1_start), float(x1_stop)]
     ])
     
     #calculate 
@@ -347,8 +347,8 @@ class GeneralisedAL(InflationCondition):
     out = np.zeros((N_x0, N_x1), dtype=float)
     
     start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
+      [float(x0_start), float(x0_stop)],
+      [float(x1_start), float(x1_stop)]
     ])
     
     #calculate 
@@ -404,8 +404,8 @@ class GeneralisedAL(InflationCondition):
     out = np.zeros((N_x0, N_x1), dtype=float)
     
     start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
+      [float(x0_start), float(x0_stop)],
+      [float(x1_start), float(x1_stop)]
     ])
     
     #calculate 
@@ -455,8 +455,8 @@ class GeneralisedAL(InflationCondition):
     x = np.zeros((N_x0, N_x1), dtype=bool)
     
     start_stop = np.array([
-      [x0_start, x0_stop],
-      [x1_start, x1_stop]
+      [float(x0_start), float(x0_stop)],
+      [float(x1_start), float(x1_stop)]
     ])
     
     #evaluate and return
