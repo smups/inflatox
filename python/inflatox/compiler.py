@@ -251,7 +251,7 @@ class Compiler:
   c_prefix = "inflx_auto_"
   lib_prefix = "libinflx_auto_"
 
-  default_zigcc_flags = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native','-shared']
+  default_zigcc_flags = ['-O3','-Wall','-Werror','-fpic', '-lm', '-march=native', '-shared', '-std=c17']
   # The linker option -Wl --no-as-needed is required on Fedora/Redhat based systems. It could
   # very well be the case that this does not work on Debian/Ubuntu based systems.
   gsl_zigcc_flags = ['-lgsl', '-Wl,--no-as-needed', '-lgslcblas']
@@ -445,8 +445,8 @@ const char USE_GSL = {1 if self.gsl else 0};
     source_path, dylib_path, (output, exitcode) = self._zigcc_compile_and_link()
     
     #(3) cleanup unused artifacts
-    if self.cleanup: pass
-      # os.remove(source_path)
+    if self.cleanup:
+      os.remove(source_path)
       
     #(4) print output
     if exitcode != 0:

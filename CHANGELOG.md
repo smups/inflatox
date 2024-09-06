@@ -1,5 +1,13 @@
 # Inflatox Changelog
 
+### v0.9.1 bugfixes
+General
+- Added automated tests to CI
+
+Bugfixes
+- fixed bug in documentation example
+- fixed incomprehensible error message when passing integers as start or stop value 
+
 ## v0.9.0 (💣BREAKING CHANGES💣)
 API changes
 - Replaced `new` method on `SymbolicCalculation` with `new_from_list`. `new_from_list` still exists,
