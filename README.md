@@ -48,6 +48,7 @@ potential and components of the Hesse matrix for a two-field hyperinflation mode
 import inflatox
 import sympy as sp
 import numpy as np
+from IPython.display import display
 sp.init_printing()
 
 #define model
@@ -74,14 +75,13 @@ out = inflatox.Compiler(hesse).compile()
 from inflatox.consistency_conditions import GeneralisedAL
 anguelova = GeneralisedAL(out)
 
-p = np.array([1.0, 1.0, 1.0])
-x = np.array([2.0, 2.0])
-print(anguelova.calc_V(x, p))
-print(anguelova.calc_H(x, p))
+params = np.array([1.0, 1.0, 1.0])
+x = np.array([2.0, -2.0])
+print(anguelova.calc_V(x, params))
+print(anguelova.calc_H(x, params))
 
-extent = (-1, 1, -1, 1)
-consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega =
-    anguelova.full_analysis(p, *extent)
+extent = [-1., 1., -1., 1.]
+consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = anguelova.complete_analysis(params, *extent)
 ```
 
 ## Special function support
