@@ -1,6 +1,9 @@
 # Inflatox Changelog
 
 ### v0.9.1 bugfixes
+General
+- Added automated tests to CI
+
 Bugfixes
 - fixed bug in documentation example
 - fixed incomprehensible error message when passing integers as start or stop value 
