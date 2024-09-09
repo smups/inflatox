@@ -31,7 +31,7 @@ name = "inflatox"
 crate-type = ["cdylib"]
 
 [dependencies]
-ndarray = { version = "0.15", features = ['rayon'] }
+ndarray = { version = "0.16", features = ['rayon'] }
 numpy = "0.21"
 pyo3 = { version = "0.21", features = ['extension-module', 'abi3-py37'] }
 rayon = "1"
