@@ -1,5 +1,5 @@
 /*
-  Copyright© 2023 Raúl Wolters(1)
+  Copyright© 2023 Raúl Wolters(*)
 
   This file is part of libinflx_rs (rust bindings for inflatox).
 
@@ -15,7 +15,7 @@
   the European Union along with inflatox. If not, see
   <https://ec.europa.eu/info/european-union-public-licence_en/>.
 
-  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
+  (*) Resident of the Kingdom of the Netherlands; agreement between licensor and
   licensee subject to Dutch law as per article 15 of the EUPL.
 */
 
@@ -147,7 +147,7 @@ impl InflatoxDylib {
       unsafe { gsl_init_fn(crate::err::rust_panic_handler) }
     }
 
-    //(R) Return the fully constructed obj
+    // Return the fully constructed obj
     Ok(InflatoxDylib {
       lib,
       model_name,
@@ -218,7 +218,7 @@ impl InflatoxDylib {
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.n_fields as usize, "{}", *PANIC_BADGE);
     assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
-    unsafe { (self.potential)(x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+    unsafe { (self.potential)(x.as_ptr(), p.as_ptr()) }
   }
 
   /// Calculate scalar potential all field-space coordinates in the array `x`,
@@ -232,7 +232,7 @@ impl InflatoxDylib {
   pub fn potential_array(&self, mut x: nd::ArrayViewMutD<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
     assert!(x.shape().len() == self.n_fields as usize, "{}", *PANIC_BADGE);
     assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
-    //(1) Convert start-stop ranges
+    // Convert start-stop ranges
     let (spacings, offsets) = start_stop
       .iter()
       .zip(x.shape().iter())
@@ -259,9 +259,7 @@ impl InflatoxDylib {
   pub fn hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
     assert!(x.len() == self.n_fields as usize, "{}", *PANIC_BADGE);
     assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
-    self.hesse_cmp.mapv(|func| unsafe {
-      func(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
-    })
+    self.hesse_cmp.mapv(|func| unsafe { func(x.as_ptr(), p.as_ptr()) })
   }
 
   /// Calculate the projected hesse matrix at a number of field-space coordinates.
@@ -286,32 +284,32 @@ impl InflatoxDylib {
     assert!(x_shape.len() == n_fields, "{}", *PANIC_BADGE);
     assert!(p.len() == self.n_param as usize, "{}", *PANIC_BADGE);
 
-    //(1) Convert start-stop ranges
+    // Convert start-stop ranges
     let (spacings, offsets) = start_stop
       .iter()
       .zip(x_shape.iter())
       .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
       .unzip::<_, _, Vec<_>, Vec<_>>();
 
-    //(2) Create output array
+    // Create output array
     let output_shape = [vec![n_fields, n_fields], x_shape.to_vec()].concat();
     let mut output = nd::ArrayD::<f64>::zeros(output_shape);
 
-    //(3) Fill output array
+    // Fill output array
     let mut field_space_point = Vec::with_capacity(x_shape.len());
     output.axis_iter_mut(nd::Axis(0)).enumerate().for_each(|(i, mut view)| {
       view.axis_iter_mut(nd::Axis(0)).enumerate().for_each(|(j, mut x)| {
-        //Just to be clear, the first two axes are the axes of the hesse
-        //matrix. All the other axes are the field-space axes (we do not
-        //know how many of these there are). We will thus be calculating the
-        //ijth component of the hesse matrix for ALL field space points x,
-        //and then moving on to ij+1 etc...
+        // Just to be clear, the first two axes are the axes of the hesse
+        // matrix. All the other axes are the field-space axes (we do not
+        // know how many of these there are). We will thus be calculating the
+        // ijth component of the hesse matrix for ALL field space points x,
+        // and then moving on to ij+1 etc...
         x.indexed_iter_mut().for_each(|(idx, val)| {
-          //Convert index into field_space point
+          // Convert index into field_space point
           field_space_point.clear();
           field_space_point
             .extend((0..self.n_fields as usize).map(|k| idx[k] as f64 * spacings[k] + offsets[k]));
-          //Calculate the ijth matrix element
+          // Calculate the ijth matrix element
           let x_ptr = field_space_point.as_ptr();
           let p_ptr = p.as_ptr();
           *val = unsafe { (self.hesse_cmp[(i, j)])(x_ptr, p_ptr) };
@@ -366,21 +364,21 @@ impl<'a> Hesse2D<'a> {
   pub fn v00(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
-    unsafe { self.fns[0](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+    unsafe { self.fns[0](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
   pub fn v10(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
-    unsafe { self.fns[2](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+    unsafe { self.fns[2](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
   pub fn v11(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
-    unsafe { self.fns[3](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+    unsafe { self.fns[3](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
@@ -404,15 +402,13 @@ impl<'a> Grad<'a> {
   pub fn cmp(&self, x: &[f64], p: &[f64], idx: usize) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
-    unsafe { self.fns[idx](x as *const [f64] as *const f64, p as *const [f64] as *const f64) }
+    unsafe { self.fns[idx](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
   pub fn grad_square(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.get_n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.get_n_params(), "{}", *PANIC_BADGE);
-    unsafe {
-      (self.lib.grad_square)(x as *const [f64] as *const f64, p as *const [f64] as *const f64)
-    }
+    unsafe { (self.lib.grad_square)(x.as_ptr(), p.as_ptr()) }
   }
 }
