@@ -51,3 +51,6 @@ build-backend = "maturin"
 bindings = "pyo3"
 python-source = "python"
 module-name = "inflatox.libinflx_rs"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
