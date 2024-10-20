@@ -37,7 +37,6 @@ pub enum LibInflxRsErr {
 impl std::fmt::Display for LibInflxRsErr {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     use LibInflxRsErr::*;
-    #[cfg_attr(rustfmt, rustfmt_skip)]
     match self {
       Io { lib_path, msg } => write!(f, "Could not load Inflatox Compilation Artefact (path: {lib_path}). Error: \"{msg}\""),
       MissingSymbol { symbol, lib_path } => {

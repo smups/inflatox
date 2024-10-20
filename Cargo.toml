@@ -31,9 +31,9 @@ name = "inflatox"
 crate-type = ["cdylib"]
 
 [dependencies]
-ndarray = { version = "0.15", features = ['rayon'] }
-numpy = "0.21"
-pyo3 = { version = "0.21", features = ['extension-module', 'abi3-py37'] }
+ndarray = { version = "0.16", features = ['rayon'] }
+numpy = "0.22"
+pyo3 = { version = "0.22", features = ['extension-module', 'abi3-py37'] }
 rayon = "1"
 libloading = "0.8"
 indicatif = { version = "0.17", features = ["rayon",  "improved_unicode"] }
