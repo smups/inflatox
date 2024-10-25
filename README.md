@@ -52,6 +52,7 @@ potential and components of the Hesse matrix for a two-field hyperinflation mode
 import inflatox
 import sympy as sp
 import numpy as np
+from IPython.display import display
 sp.init_printing()
 
 #define model
@@ -78,14 +79,13 @@ out = inflatox.Compiler(hesse).compile()
 from inflatox.consistency_conditions import GeneralisedAL
 anguelova = GeneralisedAL(out)
 
-p = np.array([1.0, 1.0, 1.0])
-x = np.array([2.0, 2.0])
-print(anguelova.calc_V(x, p))
-print(anguelova.calc_H(x, p))
+params = np.array([1.0, 1.0, 1.0])
+x = np.array([2.0, -2.0])
+print(anguelova.calc_V(x, params))
+print(anguelova.calc_H(x, params))
 
-extent = (-1, 1, -1, 1)
-consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega =
-    anguelova.full_analysis(p, *extent)
+extent = [-1., 1., -1., 1.]
+consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = anguelova.complete_analysis(params, *extent)
 ```
 
 ## Special function support
@@ -111,22 +111,19 @@ via `PiPy`. If your arch is not listed here, you will have to
 [compile `inflatox` manually](/BUILD.md).
 - Intel/AMD x86/i686 (32 bit)
   - linux/gnu (glibc >= 2.17, kernel >= 3.2)
-  - windows 7+ [^2]
-- ARM armv7 (32 bit)
-  - linux/gnu (glibc >= 2.17, kernel >= 3.2, hard float)
 - Intel/AMD x86_64/amd64 (64 bit)
   - linux/gnu (glibc >= 2.17, kernel >= 3.2)
-  - windows 7+ [^2]
+  - windows 10+
   - macOS 10.12+ / Sierra+
 - ARM aarch64 (64 bit)
   - linux/gnu (glibc >= 2.17, kernel >= 4.1)
   - macOS 11.0+ / Big Sur+
-> [!NOTE]
+> [!TIP]
 > Apple silicon M-series chips are supported (aarch64)*
 
 ## License
 [![License: EUPL v1.2](https://img.shields.io/badge/License-EUPLv1.2-blue.svg)](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12)
->[!NOTE]
+>[!CAUTION]
 > Inflatox is explicitly not licensed under the dual
 > Apache/MIT license common to the Rust ecosystem. Instead it is licensed under
 > the terms of the [European Union Public License v1.2](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
@@ -145,8 +142,8 @@ English version of the license.
 [^1]: Anguelova, L., & Lazaroiu, C. (2023). Dynamical consistency conditions for
   rapid-turn inflation. *Journal of Cosmology and Astroparticle Physics*,
   May 2023(20). https://doi.org/10.1088/1475-7516/2023/ 05/020
-[^2]: Windows 7 is no longer considered a tier-1 target by the rust project. Usage
-  of Windows 10+ is recommended.
+[^2]: 32-bit windows is no longer considered a tier-1 target by the rust project, and unsupported
+  by some of Inflatox's dependencies.
 [^3]: Wolters, R, Iarygina & O. Achúcarro, A (2024). Generalised conditions for
   rapid-turn inflation. *Journal of Cosmology and Astroparticle Physics*, July 2024(79).
   https://doi.org/10.1088/1475-7516/2024/07/079

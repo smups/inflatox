@@ -58,20 +58,20 @@ pub static PANIC_BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock
 #[pymodule]
 /// PyO3 wrapper for libinflx_rs rust api
 fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
+  use anguelova::*;
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
 
-  pymod.add_function(wrap_pyfunction!(anguelova::flag_quantum_dif_py, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::consistency_only, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::consistency_rapidturn_only, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::epsilon_v_only, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::complete_analysis, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(flag_quantum_dif_py, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(consistency_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(consistency_rapidturn_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(epsilon_v_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(complete_analysis, pymod)?)?;
 
-  pymod.add_function(wrap_pyfunction!(anguelova::on_trajectory::complete_analysis, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::on_trajectory::consistency_only, pymod)?)?;
-  pymod
-    .add_function(wrap_pyfunction!(anguelova::on_trajectory::consistency_rapidturn_only, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(anguelova::on_trajectory::epsilon_v_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(on_trajectory::complete_analysis, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(on_trajectory::consistency_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(on_trajectory::consistency_rapidturn_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(on_trajectory::epsilon_v_only, pymod)?)?;
 
   Ok(())
 }

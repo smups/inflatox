@@ -2,6 +2,6 @@
 /.venv
 /.vscode
 /python/inflatox/__pycache__
+/tests/__pycache__
 /python/inflatox/*.so
 /python/inflatox/*.pyd
-/out
