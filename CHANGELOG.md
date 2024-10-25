@@ -2,6 +2,8 @@
 
 ### v0.9.1 bugfixes
 General
+- Added unit tests
+- Added integration tests for models from arXiv:2405:11628
 - Added automated tests to CI
 
 Bugfixes
