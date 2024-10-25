@@ -19,7 +19,7 @@
 
 # ************************************************************************************************ #
 # Angular Inflation used in Wolters, Iarygina and Achúcarro JCAP07(2024)079
-# Model from Ellis, Garcia, Nanopoulos and Olive JCAP08(2014)044
+# Model from Kenton and Thomas JCAP02(2015)127 and Chakraborty, Chiovoloni et al. JCAP01(2020)020
 # ************************************************************************************************ #
 
 import os
