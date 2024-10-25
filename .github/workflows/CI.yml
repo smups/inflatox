@@ -55,7 +55,7 @@ jobs:
           source .venv/bin/activate
           pip install inflatox --find-links dist --force-reinstall
           pip install pytest
-          pytest test/*
+          pytest
       - name: pytest
         if: ${{ !startsWith(matrix.platform.target, 'x86') && matrix.platform.target != 'ppc64' }}
         uses: uraimo/run-on-arch-action@v2
@@ -70,7 +70,7 @@ jobs:
           run: |
             set -e
             pip3 install inflatox --find-links dist --force-reinstall
-            pytest test/*
+            pytest
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
@@ -107,7 +107,7 @@ jobs:
           source .venv/Scripts/activate
           pip install inflatox --find-links dist --force-reinstall
           pip install pytest
-          pytest test/*
+          pytest
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
@@ -141,7 +141,7 @@ jobs:
           source .venv/bin/activate
           pip install inflatox --find-links dist --force-reinstall
           pip install pytest
-          pytest test/*
+          pytest
 
   sdist:
     runs-on: ubuntu-latest
