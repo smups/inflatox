@@ -17,13 +17,11 @@
 #  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
 #  licensee subject to Dutch law as per article 15 of the EUPL.
 
-# System imports
 from typing import Literal
-from joblib import Parallel, delayed, cpu_count
 
-# Sympy imports
-import sympy
 import numpy as np
+import sympy
+from joblib import Parallel, cpu_count, delayed
 from sympy import powdenest
 
 

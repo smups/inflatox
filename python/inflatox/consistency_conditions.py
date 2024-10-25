@@ -515,6 +515,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
+        - `x` (`np.ndarray`): array of field-space points specifying the trajectory
         - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
           progressbar may slightly degrade performance. Defaults to True.
         - `threads` (`None | int`, optional): number of threads to use for calculation.
@@ -561,6 +562,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
+        - `x` (`np.ndarray`): array of field-space points specifying the trajectory
         - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
           progressbar may slightly degrade performance. Defaults to True.
         - `threads` (`None | int`, optional): number of threads to use for calculation.
@@ -602,6 +604,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
+        - `x` (`np.ndarray`): array of field-space points specifying the trajectory
         - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
           progressbar may slightly degrade performance. Defaults to True.
         - `threads` (`None | int`, optional): number of threads to use for calculation.
@@ -645,7 +648,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
-        - `x` (`np.ndarray`):
+        - `x` (`np.ndarray`): array of field-space points specifying the trajectory
         - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
           progressbar may slightly degrade performance. Defaults to True.
         - `threads` (`None | int`, optional): number of threads to use for calculation.

@@ -19,11 +19,11 @@
 
 # System imports
 import os
+import subprocess
+import sys
 import tempfile
 import textwrap
-import subprocess
 from datetime import datetime
-import sys
 from sys import version as sys_version
 
 # Sympy imports
@@ -61,8 +61,23 @@ class CInflatoxPrinter(C99CodePrinter):
 // Inflatox version: v{__version__}
 // System info: {sys_version}
 
-#include<math.h>
-#include<stdint.h>
+#include <math.h>
+#include <stdint.h>
+#ifndef M_PI
+#define M_E 2.71828182846 
+#define M_LOG2E 1.44269504089
+#define M_LOG10E 0.4342944819
+#define M_LN2 0.69314718056
+#define M_LN10 2.30258509299
+#define M_PI 3.14159265359
+#define M_PI_2 1.57079632679
+#define M_PI_4 0.78539816339
+#define M_1_PI 0.31830988618
+#define M_2_PI 0.63661977236
+#define M_2_SQRTPI 1.1283791671
+#define M_SQRT2 1.41421356237
+#define M_SQRT_1_2 0.70710678118
+#endif
 """
 
     def _print_Symbol(self, expr):
@@ -128,17 +143,21 @@ void err_setup(gsl_error_handler_t* rust_panic) {
         self.update_preamble(self.HYPERH)
         ap = expr.args[0]
         bq = expr.args[1]
-        x = self._print_Symbol(expr.args[2])
+        x = self.doprint(expr.args[2])
 
         type = (len(ap), len(bq))
         if type == (2, 0):
-            return f"gsl_sf_hyperg_2F0({self._print_Symbol(ap[0])}, {self._print_Symbol(ap[1])}, {x})"
+            return (
+                f"gsl_sf_hyperg_2F0({self.doprint(ap[0])}, {self.doprint(ap[1])}, {x})"
+            )
         elif type == (2, 1):
-            return f"gsl_sf_hyperg_2F1({self._print_Symbol(ap[0])}, {self._print_Symbol(ap[1])}, {self._print_Symbol(bq[0])}, {x})"
+            return f"gsl_sf_hyperg_2F1({self.doprint(ap[0])}, {self.doprint(ap[1])}, {self.doprint(bq[0])}, {x})"
         elif type == (1, 1):
-            return f"gsl_sf_hyperg_1F1({self._print_Symbol(ap[0])}, {self._print_Symbol(bq[0])}, {x})"
+            return (
+                f"gsl_sf_hyperg_1F1({self.doprint(ap[0])}, {self.doprint(bq[0])}, {x})"
+            )
         elif type == (0, 1):
-            return f"gsl_sf_hyperg_2F0({self._print_Symbol(ap[0])}, {self._print_Symbol(ap[1])}, {x})"
+            return f"gsl_sf_hyperg_0F1({self.doprint(bq[0])}, {x})"
         else:
             raise Exception(
                 "Cannot compute hypergeometric functions other than 2F0, 2F1, 1F1 and 0F1"
@@ -157,7 +176,7 @@ void err_setup(gsl_error_handler_t* rust_panic) {
             except KeyError:
                 return f"gsl_sf_bessel_{namedict['int']}({nu}, {x})"
         try:
-            return f"gsl_sf_bessel_J{namedict['float']}({self._print_Symbol(nu)}, {x})"
+            return f"gsl_sf_bessel_{namedict['float']}({self._print_Symbol(nu)}, {x})"
         except KeyError:
             raise KeyError("No non-integer impl found.")
 
@@ -364,7 +383,7 @@ class Compiler:
         # Write potential
         potential_body = textwrap.fill(
             ccode_writer.doprint(self.symbolic_out.potential).replace(", ", ","),
-            width=80,
+            width=100,
             tabsize=4,
             break_long_words=False,
             break_on_hyphens=False,
@@ -398,10 +417,10 @@ double g{idx}(const double x[], const double args[]) {{
             ")*", ") *\n    "
         )
         contents += f"""
-    double grad_norm_squared(const double x[], const double args[]) {{
-      return {gradnorm_body};
-    }}          
-    """
+double grad_norm_squared(const double x[], const double args[]) {{
+  return {gradnorm_body};
+}}          
+"""
 
         # Output to actual file
         with self.output_file as out:
