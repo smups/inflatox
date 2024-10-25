@@ -27,8 +27,8 @@ jobs:
             target: aarch64
           - runner: ubuntu-latest
             target: armv7
-          - runner: ubuntu-latest
-            target: ppc64le
+          # - runner: ubuntu-latest
+          #   target: ppc64le
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -79,8 +79,8 @@ jobs:
         platform:
           - runner: windows-latest
             target: x64
-          - runner: windows-latest
-            target: x86
+          # - runner: windows-latest
+          #   target: x86
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
