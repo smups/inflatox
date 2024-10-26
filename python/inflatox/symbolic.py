@@ -22,49 +22,49 @@ from typing import Literal
 import numpy as np
 import sympy
 from joblib import Parallel, cpu_count, delayed
-from sympy import powdenest
+from sympy.simplify import sqrtdenest, powdenest
 
 
-class SymbolicOutput:
+class InflationModel:
     """Class containing the components of the projected Hesse matrix, as well as
     information about the model that was used to calculate said components.
     """
 
     def __init__(
         self,
-        hesse_cmp: list[list[sympy.Expr]],
-        basis: list[list[sympy.Expr]],
-        coordinates: list[sympy.Symbol],
-        potential: sympy.Expr,
-        gradient_size: sympy.Expr,
         model_name: str,
-        silent: bool,
+        coordinates: list[sympy.Symbol],
+        tangents: list[sympy.Symbol],
+        basis: list[list[sympy.Expr]],
+        eom: list[sympy.Expr],
+        potential: sympy.Expr,
+        gradient_square: sympy.Expr,
+        hesse_cmp: list[list[sympy.Expr]],
     ):
-        self.hesse_cmp = hesse_cmp
-        self.basis = basis
-        self.dim = len(hesse_cmp[0])
-        self.coordinates = coordinates
-        self.potential = potential
         self.model_name = model_name
-        self.gradient_square = gradient_size
-        self.silent = silent
+        self.hesse_cmp = hesse_cmp
+        self.coordinates = coordinates
+        self.coordinate_tangents = tangents
+        self.dim = len(coordinates)
+        self.basis = basis
+        self.eom = eom
+        self.potential = potential
+        self.gradient_square = gradient_square
         if len(hesse_cmp[0]) != len(hesse_cmp):
             raise Exception(
                 "The Hesse matrix is square; the provided list was not (number of columns != number of rows)"
             )
         if len(hesse_cmp[0]) != len(basis[0]):
-            raise Exception(
-                "The provided Hesse Matrix and basis are of different dimensionality"
-            )
+            raise Exception("The provided Hesse Matrix and basis are of different dimensionality")
 
     def __str__(self):
-        return f"""[Symbolic Calculation Output]
-    dimensionality: {self.dim} field(s)
-    model name: {self.model_name}
-    coordinates: {[f for f in self.coordinates]}
-    potential: {self.potential}
-    hesse matrix: {sympy.Matrix(self.hesse_cmp)}
-    basis vectors (cntr. var.): {[sympy.Matrix(vec) for vec in self.basis]}
+        return f"""[Inflation Model]
+model name: {self.model_name}
+dimensionality: {self.dim} field(s)
+coordinates: {[f for f in self.coordinates]}
+potential: {self.potential}
+basis vectors (cntr. var.): {[sympy.Matrix(vec) for vec in self.basis]}
+hesse matrix: {sympy.Matrix(self.hesse_cmp)}
     """
 
 
@@ -203,14 +203,13 @@ class SymbolicCalculation:
         simplify_for: str,
     ):
         """Internal constructor"""
-        assert len(field_metric) == len(
-            field_metric[0]
-        ), "field metric should be square"
+        assert len(field_metric) == len(field_metric[0]), "field metric should be square"
         assert len(field_metric) == len(
             fields
         ), "number of fields must match dimensionality of metric tensor"
 
         self.coords = fields
+        self.field_derivatives = sympy.symbols([f"{phi}d" for phi in fields])
         self.g = sympy.Matrix(field_metric)
         self.V = potential
         self.model_name = model_name
@@ -221,10 +220,7 @@ class SymbolicCalculation:
 
     def simplify(self, expr: sympy.Expr) -> sympy.Expr:
         """simplifies expression"""
-        if self.simplify_for == "length":
-            return powdenest(expr.nsimplify().cancel()).simplify()
-        else:
-            return expr.nsimplify().collect(self.coords).expand().powsimp()
+        return expr
 
     def print(self, msg: str) -> None:
         """prints msg to stdout if self.silent is not True"""
@@ -246,7 +242,7 @@ class SymbolicCalculation:
         except NameError:
             sympy.pprint(eq)
 
-    def execute(self, guesses: list[list[sympy.Expr]] | None = None) -> SymbolicOutput:
+    def execute(self, guesses: list[list[sympy.Expr]] | None = None) -> InflationModel:
         """Performs fully symbolic calculation of the components of the covariant
         Hesse matrix of the potential with respect to the metric, which are then
         projected onto an orthonormal vielbein basis constructed (using the
@@ -279,8 +275,8 @@ class SymbolicCalculation:
                 len(guesses) == dim - 1
             ), "number of guessed vectors must equal the number of fields minus one (n-1)"
 
-        # (1) Calculate an orthonormal basis
-        # (1a)...starting with a vector parallel to the potential gradient
+        # Calculate an orthonormal basis
+        # ...starting with a vector parallel to the potential gradient
         self.print("Calculating orthonormal basis...")
         basis = [self.calc_v()]
         self.display(sympy.Matrix(basis[0]), lhs=sympy.symbols("v"))
@@ -289,16 +285,14 @@ class SymbolicCalculation:
             basis.append([-basis[0][1], basis[0][0]])
             self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols("w_1"))
         elif guesses is None:
-            raise Exception(
-                "guesses argument cannot be None if model has more than two fields"
-            )
+            raise Exception("guesses argument cannot be None if model has more than two fields")
         else:
-            # (1b) followed by other gramm-schmidt produced vectors
+            # followed by other gramm-schmidt produced vectors
             for i, guess in enumerate(guesses):
                 basis.append(self.gramm_schmidt(basis, guess))
                 self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols(f"w_{i+1}"))
 
-        # (1b) make sure the basis is orthonormal
+        # make sure the basis is orthonormal
         if self.assertions:
             for a in range(dim):
                 for b in range(dim):
@@ -311,12 +305,12 @@ class SymbolicCalculation:
                             0, self.inner_prod(basis[a], basis[b])
                         ).simplify(), "orthogonality error: v•w does not equal 0"
 
-        # (2) Calculate the components of the covariant Hesse Matrix
+        # Calculate the components of the covariant Hesse Matrix
         print("Calculating covariant Hesse matrix...")
         H = self.calc_hesse()
         self.display(sympy.Matrix(H), lhs=sympy.symbols("H"))
 
-        # (3) Project Hesse matrix
+        # Project Hesse matrix
         def process(a: int, b: int):
             Hab = 0
             for x in range(dim):
@@ -333,7 +327,7 @@ class SymbolicCalculation:
             delayed(process)(a, b) for a in range(dim) for b in range(dim)
         )
 
-        # (3b) print projected components of the Hesse matrix
+        # print projected components of the Hesse matrix
         for idx, component in results:
             a, b = idx
             H_proj[a][b] = component
@@ -343,11 +337,14 @@ class SymbolicCalculation:
                 b = "v"
             self.display(component, lhs=sympy.symbols(f"H_{{{a}{b}}}"))
 
-        # (4) Calculate the size of the gradient
+        # calculate the size of the gradient
         print("Calculating the norm of the gradient...")
         gradnorm = self.calc_gradient_square()
 
-        return SymbolicOutput(
+        # compute the equations of motion
+        print("Computing the equations of motion...")
+
+        return InflationModel(
             H_proj, basis, self.coords, self.V, gradnorm, self.model_name, self.silent
         )
 
@@ -366,12 +363,13 @@ class SymbolicCalculation:
         `sympy.Expr`: inner product of v1 with v2 with respect to the configured
           metric tensor of the current instance.
         """
-        ans = 0
-        dim = len(v1)
-        for a in range(dim):
-            for b in range(dim):
-                ans = ans + (v1[a] * v2[b] * self.g[a, b])
-        return self.simplify(ans) if self.simp >= 4 else ans
+        dot = 0
+        for a in range(self.dim):
+            for b in range(self.dim):
+                # Expand expression in the hopes that some terms will cancel
+                dot += sympy.expand(self.g[a, b] * v1[a] * v2[b])
+        # Collect the expression as powers of the fields
+        return sympy.collect(dot, self.fields)
 
     def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
         """normalizes the input vector with respect to the configured metric tensor.
@@ -387,10 +385,21 @@ class SymbolicCalculation:
         `list[sympy.Expr]`: normalized components of the supplied vector vec with
           respect to the metric tensor of the current instance.
         """
-        norm = sympy.sqrt(self.inner_prod(vec, vec))
-        return [
-            self.simplify(cmp / norm) if self.simp >= 3 else cmp / norm for cmp in vec
-        ]
+        # first compute the norm squared and write it as a single fraction
+        normsq = 0
+        for a in range(self.dim):
+            for b in range(self.dim):
+                normsq += self.g[a, b] * vec[a] * vec[b]
+        normsq = sympy.collect(normsq)
+
+        # Try to get rid of nested square roots
+        numerator, denominator = sympy.fraction(normsq)
+        numerator = sqrtdenest(sympy.sqrt(numerator))
+        denominator = sqrtdenest(sympy.sqrt(denominator))
+        norm = numerator / denominator
+
+        # Try to simplify the final expression a bit
+        return [sympy.cancel(vi / norm) for vi in vec]
 
     def christoffels(self) -> list[list[list[sympy.Expr]]]:
         """Computes the Christoffel symbols from the metric tensor.
@@ -557,9 +566,7 @@ class SymbolicCalculation:
         """
         dim = len(current_basis[0])
         # make sure the supplied basis is not already complete
-        assert (
-            len(current_basis) < dim
-        ), "current basis is already complete. No need for more vecs."
+        assert len(current_basis) < dim, "current basis is already complete. No need for more vecs."
 
         # start with vector y
         y = guess
@@ -604,9 +611,8 @@ class SymbolicCalculation:
         ### Returns
         `sympy.Expr`: returns the inner product of the Hesse matrix with v1 and v2.
         """
-        dim = len(v1)
         V_proj = 0
-        for a in range(dim):
-            for b in range(dim):
+        for a in range(self.dim):
+            for b in range(self.dim):
                 V_proj = V_proj + hesse_matrix[a][b] * v1[a] * v2[b]
         return self.simplify(V_proj) if self.simp >= 1 else V_proj

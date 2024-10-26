@@ -31,7 +31,7 @@ import sympy
 from sympy.printing.c import C99CodePrinter
 
 # Internal imports
-from .symbolic import SymbolicOutput
+from .symbolic import InflationModel
 from .version import __abi_version__, __version__
 
 
@@ -147,15 +147,11 @@ void err_setup(gsl_error_handler_t* rust_panic) {
 
         type = (len(ap), len(bq))
         if type == (2, 0):
-            return (
-                f"gsl_sf_hyperg_2F0({self.doprint(ap[0])}, {self.doprint(ap[1])}, {x})"
-            )
+            return f"gsl_sf_hyperg_2F0({self.doprint(ap[0])}, {self.doprint(ap[1])}, {x})"
         elif type == (2, 1):
             return f"gsl_sf_hyperg_2F1({self.doprint(ap[0])}, {self.doprint(ap[1])}, {self.doprint(bq[0])}, {x})"
         elif type == (1, 1):
-            return (
-                f"gsl_sf_hyperg_1F1({self.doprint(ap[0])}, {self.doprint(bq[0])}, {x})"
-            )
+            return f"gsl_sf_hyperg_1F1({self.doprint(ap[0])}, {self.doprint(bq[0])}, {x})"
         elif type == (0, 1):
             return f"gsl_sf_hyperg_0F1({self.doprint(bq[0])}, {x})"
         else:
@@ -181,34 +177,22 @@ void err_setup(gsl_error_handler_t* rust_panic) {
             raise KeyError("No non-integer impl found.")
 
     def _print_besselj(self, expr):
-        return self.generic_print_bessel(
-            expr, {"0": "J0", "1": "J1", "int": "Jn", "float": "Jnu"}
-        )
+        return self.generic_print_bessel(expr, {"0": "J0", "1": "J1", "int": "Jn", "float": "Jnu"})
 
     def _print_bessely(self, expr):
-        return self.generic_print_bessel(
-            expr, {"0": "Y0", "1": "Y1", "int": "Yn", "float": "Ynu"}
-        )
+        return self.generic_print_bessel(expr, {"0": "Y0", "1": "Y1", "int": "Yn", "float": "Ynu"})
 
     def _print_besseli(self, expr):
-        return self.generic_print_bessel(
-            expr, {"0": "I0", "1": "I1", "int": "In", "float": "Inu"}
-        )
+        return self.generic_print_bessel(expr, {"0": "I0", "1": "I1", "int": "In", "float": "Inu"})
 
     def _print_besselk(self, expr):
-        return self.generic_print_bessel(
-            expr, {"0": "K0", "1": "K1", "int": "Kn", "float": "Knu"}
-        )
+        return self.generic_print_bessel(expr, {"0": "K0", "1": "K1", "int": "Kn", "float": "Knu"})
 
     def _print_jn(self, expr):
-        return self.generic_print_bessel(
-            expr, {"0": "j0", "1": "j1", "2": "j2", "int": "jl"}
-        )
+        return self.generic_print_bessel(expr, {"0": "j0", "1": "j1", "2": "j2", "int": "jl"})
 
     def _print_yn(self, expr):
-        return self.generic_print_bessel(
-            expr, {"0": "y0", "1": "y1", "2": "y2", "int": "yl"}
-        )
+        return self.generic_print_bessel(expr, {"0": "y0", "1": "y1", "2": "y2", "int": "yl"})
 
 
 class CompilationArtifact:
@@ -311,7 +295,7 @@ class Compiler:
 
     def __init__(
         self,
-        symbolic_out: SymbolicOutput,
+        symbolic_out: InflationModel,
         output_path: str | None = None,
         cleanup: bool = True,
         silent: bool | None = None,
@@ -374,9 +358,7 @@ class Compiler:
         """Generates C source file from Hesse matrix specified by the constructor"""
         # Initialise C-code printer
         fields = self.symbolic_out.coordinates
-        ccode_writer = (
-            GSLInflatoxPrinter(fields) if self.gsl else CInflatoxPrinter(fields)
-        )
+        ccode_writer = GSLInflatoxPrinter(fields) if self.gsl else CInflatoxPrinter(fields)
 
         contents = ""
 
@@ -396,9 +378,9 @@ double V(const double x[], const double args[]) {{
         # Write all the components of the Hesse matrix
         for a in range(self.symbolic_out.dim):
             for b in range(self.symbolic_out.dim):
-                function_body = ccode_writer.doprint(
-                    self.symbolic_out.hesse_cmp[a][b]
-                ).replace(")*", ") *\n    ")
+                function_body = ccode_writer.doprint(self.symbolic_out.hesse_cmp[a][b]).replace(
+                    ")*", ") *\n    "
+                )
                 contents += f"""
 double v{a}{b}(const double x[], const double args[]) {{
   return {function_body};
@@ -466,9 +448,7 @@ const char USE_GSL = {1 if self.gsl else 0};
             *self.zigcc_opts,  # compiler options
         ]
 
-        process = subprocess.Popen(
-            zigargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+        process = subprocess.Popen(zigargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out = b""
 
         while process.stdout.readable():
