@@ -295,10 +295,10 @@ class Compiler:
 
     def __init__(
         self,
-        symbolic_out: InflationModel,
+        model: InflationModel,
         output_path: str | None = None,
         cleanup: bool = True,
-        silent: bool | None = None,
+        silent: bool = False,
         link_gsl: bool = False,
         compiler_flags: list[str] | None = None,
     ):
@@ -323,9 +323,8 @@ class Compiler:
           `None`. Defaults to `None`.
         - `cleanup` (bool, optional): if `True`, generated artifacts will be deleted
           when they are no longer necessary. Defaults to True.
-        - `silent` (bool|None, optional): if `True`, no console output will be
-          generated. If `None`, the `silent` setting from the symbolic calculation
-          will be used. Defaults to `None`
+        - `silent` (bool, optional): if `True`, no console output will be
+          generated. Defaults to `False`
         - `link_gsl` (bool, optional): enables experimental gsl (GNU Scientific Library) support for
           output binary. This enables some special functions to be compiled by inflatox. Enabling this
           binary requires the gls library to be installed and available to the linker. Defaults to False.
@@ -341,9 +340,9 @@ class Compiler:
                 mode="wt", delete=False, suffix=".c", prefix=Compiler.c_prefix
             )
         )
-        self.symbolic_out = symbolic_out
+        self.symbolic_out = model
         self.cleanup = cleanup
-        self.silent = silent if silent is not None else symbolic_out.silent
+        self.silent = silent
         self.gsl = link_gsl
         self.zigcc_opts = [flag for flag in self.default_zigcc_flags]
         # Add gsl linker flags

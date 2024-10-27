@@ -41,7 +41,7 @@ def test_angular():
 
     # setup the potential
     mp, mx, a = sympy.symbols("m_phi m_chi alpha")
-    V = a / 2 * ((mp * p) ** 2 + (mx * x) ** 2).nsimplify()
+    potential = a / 2 * ((mp * p) ** 2 + (mx * x) ** 2).nsimplify()
 
     # setup the metric
     metric_diagonal = 6 * a / (1 - p**2 - x**2) ** 2
@@ -49,15 +49,13 @@ def test_angular():
     metric[0][0] = metric_diagonal
     metric[1][1] = metric_diagonal
 
-    hesse = inflatox.SymbolicCalculation.new_from_list(
+    hesse = inflatox.SymbolicCalculation.new(
         coords,
         metric,
-        V,
+        potential,
         model_name=model,
-        assertions=False,
-        simplification_depth=1,
         silent=True,
-    ).execute([[0, 1]])
+    ).execute()
 
     out = inflatox.Compiler(hesse, cleanup=False).compile()
     anguelova = GeneralisedAL(out)

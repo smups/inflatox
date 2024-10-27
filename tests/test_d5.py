@@ -50,11 +50,7 @@ def test_egno():
     rho = r / (3 * u)
 
     H = (
-        (
-            (sympy.pi * N * gs * ls**4)
-            / (12 * u**4)
-            * (2 / rho**2 - 2 * sympy.ln(1 / rho**2 + 1))
-        )
+        ((sympy.pi * N * gs * ls**4) / (12 * u**4) * (2 / rho**2 - 2 * sympy.ln(1 / rho**2 + 1)))
         .nsimplify()
         .collect([u, r])
         .expand()
@@ -83,9 +79,7 @@ def test_egno():
         .powsimp()
     )
     g11 = (
-        collect_sqrt(
-            (4 / 6) * sympy.pi * p * T5 * sqrtF * (r**2 + 6 * u**2), evaluate=True
-        )
+        collect_sqrt((4 / 6) * sympy.pi * p * T5 * sqrtF * (r**2 + 6 * u**2), evaluate=True)
         .nsimplify()
         .collect([r, u])
         .expand()
@@ -134,15 +128,15 @@ def test_egno():
     )
     potential = potential.nsimplify().collect([ls, gs]).expand().powsimp()
 
-    hesse = inflatox.SymbolicCalculation.new_from_list(
+    hesse = inflatox.SymbolicCalculation.new(
         fields,
         metric,
         potential,
-        assertions=False,
         model_name=model,
-        simplification_depth=1,
+        assertions=False,
         silent=True,
-    ).execute([[0, 1]])
+        simplify=False,
+    ).execute()
 
     out = inflatox.Compiler(hesse, cleanup=False).compile()
     anguelova = GeneralisedAL(out)
