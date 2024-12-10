@@ -46,46 +46,31 @@ pip install --upgrade inflatox
 
 ## Example programme
 The following code example shows how `inflatox` can be used to calculate the
-potential and components of the Hesse matrix for a two-field hyperinflation model.
+potential and components of the Hesse matrix for a two-field orbital inflation model.
 ```python
-#import inflatox
-import inflatox
-import sympy as sp
-import numpy as np
-from IPython.display import display
-sp.init_printing()
+    # define model
+    r, θ, m = sp.symbols("r θ m")
+    fields = [r, θ]
 
-#define model
-φ, θ, L, m, φ0 = sp.symbols('φ θ L m φ0')
-fields = [φ, θ]
+    V = (1 / 2 * m**2 * (θ**2 -2/(3 * r**2))).nsimplify()
+    g = [[0.5, 0], [0, 0.5 * r**2]]
 
-V = (1/2*m**2*(φ-φ0)**2).nsimplify()
-g = [
-  [1, 0],
-  [0, L**2 * sp.sinh(φ/L)**2]
-]
+    # symbolic calculation
+    calc = inflatox.SymbolicCalculation.new(fields, g, V)
+    hesse = calc.execute()
 
-#print metric and potential
-display(g, V)
+    # run the compiler
+    out = inflatox.Compiler(hesse).compile()
+    out.print_sym_lookup_table()
 
-#symbolic calculation
-calc = inflatox.SymbolicCalculation.new(fields, g, V)
-hesse = calc.execute()
+    # evaluate the consistency condtion
+    from inflatox.consistency_conditions import GeneralisedAL
+    anguelova = GeneralisedAL(out)
 
-#run the compiler
-out = inflatox.Compiler(hesse).compile()
-
-#evaluate the compiled potential and Hesse matrix
-from inflatox.consistency_conditions import GeneralisedAL
-anguelova = GeneralisedAL(out)
-
-params = np.array([1.0, 1.0, 1.0])
-x = np.array([2.0, -2.0])
-print(anguelova.calc_V(x, params))
-print(anguelova.calc_H(x, params))
-
-extent = [-1., 1., -1., 1.]
-consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = anguelova.complete_analysis(params, *extent)
+    extent = [0.0, 2.5, 0.0, np.pi]
+    consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = (
+        anguelova.complete_analysis(params, *extent)
+    )
 ```
 
 ## Special function support
