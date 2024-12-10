@@ -48,29 +48,33 @@ pip install --upgrade inflatox
 The following code example shows how `inflatox` can be used to calculate the
 potential and components of the Hesse matrix for a two-field orbital inflation model.
 ```python
-    # define model
-    r, θ, m = sp.symbols("r θ m")
-    fields = [r, θ]
+import numpy as np
+import sympy as sp
+import inflatox
 
-    V = (1 / 2 * m**2 * (θ**2 -2/(3 * r**2))).nsimplify()
-    g = [[0.5, 0], [0, 0.5 * r**2]]
+# define model
+r, θ, m = sp.symbols("r θ m")
+fields = [r, θ]
 
-    # symbolic calculation
-    calc = inflatox.SymbolicCalculation.new(fields, g, V)
-    hesse = calc.execute()
+V = (1 / 2 * m**2 * (θ**2 -2/(3 * r**2))).nsimplify()
+g = [[0.5, 0], [0, 0.5 * r**2]]
 
-    # run the compiler
-    out = inflatox.Compiler(hesse).compile()
-    out.print_sym_lookup_table()
+# symbolic calculation
+calc = inflatox.SymbolicCalculation.new(fields, g, V)
+hesse = calc.execute()
 
-    # evaluate the consistency condtion
-    from inflatox.consistency_conditions import GeneralisedAL
-    anguelova = GeneralisedAL(out)
+# run the compiler
+out = inflatox.Compiler(hesse).compile()
+out.print_sym_lookup_table()
 
-    extent = [0.0, 2.5, 0.0, np.pi]
-    consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = (
-        anguelova.complete_analysis(params, *extent)
-    )
+# evaluate the consistency condtion
+from inflatox.consistency_conditions import GeneralisedAL
+anguelova = GeneralisedAL(out)
+
+extent = [0.0, 2.5, 0.0, np.pi]
+consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = (
+    anguelova.complete_analysis(params, *extent)
+)
 ```
 
 ## Special function support
