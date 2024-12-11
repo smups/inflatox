@@ -72,6 +72,7 @@ from inflatox.consistency_conditions import GeneralisedAL
 anguelova = GeneralisedAL(out)
 
 extent = [0.0, 2.5, 0.0, np.pi]
+params = np.array([1]) # set m = 1
 consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = (
     anguelova.complete_analysis(params, *extent)
 )
