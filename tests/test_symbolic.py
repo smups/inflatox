@@ -19,7 +19,7 @@
 
 import pytest
 import sympy
-from inflatox import SymbolicCalculation
+from inflatox import InflationModelBuilder
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def angular_model():
     v = (alpha / 2) * ((m1 * f1) ** 2 + (m2 * f2) ** 2)
     diag = 6 * alpha / ((1 - f1**2 - f2**2) ** 2)
     metric = [[diag, 0], [0, diag]]
-    return SymbolicCalculation.new([f1, f2], metric, v, "[test] angular inflation model")
+    return InflationModelBuilder.new([f1, f2], metric, v, "[test] angular inflation model")
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def trivial_model():
     m1, m2 = sympy.symbols("m_1 m_2")
     v = (m1 * f1) ** 2 + (m2 * f2) ** 2
     metric = [[1, 0], [0, 1]]
-    return SymbolicCalculation.new([f1, f2], metric, v, "[test] trivial inflation model")
+    return InflationModelBuilder.new([f1, f2], metric, v, "[test] trivial inflation model")
 
 
 def test_inner_prod(trivial_model):

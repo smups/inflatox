@@ -64,11 +64,11 @@ def test_egno():
         / (a**2 * (2 * r - c * (1 - 2 * r) ** 4) ** (3 * alpha))
     ).nsimplify()
 
-    hesse = inflatox.SymbolicCalculation.new(
+    model = inflatox.InflationModelBuilder.new(
         fields, real_metric, potential, model_name=model, silent=True, simplify=False
-    ).execute()
+    ).build()
 
-    out = inflatox.Compiler(hesse, silent=False).compile()
+    out = inflatox.Compiler(model, silent=False).compile()
     anguelova = GeneralisedAL(out)
 
     alpha = 1.0

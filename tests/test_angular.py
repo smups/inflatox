@@ -49,13 +49,13 @@ def test_angular():
     metric[0][0] = metric_diagonal
     metric[1][1] = metric_diagonal
 
-    hesse = inflatox.SymbolicCalculation.new(
+    hesse = inflatox.InflationModelBuilder.new(
         coords,
         metric,
         potential,
         model_name=model,
         silent=True,
-    ).execute()
+    ).build()
 
     out = inflatox.Compiler(hesse, cleanup=False).compile()
     anguelova = GeneralisedAL(out)

@@ -34,7 +34,7 @@ trajectory_dir = f"{os.path.dirname(os.path.abspath(__file__))}/trajectories/"
 
 
 def test_egno():
-    model = "d5"
+    model_name = "d5"
 
     # setup model
     r, θ = sympy.symbols("r θ2")
@@ -128,17 +128,17 @@ def test_egno():
     )
     potential = potential.nsimplify().collect([ls, gs]).expand().powsimp()
 
-    hesse = inflatox.SymbolicCalculation.new(
+    model = inflatox.InflationModelBuilder.new(
         fields,
         metric,
         potential,
-        model_name=model,
+        model_name=model_name,
         assertions=False,
         silent=True,
         simplify=False,
-    ).execute()
+    ).build()
 
-    out = inflatox.Compiler(hesse, cleanup=False).compile()
+    out = inflatox.Compiler(model, cleanup=False).compile()
     anguelova = GeneralisedAL(out)
 
     V0 = -1.17e-8

@@ -46,7 +46,9 @@ class InflationModel:
         coordinates: list[sympy.Symbol],
         tangents: list[sympy.Symbol],
         basis: list[list[sympy.Expr]],
-        eom: list[sympy.Expr],
+        eom_fields: list[sympy.Expr],
+        eom_h: sympy.Expr,
+        eom_hdot: sympy.Expr,
         potential: sympy.Expr,
         gradient_square: sympy.Expr,
         hesse_cmp: list[list[sympy.Expr]],
@@ -57,7 +59,9 @@ class InflationModel:
         self.coordinate_tangents = tangents
         self.dim = len(coordinates)
         self.basis = basis
-        self.eom = eom
+        self.eom_fields = eom_fields
+        self.eom_h = eom_h
+        self.eom_hdot = eom_hdot
         self.potential = potential
         self.gradient_square = gradient_square
         if len(hesse_cmp[0]) != len(hesse_cmp):
@@ -93,7 +97,7 @@ class SimplificationTimeOut(Exception):
     pass
 
 
-class SymbolicCalculation:
+class InflationModelBuilder:
     """This class is a helper-class for producing instances of `InflationModel`. After obtaining
     an instance of this class, an instance of `InflationModel` can be obtained with the `.execute()`
     method.
@@ -187,7 +191,7 @@ class SymbolicCalculation:
         self.model_name = model_name
         self.dim = len(fields)
         self.fields = fields
-        self.field_derivatives = sympy.symbols([f"{phi}d" for phi in fields])
+        self.field_derivatives = sympy.symbols([f"\\dot{{{sympy.latex(phi)}}}" for phi in fields])
         self.g = sympy.Matrix(field_metric)
         self.V = potential
         self.assertions = assertions
@@ -251,7 +255,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         except NameError:
             sympy.pprint(eq)
 
-    def execute(self, guesses: list[list[sympy.Expr]] | None = None) -> InflationModel:
+    def build(self, guesses: list[list[sympy.Expr]] | None = None) -> InflationModel:
         """Constructs an `InflationModel` instance.
 
         Performs fully symbolic calculation of the components of the covariant
@@ -346,13 +350,22 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
 
         # compute the equations of motion
         self.print("Computing the equations of motion...")
+        eoms = self.compute_eom()
+        for idx, eom in enumerate(eoms):
+            self.display(sympy.symbols(f"\\ddot{{{sympy.latex(self.fields[idx])}}}") + eom, lhs=0)
+        constraint_h = self.compute_eom_h()
+        eom_h = self.compute_eom_hdot()
+        self.display(constraint_h, lhs=sympy.symbols("H"))
+        self.display(eom_h, lhs=sympy.symbols("\\dot{{H}}"))
 
         return InflationModel(
             model_name=self.model_name,
             coordinates=self.fields,
             tangents=self.field_derivatives,
             basis=basis,
-            eom=[],
+            eom_fields=eoms,
+            eom_h=constraint_h,
+            eom_hdot=eom_h,
             potential=self.V,
             gradient_square=gradnorm,
             hesse_cmp=H_proj,

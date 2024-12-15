@@ -19,17 +19,18 @@
 
 from .compiler import CompilationArtifact, Compiler
 
-from .symbolic import InflationModel, SymbolicCalculation
+from .symbolic import InflationModel, InflationModelBuilder
 
 from .version import __version__
 
 from . import consistency_conditions
+from . import background
 
 __all__ = [
     "CompilationArtifact",
     "Compiler",
     "InflationModel",
-    "SymbolicCalculation",
+    "InflationModelBuilder",
     "consistency_conditions",
     "background",
     "__version__",
