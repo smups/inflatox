@@ -21,6 +21,8 @@ from .compiler import CompilationArtifact, Compiler
 
 from .symbolic import InflationModel, SymbolicCalculation
 
+from .version import __version__
+
 from . import consistency_conditions
 
 __all__ = [
@@ -29,4 +31,6 @@ __all__ = [
     "InflationModel",
     "SymbolicCalculation",
     "consistency_conditions",
+    "background",
+    "__version__",
 ]
