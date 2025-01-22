@@ -291,7 +291,12 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         self.display(sympy.Matrix(basis[0]), lhs=sympy.symbols("v"))
 
         if guesses is None and self.dim == 2:
-            basis.append([-basis[0][1], basis[0][0]])
+            w = [0, 0]
+            w_cov = [-basis[0][1], basis[0][0]]
+            for a in range(self.dim):
+                for b in range(self.dim):
+                    w[a] += self.g.inv()[a, b] * w_cov[b]
+            basis.append(w)
             self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols("w_1"))
         elif guesses is None:
             raise Exception("guesses argument cannot be None if model has more than two fields")
@@ -615,3 +620,59 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             for b in range(self.dim):
                 V_proj = V_proj + hesse_matrix[a][b] * v1[a] * v2[b]
         return self.simplify_expr(V_proj)
+
+    def compute_eom(self):
+        """This function calculates the equations of motion for the second-order time derivatives
+        of the coordinate fields.
+
+        ### Precise formulation of calculated quantities
+        The multifield equations of motion can be recast in the following form:
+             χ'^a + Γ^a_bc χ^b χ^c + ∇V = 0
+             φ'^a - χ^a = 0
+             H' + 3H^2 - V = 0
+        The components of the first equation are computed by this function for all fields.
+        """
+        connection = self.christoffels()
+        out = [0 for _ in range(self.dim)]
+        for a in range(self.dim):
+            conn_term = 0
+            grad_term = 0
+            for b in range(self.dim):
+                for c in range(self.dim):
+                    conn_term += (
+                        connection[a][b][c] * self.field_derivatives[b] * self.field_derivatives[c]
+                    )
+                grad_term += self.g.inv()[a, b] * sympy.diff(self.V, self.fields[b])
+            conn_term = self.expand_and_factor_expr(conn_term)
+            grad_term = self.expand_and_factor_expr(grad_term)
+            out[a] = conn_term + grad_term
+        return [self.simplify_expr(outi) for outi in out]
+
+    def compute_eom_h(self):
+        """This function calculates the constraint equation for the Hubble parameter.
+
+        ### Precise formulation of calculated quantitites
+        We compute H from the fields and their derivatives:
+            3H² = V + 1/2 G_ab χ^a χ^b
+            => H = √[(V + 1/2 G_ab χ^a χ^b) / 3]
+        """
+        out = self.V
+        for a in range(self.dim):
+            for b in range(self.dim):
+                out += self.g[a, b] * self.field_derivatives[a] * self.field_derivatives[b]
+        out = self.expand_and_factor_expr(out)
+        return self.sqrt_and_denest_expr(out / 3)
+
+    def compute_eom_hdot(self):
+        """This function computes the equation of motion for the Hubble parameter.
+
+        ### Precise formulation of calculated quantities
+        We compute H' from the fields and their derivatives:
+            H' = -1/2 G_ab χ^a χ^b
+        """
+        out = 0
+        for a in range(self.dim):
+            for b in range(self.dim):
+                out -= self.g[a, b] * self.field_derivatives[a] * self.field_derivatives[b]
+        out /= sympy.nsimplify(2)
+        return self.expand_and_factor_expr(out)
