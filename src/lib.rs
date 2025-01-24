@@ -24,13 +24,17 @@
 )]
 
 mod anguelova;
+mod background_solver;
+mod dylib;
 mod err;
 mod hesse_bindings;
 mod inflatox_version;
+// mod rk;
 
 use std::sync::LazyLock;
 
-use hesse_bindings::InflatoxDylib;
+use dylib::InflatoxDylib;
+use hesse_bindings::*;
 use inflatox_version::InflatoxVersion;
 
 use ndarray as nd;
@@ -43,7 +47,7 @@ type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 /// Version of Inflatox ABI that this crate is compatible with
-pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([4, 0, 0]);
+pub const V_INFLX_ABI: InflatoxVersion = InflatoxVersion::new([5, 0, 0]);
 
 // Badge in front of inflatox output
 pub static BADGE: LazyLock<console::StyledObject<&'static str>> = LazyLock::new(|| {
@@ -72,6 +76,9 @@ fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(on_trajectory::consistency_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(on_trajectory::consistency_rapidturn_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(on_trajectory::epsilon_v_only, pymod)?)?;
+
+  pymod.add_function(wrap_pyfunction!(background_solver::solve_eom_rk4, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(background_solver::solve_eom_rkf, pymod)?)?;
 
   Ok(())
 }
@@ -118,9 +125,9 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape() != [self.0.get_n_fields()] {
+    if x.shape() != [self.0.n_fields()] {
       return Err(Error::Shape {
-        expected: vec![self.0.get_n_fields()],
+        expected: vec![self.0.n_fields()],
         got: x.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are field-space coordinates"
           .to_string(),
@@ -130,9 +137,9 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != [self.0.get_n_params()] {
+    if p.shape() != [self.0.n_pars()] {
       return Err(Error::Shape {
-        expected: vec![self.0.get_n_params()],
+        expected: vec![self.0.n_pars()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
       });
@@ -140,7 +147,7 @@ impl InflatoxPyDyLib {
     let p = p.as_slice().unwrap();
 
     //(4) Calculate
-    Ok(self.0.potential(x, p))
+    Ok(Potential::new(&self.0)?.potential(x, p))
   }
 
   fn potential_array(
@@ -156,7 +163,7 @@ impl InflatoxPyDyLib {
 
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape().len() != self.0.get_n_fields() {
+    if x.shape().len() != self.0.n_fields() {
       return Err(Error::Shape {
         expected: Vec::new(),
         got: x.shape().to_vec(),
@@ -167,13 +174,13 @@ impl InflatoxPyDyLib {
     }
 
     //(2) Convert start_stop array
-    let start_stop = convert_start_stop(start_stop.view(), self.0.get_n_fields())?;
+    let start_stop = convert_start_stop(start_stop.view(), self.0.n_fields())?;
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != [self.0.get_n_params()] {
+    if p.shape() != [self.0.n_pars()] {
       return Err(Error::Shape {
-        expected: vec![self.0.get_n_params()],
+        expected: vec![self.0.n_pars()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
       });
@@ -181,7 +188,7 @@ impl InflatoxPyDyLib {
     let p = p.as_slice().unwrap();
 
     //(4) Evaluate the potential
-    self.0.potential_array(x, p, &start_stop);
+    Potential::new(&self.0)?.potential_array(x, p, &start_stop);
 
     Ok(())
   }
@@ -198,9 +205,9 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if x.shape() != [self.0.get_n_fields()] {
+    if x.shape() != [self.0.n_fields()] {
       return Err(Error::Shape {
-        expected: vec![self.0.get_n_fields()],
+        expected: vec![self.0.n_fields()],
         got: x.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are field-space coordinates"
           .to_string(),
@@ -210,9 +217,9 @@ impl InflatoxPyDyLib {
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != [self.0.get_n_params()] {
+    if p.shape() != [self.0.n_pars()] {
       return Err(Error::Shape {
-        expected: vec![self.0.get_n_params()],
+        expected: vec![self.0.n_pars()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
       });
@@ -220,7 +227,7 @@ impl InflatoxPyDyLib {
     let p = p.as_slice().unwrap();
 
     //(4) Calculate
-    Ok(PyArray2::from_owned_array_bound(py, self.0.hesse(x, p)))
+    Ok(PyArray2::from_owned_array(py, Hesse::new(&self.0)?.hesse(x, p)))
   }
 
   fn hesse_array<'py>(
@@ -238,9 +245,9 @@ impl InflatoxPyDyLib {
 
     //(1) Make sure that the number of supplied fields matches the number
     //specified by the dynamic lib
-    if nx.len() != self.0.get_n_fields() {
+    if nx.len() != self.0.n_fields() {
       return Err(Error::Shape {
-        expected: vec![self.0.get_n_fields()],
+        expected: vec![self.0.n_fields()],
         got: vec![nx.len()],
         msg: "expected a 1D array with as many elements as there are field-space coordinates"
           .to_string(),
@@ -248,13 +255,13 @@ impl InflatoxPyDyLib {
     }
 
     //(2) Convert start_stop array
-    let start_stop = convert_start_stop(start_stop.view(), self.0.get_n_fields())?;
+    let start_stop = convert_start_stop(start_stop.view(), self.0.n_fields())?;
 
     //(3) Make sure that the number of supplied model parameters matches the number
     //specified by the dynamic lib
-    if p.shape() != [self.0.get_n_params()] {
+    if p.shape() != [self.0.n_pars()] {
       return Err(Error::Shape {
-        expected: vec![self.0.get_n_params()],
+        expected: vec![self.0.n_pars()],
         got: p.shape().to_vec(),
         msg: "expected a 1D array with as many elements as there are model parameters".to_string(),
       });
@@ -262,7 +269,7 @@ impl InflatoxPyDyLib {
     let p = p.as_slice().unwrap();
 
     //(4) Evaluate the hesse matrix
-    let out = self.0.hesse_array(nx, p, &start_stop);
-    Ok(PyArrayDyn::from_owned_array_bound(py, out))
+    let out = Hesse::new(&self.0)?.hesse_array(nx, p, &start_stop);
+    Ok(PyArrayDyn::from_owned_array(py, out))
   }
 }

@@ -19,4 +19,4 @@
 import importlib.metadata
 
 __version__ = importlib.metadata.version("inflatox")
-__abi_version__ = "4.0.0"
+__abi_version__ = "5.0.0"

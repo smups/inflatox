@@ -22,7 +22,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import textwrap
 from datetime import datetime
 from sys import version as sys_version
 
@@ -109,6 +108,8 @@ class CInflatoxPrinter(C99CodePrinter):
     def get_symbol(self, symbol: sympy.Symbol) -> str | None:
         """Returns string representing sympy symbol"""
         sym_name = super()._print_Symbol(symbol)
+        if sym_name.startswith("cse"):
+            return sym_name
         if self.coord_dict.get(sym_name) is not None:
             return self.coord_dict[sym_name]
         elif self.dotcoord_dict.get(sym_name) is not None:
@@ -284,7 +285,7 @@ class Compiler:
 
     ## Special function support
     By passing `link_gsl=True` to the constructor of this class, the GSL will be linked by the final
-    binary. This allows inflatox to map some special functons from `scipy` to their GSL counterparts.
+    binary. This allows inflatox to map some special functions from `scipy` to their GSL counterparts.
     Currently supported functions are:
     - Bessel functions (besselj, besseli, besselk, bessely, jn and yn)
     - Hypergeometric functions (2F1, 2F0, 1F1 and 2F0)
@@ -304,6 +305,8 @@ class Compiler:
         "-march=native",
         "-shared",
         "-std=c17",
+        "-fno-math-errno",
+        "-fno-signed-zeros",
     ]
     # The linker option -Wl --no-as-needed is required on Fedora/Redhat based systems. It could
     # very well be the case that this does not work on Debian/Ubuntu based systems.
@@ -316,6 +319,7 @@ class Compiler:
         cleanup: bool = True,
         silent: bool = False,
         link_gsl: bool = False,
+        cse: bool = False,
         compiler_flags: list[str] | None = None,
     ):
         """Constructor for a C Compiler (provided by zig-cc), which can be used
@@ -344,6 +348,8 @@ class Compiler:
         - `link_gsl` (bool, optional): enables experimental gsl (GNU Scientific Library) support for
           output binary. This enables some special functions to be compiled by inflatox. Enabling this
           binary requires the gls library to be installed and available to the linker. Defaults to False.
+        - `cse` (bool, optional): if `True`, common subexpressions will be split into variables.
+          This enables additional optimizations by the compiler, BUT MAY BREAK CODE! Defaults to False.
         - `compiler_flags` (list(str)|None, optional): replace default compiler flags with user-supplied
           ones. Make sure to link libmath and libgsl/libgslcblas (if link_gls==True). The default compiler
           flags can be found under `Compiler.default_zigcc_flags` and `Compiler.gsl_zigcc_flags`.
@@ -360,6 +366,7 @@ class Compiler:
         self.cleanup = cleanup
         self.silent = silent
         self.gsl = link_gsl
+        self.cse = cse
         self.zigcc_opts = [flag for flag in self.default_zigcc_flags]
         # Add gsl linker flags
         if link_gsl:
@@ -369,83 +376,95 @@ class Compiler:
         if compiler_flags is not None:
             self.zigcc_opts = compiler_flags
 
+    def _generate_c_function(
+        self, signature: str, body: sympy.Expr, printer: CInflatoxPrinter
+    ) -> str:
+        out = signature + "{\n"
+        """Generates a function body from the provided expression"""
+        if self.cse:
+
+            def symbol_generator():
+                num = 0
+                while True:
+                    yield sympy.symbols(f"cse{num}")
+                    num += 1
+
+            cse_list = sympy.cse(body, symbols=symbol_generator(), order="none", list=False)
+            if not self.silent:
+                print(f"Found {len(cse_list[0])} common subexpressions")
+            for cse_symbol, cse_definition in cse_list[0]:
+                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};\n"
+            out += f"    return {printer.doprint(cse_list[1])}{';\n}\n'}"
+        else:
+            out += f"    return {printer.doprint(body)}{';\n}\n'}"
+        return out + "\n"
+
     def _generate_c_file(self):
         """Generates C source file from Hesse matrix specified by the constructor"""
         # Initialise C-code printer
         fields = self.symbolic_out.coordinates
         dotfields = self.symbolic_out.coordinate_tangents
-        ccode_writer = (
+        printer = (
             GSLInflatoxPrinter(fields, dotfields)
             if self.gsl
             else CInflatoxPrinter(fields, dotfields)
         )
 
+        if not self.silent and self.cse:
+            print("Converting sympy to C using common subexpression elimination...")
         contents = ""
 
         # Write potential
-        potential_body = textwrap.fill(
-            ccode_writer.doprint(self.symbolic_out.potential).replace(", ", ","),
-            width=100,
-            tabsize=4,
-            break_long_words=False,
-            break_on_hyphens=False,
-        ).replace("\n", "\n    ")
-        contents += f"""
-double V(const double x[], const double args[]) {{
-  return {potential_body};
-}}
-"""
+        contents += self._generate_c_function(
+            "double V(const double x[], const double args[])", self.symbolic_out.potential, printer
+        )
+
         # Write all the components of the Hesse matrix
         for a in range(self.symbolic_out.dim):
             for b in range(self.symbolic_out.dim):
-                function_body = ccode_writer.doprint(self.symbolic_out.hesse_cmp[a][b]).replace(
-                    ")*", ") *\n    "
+                contents += self._generate_c_function(
+                    f"double v{a}{b}(const double x[], const double args[])",
+                    self.symbolic_out.hesse_cmp[a][b],
+                    printer,
                 )
-                contents += f"""
-double v{a}{b}(const double x[], const double args[]) {{
-  return {function_body};
-}}
-"""
+
         # Write all the components of the first basis vector (gradient)
         for idx, cmp in enumerate(self.symbolic_out.basis[0]):
-            function_body = ccode_writer.doprint(cmp).replace(")*", ") *\n    ")
-            contents += f"""
-double g{idx}(const double x[], const double args[]) {{
-  return {function_body};
-}}
-"""
+            contents += self._generate_c_function(
+                f"double g{idx}(const double x[], const double args[])", cmp, printer
+            )
+
         # Write the size of the gradient
-        gradnorm_body = ccode_writer.doprint(self.symbolic_out.gradient_square).replace(
-            ")*", ") *\n    "
+        contents += self._generate_c_function(
+            "double grad_norm_squared(const double x[], const double args[])",
+            self.symbolic_out.gradient_square,
+            printer,
         )
-        contents += f"""
-double grad_norm_squared(const double x[], const double args[]) {{
-  return {gradnorm_body};
-}} 
-"""
+
         # Write the equations of motion
         for a in range(self.symbolic_out.dim):
-            function_body = ccode_writer.doprint(self.symbolic_out.eom_fields[a])
-            contents += f"""
-double eom{a}(const double x[], const double xdot[], const double args[]) {{
-    return {function_body};
-}}                
-"""
-        # Write the equations of motion for the hubble parameter
-        contents += f"""
-double eomh(const double x[], const double xdot[], const double args[]) {{
-    return {ccode_writer.doprint(self.symbolic_out.eom_h)};    
-}}
+            contents += self._generate_c_function(
+                f"double eom{a}(const double x[], const double xdot[], const double args[])",
+                self.symbolic_out.eom_fields[a],
+                printer,
+            )
 
-double eomhdot(const double x[], const double xdot[], const double args[]) {{
-    return {ccode_writer.doprint(self.symbolic_out.eom_hdot)};
-}}
-"""
+        # Write the equations of motion for the hubble parameter
+        contents += self._generate_c_function(
+            "double eomh(const double x[], const double xdot[], const double args[])",
+            self.symbolic_out.eom_h,
+            printer,
+        )
+        contents += self._generate_c_function(
+            "double eomhdot(const double x[], const double xdot[], const double args[])",
+            self.symbolic_out.eom_hdot,
+            printer,
+        )
 
         # Output to actual file
         with self.output_file as out:
             # Write preamble
-            out.write(ccode_writer.print_preamble(self.symbolic_out.model_name))
+            out.write(printer.print_preamble(self.symbolic_out.model_name))
 
             # Write global constants
             v = __abi_version__.split(".")
@@ -455,18 +474,19 @@ const uint16_t VERSION[3] = {{{v[0]},{v[1]},{v[2]}}};
 //Number of fields (dimensionality of the scalar manifold)
 const uint32_t DIM = {self.symbolic_out.dim};
 //Number of parameters
-const uint32_t N_PARAMTERS = {len(ccode_writer.param_dict)};
+const uint32_t N_PARAMETERS = {len(printer.param_dict)};
 //Model name
 char *const MODEL_NAME = \"{self.symbolic_out.model_name}\";
 // Gsl flag
 const char USE_GSL = {1 if self.gsl else 0};
+
 """)
             # Write actual file contents
             out.write(contents)
 
         # Update symbol dictionary
-        self.symbol_dict = ccode_writer.coord_dict
-        self.symbol_dict.update(ccode_writer.param_dict)
+        self.symbol_dict = printer.coord_dict
+        self.symbol_dict.update(printer.param_dict)
 
     def _zigcc_compile_and_link(self):
         source_path = f"{self.output_file.name}"
