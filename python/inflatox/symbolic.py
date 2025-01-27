@@ -50,6 +50,7 @@ class InflationModel:
         eom_h: sympy.Expr,
         eom_hdot: sympy.Expr,
         potential: sympy.Expr,
+        metric: list[list[sympy.Expr]],
         gradient_square: sympy.Expr,
         hesse_cmp: list[list[sympy.Expr]],
     ):
@@ -63,10 +64,15 @@ class InflationModel:
         self.eom_h = eom_h
         self.eom_hdot = eom_hdot
         self.potential = potential
+        self.metric = metric
         self.gradient_square = gradient_square
         if len(hesse_cmp[0]) != len(hesse_cmp):
             raise Exception(
                 "The Hesse matrix is square; the provided list was not (number of columns != number of rows)"
+            )
+        if len(metric[0]) != len(metric):
+            raise Exception(
+                "The metric tensor is square; the provided list was not (number of columns != number of rows)"
             )
         if len(hesse_cmp[0]) != len(basis[0]):
             raise Exception("The provided Hesse Matrix and basis are of different dimensionality")
@@ -85,6 +91,7 @@ model name: {self.model_name}
 dimensionality: {self.dim} field(s)
 coordinates: {[f for f in self.coordinates]}
 potential: {self.potential}
+metric: {sympy.Matrix(self.metric)}
 basis vectors (cntr. var.): {[sympy.Matrix(vec) for vec in self.basis]}
 hesse matrix: {sympy.Matrix(self.hesse_cmp)}
     """
@@ -184,15 +191,15 @@ class InflationModelBuilder:
     ):
         """Internal constructor"""
         assert len(field_metric) == len(field_metric[0]), "field metric should be square"
-        assert len(field_metric) == len(
-            fields
-        ), "number of fields must match dimensionality of metric tensor"
+        assert len(field_metric) == len(fields), (
+            "number of fields must match dimensionality of metric tensor"
+        )
 
         self.model_name = model_name
         self.dim = len(fields)
         self.fields = fields
         self.field_derivatives = sympy.symbols([f"\\dot{{{sympy.latex(phi)}}}" for phi in fields])
-        self.g = sympy.Matrix(field_metric)
+        self.metric = field_metric
         self.V = potential
         self.assertions = assertions
         self.silent = silent
@@ -279,9 +286,9 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         `InflationModel`
         """
         if guesses is not None:
-            assert (
-                len(guesses) == self.dim - 1
-            ), "number of guessed vectors must equal the number of fields minus one (n-1)"
+            assert len(guesses) == self.dim - 1, (
+                "number of guessed vectors must equal the number of fields minus one (n-1)"
+            )
 
         # Calculate an orthonormal basis
         # ...starting with a vector parallel to the potential gradient
@@ -293,9 +300,10 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         if guesses is None and self.dim == 2:
             w = [0, 0]
             w_cov = [-basis[0][1], basis[0][0]]
+            metric_inv = sympy.Matrix(self.metric).inv()
             for a in range(self.dim):
                 for b in range(self.dim):
-                    w[a] += self.g.inv()[a, b] * w_cov[b]
+                    w[a] += metric_inv[a, b] * w_cov[b]
             basis.append(w)
             self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols("w_1"))
         elif guesses is None:
@@ -304,20 +312,20 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             # followed by other gramm-schmidt produced vectors
             for i, guess in enumerate(guesses):
                 basis.append(self.gramm_schmidt(basis, guess))
-                self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols(f"w_{i+1}"))
+                self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols(f"w_{i + 1}"))
 
         # make sure the basis is orthonormal
         if self.assertions:
             for a in range(self.dim):
                 for b in range(self.dim):
                     if a == b:
-                        assert sympy.Eq(
-                            1, self.inner_prod(basis[a], basis[b])
-                        ).simplify(), "normalisation error: v•v does not equal 1"
+                        assert sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify(), (
+                            "normalisation error: v•v does not equal 1"
+                        )
                     else:
-                        assert sympy.Eq(
-                            0, self.inner_prod(basis[a], basis[b])
-                        ).simplify(), "orthogonality error: v•w does not equal 0"
+                        assert sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify(), (
+                            "orthogonality error: v•w does not equal 0"
+                        )
 
         # Calculate the components of the covariant Hesse Matrix
         self.print("Calculating covariant Hesse matrix...")
@@ -372,6 +380,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             eom_h=constraint_h,
             eom_hdot=eom_h,
             potential=self.V,
+            metric=self.metric,
             gradient_square=gradnorm,
             hesse_cmp=H_proj,
         )
@@ -390,7 +399,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         dot = 0
         for a in range(self.dim):
             for b in range(self.dim):
-                dot += self.g[a, b] * v1[a] * v2[b]
+                dot += self.metric[a][b] * v1[a] * v2[b]
         return self.expand_and_factor_expr(dot)
 
     def normalize(self, vec: list[sympy.Expr]) -> list[sympy.Expr]:
@@ -407,7 +416,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         normsq = 0
         for a in range(self.dim):
             for b in range(self.dim):
-                normsq += self.g[a, b] * vec[a] * vec[b]
+                normsq += self.metric[a][b] * vec[a] * vec[b]
         normsq = sympy.cancel(normsq) if self.simplify else normsq
 
         # Try to get rid of nested square roots
@@ -430,7 +439,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         """
         # Implementation taken from Einsteinpy's christoffel.py (licensed under MIT)
         gammas = np.zeros((self.dim, self.dim, self.dim), dtype=int).tolist()
-        mat = sympy.Matrix(self.g)
+        mat = sympy.Matrix(self.metric)
         matinv = mat.inv()
         for t in range(self.dim**3):
             # i,j,k each goes from 0 to (self.dim-1)
@@ -505,9 +514,10 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         out = 0.0
 
         # contract v with the inverse of the metric tensor
+        metric_inv = sympy.Matrix(self.metric).inv()
         for a in range(dim):
             for b in range(dim):
-                out += self.g.inv()[a, b] * gradient[a] * gradient[b]
+                out += metric_inv[a, b] * gradient[a] * gradient[b]
         try:
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 out = sympy.factor(sympy.expand(out))
@@ -532,10 +542,11 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         v = self.normalize(v)
 
         # contract v with the inverse of the metric tensor
+        metric_inv = sympy.Matrix(self.metric).inv()
         vup = [0 for _ in v]
         for a in range(self.dim):
             for b in range(self.dim):
-                vup[a] += self.g.inv()[a, b] * v[b]
+                vup[a] += metric_inv[a, b] * v[b]
         return [self.simplify_expr(vupi) for vupi in vup]
 
     def gramm_schmidt(
@@ -634,6 +645,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         """
         connection = self.christoffels()
         out = [0 for _ in range(self.dim)]
+        metric_inv = sympy.Matrix(self.metric).inv()
         for a in range(self.dim):
             conn_term = 0
             grad_term = 0
@@ -642,7 +654,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
                     conn_term += (
                         connection[a][b][c] * self.field_derivatives[b] * self.field_derivatives[c]
                     )
-                grad_term += self.g.inv()[a, b] * sympy.diff(self.V, self.fields[b])
+                grad_term += metric_inv[a, b] * sympy.diff(self.V, self.fields[b])
             conn_term = self.expand_and_factor_expr(conn_term)
             grad_term = self.expand_and_factor_expr(grad_term)
             out[a] = conn_term + grad_term
@@ -651,7 +663,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
     def compute_eom_h(self):
         """This function calculates the constraint equation for the Hubble parameter.
 
-        ### Precise formulation of calculated quantitites
+        ### Precise formulation of calculated quantities
         We compute H from the fields and their derivatives:
             3H² = V + 1/2 G_ab χ^a χ^b
             => H = √[(V + 1/2 G_ab χ^a χ^b) / 3]
@@ -659,7 +671,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         out = self.V
         for a in range(self.dim):
             for b in range(self.dim):
-                out += self.g[a, b] * self.field_derivatives[a] * self.field_derivatives[b]
+                out += self.metric[a][b] * self.field_derivatives[a] * self.field_derivatives[b]
         out = self.expand_and_factor_expr(out)
         return self.sqrt_and_denest_expr(out / 3)
 
@@ -673,6 +685,6 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         out = 0
         for a in range(self.dim):
             for b in range(self.dim):
-                out -= self.g[a, b] * self.field_derivatives[a] * self.field_derivatives[b]
+                out -= self.metric[a][b] * self.field_derivatives[a] * self.field_derivatives[b]
         out /= sympy.nsimplify(2)
         return self.expand_and_factor_expr(out)

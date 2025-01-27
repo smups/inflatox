@@ -320,6 +320,7 @@ class Compiler:
         silent: bool = False,
         link_gsl: bool = False,
         cse: bool = False,
+        max_cses: int = 1000,
         compiler_flags: list[str] | None = None,
     ):
         """Constructor for a C Compiler (provided by zig-cc), which can be used
@@ -350,6 +351,9 @@ class Compiler:
           binary requires the gls library to be installed and available to the linker. Defaults to False.
         - `cse` (bool, optional): if `True`, common subexpressions will be split into variables.
           This enables additional optimizations by the compiler, BUT MAY BREAK CODE! Defaults to False.
+        - `max_cses` (int, optional): maximum number of common subexpressions within a single function.
+           This limit is set primarily to avoid hitting an infinite loop when translating sympy
+           expressions to C functions using common subexpression elimination. Defaults to 1000.
         - `compiler_flags` (list(str)|None, optional): replace default compiler flags with user-supplied
           ones. Make sure to link libmath and libgsl/libgslcblas (if link_gls==True). The default compiler
           flags can be found under `Compiler.default_zigcc_flags` and `Compiler.gsl_zigcc_flags`.
@@ -367,6 +371,7 @@ class Compiler:
         self.silent = silent
         self.gsl = link_gsl
         self.cse = cse
+        self.max_cses = max_cses
         self.zigcc_opts = [flag for flag in self.default_zigcc_flags]
         # Add gsl linker flags
         if link_gsl:
@@ -376,20 +381,27 @@ class Compiler:
         if compiler_flags is not None:
             self.zigcc_opts = compiler_flags
 
+    def _new_cse_generator(self):
+        """Returns a generator that yields new symbols for common subexpressions until the
+        user-specified maximum is reached.
+        """
+
+        def symbol_generator():
+            num = 0
+            while num <= self.max_cses:
+                yield sympy.symbols(f"cse{num}")
+                num += 1
+            raise Exception("Maximum number of common subexpressions reached!")
+
+        return symbol_generator()
+
     def _generate_c_function(
-        self, signature: str, body: sympy.Expr, printer: CInflatoxPrinter
+        self, fn_signature: str, body: sympy.Expr, printer: CInflatoxPrinter
     ) -> str:
-        out = signature + "{\n"
+        out = fn_signature + "{\n"
         """Generates a function body from the provided expression"""
         if self.cse:
-
-            def symbol_generator():
-                num = 0
-                while True:
-                    yield sympy.symbols(f"cse{num}")
-                    num += 1
-
-            cse_list = sympy.cse(body, symbols=symbol_generator(), order="none", list=False)
+            cse_list = sympy.cse(body, symbols=self._new_cse_generator(), order="none", list=False)
             if not self.silent:
                 print(f"Found {len(cse_list[0])} common subexpressions")
             for cse_symbol, cse_definition in cse_list[0]:
@@ -398,6 +410,58 @@ class Compiler:
         else:
             out += f"    return {printer.doprint(body)}{';\n}\n'}"
         return out + "\n"
+
+    def _generate_c_function_for_vector(
+        self, fn_signature: str, vector: list[sympy.Expr], printer: CInflatoxPrinter
+    ) -> str:
+        """Generates a function body for a vector expression"""
+        out = fn_signature + "{\n"
+        ordered_output_expr = []
+
+        # First print subexpressions (possibly common to *all* components of the vector)
+        if self.cse:
+            cse_list = sympy.cse(vector, symbols=self._new_cse_generator(), list=True)
+            if not self.silent:
+                print(f"Found {len(cse_list[0])} common subexpressions")
+            for cse_symbol, cse_definition in cse_list[0]:
+                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};\n"
+            for output_expr in cse_list[1]:
+                ordered_output_expr.append(output_expr)
+        else:
+            ordered_output_expr = vector
+
+        # Assign each element of the output vector to a component of the vector
+        for i, output_cmp in enumerate(ordered_output_expr):
+            out += f"    v_out[{i}] = {printer.doprint(output_cmp)};\n"
+        out += "    return;\n}\n\n"
+
+        return out
+
+    def _generate_c_function_for_inner_prod(self, printer: CInflatoxPrinter) -> str:
+        out = "double inner_prod(const double x[], const double args[], const double v1[], const double v2[]){\n"
+        flattened_metric = []
+        for i in range(self.symbolic_out.dim):
+            for j in range(self.symbolic_out.dim):
+                flattened_metric.append(self.symbolic_out.metric[i][j])
+        if self.cse:
+            cse_list = sympy.cse(flattened_metric, symbols=self._new_cse_generator(), list=True)
+            for cse_symbol, cse_definition in cse_list[0]:
+                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};\n"
+            flattened_metric = cse_list[1]
+
+        # Write function for outer product
+        return_expr = "0.0"
+        for i in range(self.symbolic_out.dim):
+            n = self.symbolic_out.dim * i
+            for j in range(self.symbolic_out.dim):
+                n += j
+                symbol_str = printer.doprint(flattened_metric[n])
+                if symbol_str == "0" or symbol_str == "0.0":
+                    continue
+                out += f"    const double g{i}{j} = {symbol_str};\n"
+                return_expr += f" + (g{i}{j} * v1[{i}] * v2[{j}])"
+        out += f"    return {return_expr};\n}}\n\n"
+        return out
 
     def _generate_c_file(self):
         """Generates C source file from Hesse matrix specified by the constructor"""
@@ -419,6 +483,9 @@ class Compiler:
             "double V(const double x[], const double args[])", self.symbolic_out.potential, printer
         )
 
+        # Use metric to create function for evaluating inner prods.
+        contents += self._generate_c_function_for_inner_prod(printer)
+
         # Write all the components of the Hesse matrix
         for a in range(self.symbolic_out.dim):
             for b in range(self.symbolic_out.dim):
@@ -428,11 +495,13 @@ class Compiler:
                     printer,
                 )
 
-        # Write all the components of the first basis vector (gradient)
-        for idx, cmp in enumerate(self.symbolic_out.basis[0]):
-            contents += self._generate_c_function(
-                f"double g{idx}(const double x[], const double args[])", cmp, printer
-            )
+        # Output functions for each of the basis vectors
+        for idx in range(self.symbolic_out.dim):
+            vector = self.symbolic_out.basis[idx]
+            print(vector)
+            name = "v" if idx == 0 else f"w{idx}"
+            signature = f"void {name}(const double x[], const double args[], double v_out[])"
+            contents += self._generate_c_function_for_vector(signature, vector, printer)
 
         # Write the size of the gradient
         contents += self._generate_c_function(
