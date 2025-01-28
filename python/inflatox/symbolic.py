@@ -130,7 +130,7 @@ class InflationModelBuilder:
         model_name: str | None = None,
         silent: bool = False,
         init_sympy_printing: bool = True,
-        assertions: bool = False,
+        assertions: bool = True,
         simplify: bool = True,
         simplify_timeout: float | None = None,
     ):
@@ -304,7 +304,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             for a in range(self.dim):
                 for b in range(self.dim):
                     w[a] += metric_inv[a, b] * w_cov[b]
-            basis.append(w)
+            basis.append(self.normalize(w))
             self.display(sympy.Matrix(basis[-1]), lhs=sympy.symbols("w_1"))
         elif guesses is None:
             raise Exception("guesses argument cannot be None if model has more than two fields")
@@ -317,14 +317,23 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         # make sure the basis is orthonormal
         if self.assertions:
             for a in range(self.dim):
-                for b in range(self.dim):
-                    if a == b:
-                        assert sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify(), (
-                            "normalisation error: v•v does not equal 1"
-                        )
-                    else:
-                        assert sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify(), (
-                            "orthogonality error: v•w does not equal 0"
+                for b in range(a, self.dim):
+                    try:
+                        if a == b:
+                            print(f"Testing if |w{a}|^2 = 1")
+                            assert sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify(), (
+                                f"normalisation error: |w{a}|^2 does not equal 1"
+                            )
+                        else:
+                            print(f"Testing if w{a}•w{b} = 0")
+                            assert sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify(), (
+                                f"orthogonality error: w{a}•w{b} does not equal 0"
+                            )
+                    except TypeError:
+                        raise Exception(
+                            f"normalisation error: |w{a}|² does not equal 1"
+                            if a == b
+                            else f"orthogonality error: w{a}•w{b} does not equal 0"
                         )
 
         # Calculate the components of the covariant Hesse Matrix
@@ -539,7 +548,6 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         """
         # first construct and normalize v, then raise it (this is often simpler)
         v = [sympy.diff(self.V, φ) for φ in self.fields]
-        v = self.normalize(v)
 
         # contract v with the inverse of the metric tensor
         metric_inv = sympy.Matrix(self.metric).inv()
@@ -547,6 +555,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         for a in range(self.dim):
             for b in range(self.dim):
                 vup[a] += metric_inv[a, b] * v[b]
+        vup = self.normalize(vup)
         return [self.simplify_expr(vupi) for vupi in vup]
 
     def gramm_schmidt(
