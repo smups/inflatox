@@ -25,7 +25,7 @@ use pyo3::{pyfunction, PyRef, PyResult};
 
 use crate::{
   dylib::{ExFn3, InflatoxDylib},
-  PANIC_BADGE,
+  BADGE_PANIC,
 };
 
 type Error = crate::err::LibInflxRsErr;
@@ -268,7 +268,7 @@ pub fn solve_eom_rk4(
 ) -> PyResult<()> {
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let lib = &lib.0;
   let eom = EoM::new(lib, &p)?;
   let mut out = out.as_array_mut();
@@ -306,7 +306,7 @@ pub fn solve_eom_rkf(
 ) -> PyResult<()> {
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let lib = &lib.0;
   let eom = EoM::new(lib, &p)?;
   let mut out = out.as_array_mut();

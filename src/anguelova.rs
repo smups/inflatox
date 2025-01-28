@@ -33,7 +33,7 @@ use rayon::prelude::*;
 use crate::{
   dylib::InflatoxDylib,
   hesse_bindings::{Hesse2D, Potential},
-  BADGE, PANIC_BADGE,
+  BADGE_INFO, BADGE_PANIC,
 };
 
 type Error = crate::err::LibInflxRsErr;
@@ -188,7 +188,7 @@ pub fn consistency_only(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -200,7 +200,7 @@ pub fn consistency_only(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("{}Calculating consistency condition ONLY using {num_threads} threads.", *BADGE);
+  eprintln!("{}Calculating consistency condition ONLY using {num_threads} threads.", *BADGE_INFO);
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -209,7 +209,7 @@ pub fn consistency_only(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -251,7 +251,7 @@ pub fn consistency_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -275,7 +275,7 @@ pub fn consistency_rapidturn_only(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -289,7 +289,7 @@ pub fn consistency_rapidturn_only(
   //(4) Say hello
   eprintln!(
     "{}Calculating consistency condition ONLY assuming rapid-turn using {num_threads} threads.",
-    *BADGE
+    *BADGE_INFO
   );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
@@ -299,7 +299,7 @@ pub fn consistency_rapidturn_only(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -341,7 +341,7 @@ pub fn consistency_rapidturn_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -363,7 +363,7 @@ pub fn epsilon_v_only(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -377,7 +377,7 @@ pub fn epsilon_v_only(
   //(4) Say hello
   eprintln!(
     "{}Calculating potential slow-roll parameter ε_V ONLY using {num_threads} threads.",
-    *BADGE
+    *BADGE_INFO
   );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
@@ -387,7 +387,7 @@ pub fn epsilon_v_only(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -429,7 +429,7 @@ pub fn epsilon_v_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -458,7 +458,7 @@ pub fn complete_analysis(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -477,7 +477,7 @@ pub fn complete_analysis(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("{}Calculating full analysis using {num_threads} threads.", *BADGE);
+  eprintln!("{}Calculating full analysis using {num_threads} threads.", *BADGE_INFO);
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -486,7 +486,7 @@ pub fn complete_analysis(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   // shorthand for the actual calculation
@@ -528,7 +528,7 @@ pub fn complete_analysis(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -567,7 +567,7 @@ pub fn flag_quantum_dif_py(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut x = x.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -581,7 +581,7 @@ pub fn flag_quantum_dif_py(
   //(4) Say hello
   eprintln!(
     "{}Calculating zeros of the potential gradient using {} threads.",
-    *BADGE,
+    *BADGE_INFO,
     rayon::current_num_threads()
   );
   let _ = std::io::stderr().flush();
@@ -600,7 +600,7 @@ pub fn flag_quantum_dif_py(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -642,7 +642,7 @@ pub mod on_trajectory {
     let lib = &lib.0;
     let p = p
       .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x = x.as_array();
     let mut out = out.as_array_mut();
 
@@ -665,7 +665,7 @@ pub mod on_trajectory {
       })?
     }
 
-    eprintln!("{}Calculating full analysis on trajectory using {num_threads} threads.", *BADGE);
+    eprintln!("{}Calculating full analysis on trajectory using {num_threads} threads.", *BADGE_INFO);
     let _ = std::io::stderr().flush();
     let start = std::time::Instant::now();
 
@@ -674,9 +674,9 @@ pub mod on_trajectory {
     let len = out.shape()[0];
     let out = out
       .as_slice_mut()
-      .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x =
-      x.as_slice().unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      x.as_slice().unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     if threads == 1 {
       //Single-threaded mode
@@ -702,7 +702,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculation finished. Took {}.",
-      *BADGE,
+      *BADGE_INFO,
       indicatif::HumanDuration(start.elapsed())
     );
 
@@ -727,11 +727,11 @@ pub mod on_trajectory {
     let lib = &lib.0;
     let p = p
       .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x = x.as_array();
     let out = out
       .as_slice_mut()
-      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     // validate that the input slices are all the correct shape etc.
     let (h, g) = validate_lib(lib)?;
@@ -747,7 +747,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculating consistency condition ONLY on trajectory using {num_threads} threads.",
-      *BADGE
+      *BADGE_INFO
     );
     let _ = std::io::stderr().flush();
     let start = std::time::Instant::now();
@@ -757,7 +757,7 @@ pub mod on_trajectory {
     let len = out.len();
     let x = x
       .as_slice()
-      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     if threads == 1 {
       //Single-threaded mode
@@ -783,7 +783,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculation finished. Took {}.",
-      *BADGE,
+      *BADGE_INFO,
       indicatif::HumanDuration(start.elapsed())
     );
 
@@ -808,11 +808,11 @@ pub mod on_trajectory {
     let lib = &lib.0;
     let p = p
       .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x = x.as_array();
     let out = out
       .as_slice_mut()
-      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     // validate that the input slices are all the correct shape etc.
     let (h, g) = validate_lib(lib)?;
@@ -828,7 +828,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculating consistency condition (rapid turn approx.) ONLY on trajectory using {num_threads} threads.",
-      *BADGE
+      *BADGE_INFO
     );
     let _ = std::io::stderr().flush();
     let start = std::time::Instant::now();
@@ -838,7 +838,7 @@ pub mod on_trajectory {
     let len = out.len();
     let x = x
       .as_slice()
-      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     if threads == 1 {
       //Single-threaded mode
@@ -864,7 +864,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculation finished. Took {}.",
-      *BADGE,
+      *BADGE_INFO,
       indicatif::HumanDuration(start.elapsed())
     );
 
@@ -889,11 +889,11 @@ pub mod on_trajectory {
     let lib = &lib.0;
     let p = p
       .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x = x.as_array();
     let out = out
       .as_slice_mut()
-      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     // validate that the input slices are all the correct shape etc.
     let (h, g) = validate_lib(lib)?;
@@ -909,7 +909,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculating potential slow-roll parameter ε_V ONLY on trajectory using {num_threads} threads.",
-      *BADGE
+      *BADGE_INFO
     );
     let _ = std::io::stderr().flush();
     let start = std::time::Instant::now();
@@ -919,7 +919,7 @@ pub mod on_trajectory {
     let len = out.len();
     let x = x
       .as_slice()
-      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     if threads == 1 {
       //Single-threaded mode
@@ -945,7 +945,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculation finished. Took {}.",
-      *BADGE,
+      *BADGE_INFO,
       indicatif::HumanDuration(start.elapsed())
     );
 

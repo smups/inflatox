@@ -1,6 +1,3 @@
-use std::marker::PhantomData;
-use std::mem::zeroed;
-
 /*
   Copyright© 2023 Raúl Wolters(*)
 
@@ -24,7 +21,7 @@ use std::mem::zeroed;
 use ndarray as nd;
 
 use crate::dylib::{ExFn2, ExVecFn, InflatoxDylib};
-use crate::PANIC_BADGE;
+use crate::BADGE_PANIC;
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
@@ -34,11 +31,6 @@ pub struct Potential<'a> {
   potential: ExFn2,
   grad: ExVecFn,
   grad_square: ExFn2,
-}
-
-pub struct Basis<'a, const N: usize> {
-  vecs: [ExVecFn; N],
-  _phantom: PhantomData<&'a u8>,
 }
 
 impl<'a> Potential<'a> {
@@ -60,8 +52,8 @@ impl<'a> Potential<'a> {
   /// Panics the length of ` x` is smaller than the number of fields or if the lenght of `p` is
   /// smaller than the number of parameters.
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
+    assert!(x.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
     unsafe { (self.potential)(x.as_ptr(), p.as_ptr()) }
   }
 
@@ -74,8 +66,8 @@ impl<'a> Potential<'a> {
   /// fields of the loaded model. Similarly, if `p.len()` does not equal the
   /// number of model parameters, this function will panic.
   pub fn potential_array(&self, mut x: nd::ArrayViewMutD<f64>, p: &[f64], start_stop: &[[f64; 2]]) {
-    assert!(x.shape().len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
+    assert!(x.shape().len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
     // Convert start-stop ranges
     let (spacings, offsets) = start_stop
       .iter()
@@ -99,9 +91,9 @@ impl<'a> Potential<'a> {
   /// Panics the length of ` x` is smaller than the number of fields or if the lenght of `p` is
   /// smaller than the number of parameters.
   pub fn grad(&self, x: &[f64], p: &[f64], out: &mut [f64]) {
-    assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    assert!(out.len() <= self.lib.n_fields(), "{}", *PANIC_BADGE);
+    assert!(x.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
+    assert!(out.len() <= self.lib.n_fields(), "{}", *BADGE_PANIC);
     unsafe { (self.grad)(x.as_ptr(), p.as_ptr(), out.as_mut_ptr()) };
   }
 
@@ -112,8 +104,8 @@ impl<'a> Potential<'a> {
   /// Panics the length of ` x` is smaller than the number of fields or if the lenght of `p` is
   /// smaller than the number of parameters.
   pub fn grad_square(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
+    assert!(x.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
     unsafe { (self.grad_square)(x.as_ptr(), p.as_ptr()) }
   }
 }
@@ -138,8 +130,8 @@ impl<'a> Hesse<'a> {
   /// the loaded model. Similarly, if `p.len()` does not equal the number of
   /// model parameters, this function will panic.
   pub fn hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
-    assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
+    assert!(x.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
     self.hesse.mapv(|func| unsafe { func(x.as_ptr(), p.as_ptr()) })
   }
 
@@ -162,8 +154,8 @@ impl<'a> Hesse<'a> {
     start_stop: &[[f64; 2]],
   ) -> nd::ArrayD<f64> {
     let n_fields = self.lib.n_fields();
-    assert!(x_shape.len() == n_fields, "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
+    assert!(x_shape.len() == n_fields, "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
 
     // Convert start-stop ranges
     let (spacings, offsets) = start_stop
@@ -219,22 +211,22 @@ impl<'a> Hesse2D<'a> {
 
   #[inline(always)]
   pub fn v00(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
+    assert!(x.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
     unsafe { self.fns[0](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
   pub fn v10(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
+    assert!(x.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
     unsafe { self.fns[2](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
   pub fn v11(&self, x: &[f64], p: &[f64]) -> f64 {
-    assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
-    assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
+    assert!(x.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{}", *BADGE_PANIC);
     unsafe { self.fns[3](x.as_ptr(), p.as_ptr()) }
   }
 }
