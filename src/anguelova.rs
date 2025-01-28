@@ -164,7 +164,9 @@ mod ops {
 
   #[inline(always)]
   pub fn flag_quantum_diff(x: [f64; 2], p: &[f64], accuracy: f64, g: &Potential<'_>) -> bool {
-    (g.grad_component(&x, p, 0).abs() <= accuracy) & (g.grad_component(&x, p, 1).abs() <= accuracy)
+    let mut out = [0f64; 2];
+    g.grad(&x, &p, &mut out);
+    out.iter().all(|&x| x <= accuracy)
   }
 }
 

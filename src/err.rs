@@ -32,6 +32,7 @@ pub enum LibInflxRsErr {
   Version(InflatoxVersion),
   Rayon(String),
   Shape { expected: Vec<usize>, got: Vec<usize>, msg: String },
+  FieldDim { expected: u32, got: u32, msg: String },
 }
 
 impl std::fmt::Display for LibInflxRsErr {
@@ -48,7 +49,8 @@ impl std::fmt::Display for LibInflxRsErr {
       },
       Version(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
       Rayon(msg) => write!(f, "Could not initialise threadpool. Error: \"{msg}\""),
-      Shape { expected, got, msg } => write!(f, "Expected array with shape {expected:?}, received array with shape {got:?}. Context: {msg}")
+      Shape { expected, got, msg } => write!(f, "Expected array with shape {expected:?}, received array with shape {got:?}. Context: {msg}"),
+      FieldDim { expected, got, msg } => write!(f, "Field-space index {got} out of range for {expected}-dimensional model. Context: {msg}"),
     }
   }
 }
@@ -62,7 +64,7 @@ impl From<LibInflxRsErr> for pyo3::PyErr {
     match err {
       Io { .. } => PyIOError::new_err(msg),
       MissingSymbol { .. } | Version(_) | Rayon(_) => PySystemError::new_err(msg),
-      Shape { .. } => PyException::new_err(msg),
+      Shape { .. } | FieldDim { .. } => PyException::new_err(msg),
     }
   }
 }

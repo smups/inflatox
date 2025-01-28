@@ -32,34 +32,32 @@ use crate::inflatox_version::InflatoxVersion;
 const INFLATOX_VERSION_SYM: &[u8; 7] = b"VERSION";
 const MODEL_NAME_SYM: &[u8; 10] = b"MODEL_NAME";
 const USE_GSL_SYM: &[u8; 7] = b"USE_GSL";
-const SYM_DIM_SYM: &[u8; 3] = b"DIM";
+const DIM_SYM: &[u8; 3] = b"DIM";
 const PARAM_DIM_SYM: &[u8; 12] = b"N_PARAMETERS";
 const POTENTIAL_SYM: &[u8; 1] = b"V";
+const METRIC_SYM: &[u8; 10] = b"inner_prod";
 const GRADIENT_SQUARE_SYM: &[u8; 17] = b"grad_norm_squared";
 const EOM_SYM: &[u8; 3] = b"eom";
 const HUBBLE_CONSTRAINT_SYM: &[u8; 4] = b"eomh";
 const GSL_INIT_SYM: &[u8; 9] = b"err_setup";
 
-pub type ExFn = extern "C" fn(*const f64, *const f64) -> f64;
-pub type FnEoM = extern "C" fn(*const f64, *const f64, *const f64) -> f64;
-type InitFn = unsafe extern "C" fn(crate::err::GslErrHandler);
-type FnLib<'a> = libloading::Symbol<'a, ExFn>;
-type FnInitLib<'a> = libloading::Symbol<'a, InitFn>;
-type IntLib<'a> = libloading::Symbol<'a, *const u32>;
-type ArrayLib<'a> = libloading::Symbol<'a, *const [u16; 3]>;
-type StrLib<'a> = libloading::Symbol<'a, *const c_char>;
+pub type ExFn2 = unsafe extern "C" fn(*const f64, *const f64) -> f64;
+pub type ExFn3 = unsafe extern "C" fn(*const f64, *const f64, *const f64) -> f64;
+pub type ExFn4 = unsafe extern "C" fn(*const f64, *const f64, *const f64, *const f64) -> f64;
+pub type ExVecFn = unsafe extern "C" fn(*const f64, *const f64, *mut f64) -> std::ffi::c_void;
+type ExInitFn = unsafe extern "C" fn(crate::err::GslErrHandler);
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 pub struct InflatoxDylib {
-  lib: libloading::Library,
+  dylib_handle: libloading::Library,
   model_name: String,
   path: PathBuf,
   n_fields: u32,
   n_param: u32,
-  potential: ExFn,
-  grad_square: ExFn,
+  potential: ExFn2,
+  grad_square: ExFn2,
 }
 
 impl InflatoxDylib {
@@ -78,28 +76,31 @@ impl InflatoxDylib {
 
     // Check if the artefact is compatible with our version of libinflx
     let inflatox_version = unsafe {
-      *lib
-        .get::<ArrayLib>(INFLATOX_VERSION_SYM)
+      lib
+        .get::<*const [u16; 3]>(INFLATOX_VERSION_SYM)
         .map_err(|_err| Error::MissingSymbol {
           lib_path: libp_string.clone(),
           symbol: INFLATOX_VERSION_SYM.to_vec(),
         })
-        .map(|ptr| **ptr as *mut InflatoxVersion)?
+        .map(|inner| std::mem::transmute::<_, *const InflatoxVersion>(inner))?
     };
-    if inflatox_version != crate::V_INFLX_ABI {
-      return Err(Error::Version(inflatox_version));
+    // Why not cast the crate::V_INFLX_ABI to a *const? Unlike when comparing references, comparing
+    // pointers does not compare the values behind the pointers, but the pointers themselves, which
+    // is not what we want here
+    if &unsafe { *inflatox_version } != &crate::V_INFLX_ABI {
+      return Err(Error::Version(unsafe { *inflatox_version }));
     }
 
     // Get number of fields and number of parameters
     let n_fields = unsafe {
-      ***lib.get::<IntLib>(SYM_DIM_SYM).map_err(|_err| Error::MissingSymbol {
+      **lib.get::<*const u32>(DIM_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
-        symbol: SYM_DIM_SYM.to_vec(),
+        symbol: DIM_SYM.to_vec(),
       })?
     };
 
     let n_param = unsafe {
-      ***lib.get::<IntLib>(PARAM_DIM_SYM).map_err(|_err| Error::MissingSymbol {
+      **lib.get::<*const u32>(PARAM_DIM_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: PARAM_DIM_SYM.to_vec(),
       })?
@@ -107,9 +108,8 @@ impl InflatoxDylib {
 
     // Parse model name
     let mname_raw = unsafe {
-      let mname_ptr = **lib.get::<StrLib>(MODEL_NAME_SYM).map_err(|_err| Error::MissingSymbol {
-        lib_path: libp_string.clone(),
-        symbol: MODEL_NAME_SYM.to_vec(),
+      let mname_ptr = *lib.get::<*const c_char>(MODEL_NAME_SYM).map_err(|_err| {
+        Error::MissingSymbol { lib_path: libp_string.clone(), symbol: MODEL_NAME_SYM.to_vec() }
       })?;
       std::ffi::CStr::from_ptr(mname_ptr)
     };
@@ -117,7 +117,7 @@ impl InflatoxDylib {
 
     // Get potential hesse, and gradient components
     let potential = unsafe {
-      **lib.get::<FnLib>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbol {
+      *lib.get::<ExFn2>(POTENTIAL_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: POTENTIAL_SYM.to_vec(),
       })?
@@ -125,7 +125,7 @@ impl InflatoxDylib {
 
     // Get the size of the gradient squared (special quantity)
     let grad_square = unsafe {
-      **lib.get::<FnLib>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbol {
+      *lib.get::<ExFn2>(GRADIENT_SQUARE_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: GRADIENT_SQUARE_SYM.to_vec(),
       })?
@@ -133,14 +133,14 @@ impl InflatoxDylib {
 
     // Check if the library uses the GSL, and initialise if this is the case
     let gsl: c_char = unsafe {
-      ***lib.get::<StrLib>(USE_GSL_SYM).map_err(|_err| Error::MissingSymbol {
+      **lib.get::<*const c_char>(USE_GSL_SYM).map_err(|_err| Error::MissingSymbol {
         lib_path: libp_string.clone(),
         symbol: MODEL_NAME_SYM.to_vec(),
       })?
     };
     if gsl == 1 {
       let gsl_init_fn = unsafe {
-        **lib.get::<FnInitLib>(GSL_INIT_SYM).map_err(|_err| Error::MissingSymbol {
+        *lib.get::<ExInitFn>(GSL_INIT_SYM).map_err(|_err| Error::MissingSymbol {
           lib_path: libp_string.clone(),
           symbol: MODEL_NAME_SYM.to_vec(),
         })?
@@ -150,7 +150,7 @@ impl InflatoxDylib {
 
     // Return the fully constructed obj
     Ok(InflatoxDylib {
-      lib,
+      dylib_handle: lib,
       model_name,
       path: PathBuf::from(lib_path),
       n_fields,
@@ -160,9 +160,9 @@ impl InflatoxDylib {
     })
   }
 
-  pub fn get_hesse_cmp(&self) -> Result<nd::Array2<ExFn>> {
+  pub fn get_hesse_cmp(&self) -> Result<nd::Array2<ExFn2>> {
     let dim = nd::Dim([self.n_fields as usize, self.n_fields as usize]);
-    let mut array: nd::Array2<MaybeUninit<ExFn>> = nd::Array2::uninit(dim);
+    let mut array: nd::Array2<MaybeUninit<ExFn2>> = nd::Array2::uninit(dim);
 
     for (idx, uninit) in array.indexed_iter_mut() {
       let raw_symbol = &[
@@ -171,7 +171,7 @@ impl InflatoxDylib {
         char::from_digit(idx.1 as u32, 10).unwrap() as u32 as u8,
       ];
       let symbol = unsafe {
-        **self.lib.get::<FnLib>(raw_symbol).map_err(|_err| Error::MissingSymbol {
+        *self.dylib_handle.get::<ExFn2>(raw_symbol).map_err(|_err| Error::MissingSymbol {
           lib_path: self.path.to_string_lossy().into_owned(),
           symbol: raw_symbol.to_vec(),
         })?
@@ -182,32 +182,85 @@ impl InflatoxDylib {
     Ok(unsafe { array.assume_init() })
   }
 
-  pub fn get_grad_cmp(&self) -> Result<Box<[ExFn]>> {
-    (0..self.n_fields as usize)
-      .map(|fidx| unsafe {
-        let mut symbol = Vec::new();
-        symbol.write_fmt(format_args!("g{fidx}")).unwrap();
-        self
-          .lib
-          .get::<FnLib>(&symbol)
-          .map_err(|_err| Error::MissingSymbol {
-            lib_path: self.path.to_string_lossy().into_owned(),
-            symbol,
-          })
-          .map(|x| **x)
+  pub fn get_basis_fn(&self, idx: u32) -> Result<ExVecFn> {
+    if idx > self.n_fields {
+      return Err(Error::FieldDim {
+        expected: self.n_fields,
+        got: idx,
+        msg: "number of field-space basis vectors is limited to the number of scalar fields"
+          .to_string(),
+      });
+    }
+
+    if idx == 0 {
+      unsafe { self.dylib_handle.get::<ExVecFn>(b"v") }
+        .map_err(|_err| Error::MissingSymbol {
+          symbol: vec![b"v"[0]],
+          lib_path: self.path.to_string_lossy().into_owned(),
+        })
+        .map(|x| *x)
+    } else {
+      let mut symbol = Vec::new();
+      symbol.write_fmt(format_args!("w{idx}")).unwrap();
+      unsafe { self.dylib_handle.get::<ExVecFn>(&symbol) }
+        .map_err(|_err| Error::MissingSymbol {
+          symbol,
+          lib_path: self.path.to_string_lossy().into_owned(),
+        })
+        .map(|x| *x)
+    }
+  }
+
+  pub fn get_basis_fns(&self) -> Result<Box<[ExVecFn]>> {
+    (0..self.n_fields())
+      .map(|fidx| {
+        if fidx == 0 {
+          unsafe { self.dylib_handle.get::<ExVecFn>(b"v") }
+            .map_err(|_err| Error::MissingSymbol {
+              symbol: vec![b"v"[0]],
+              lib_path: self.path.to_string_lossy().into_owned(),
+            })
+            .map(|x| *x)
+        } else {
+          let mut symbol = Vec::with_capacity(3);
+          symbol.write_fmt(format_args!("w{fidx}")).unwrap();
+          unsafe {
+            self
+              .dylib_handle
+              .get::<ExVecFn>(&symbol)
+              .map_err(|_err| Error::MissingSymbol {
+                symbol,
+                lib_path: self.path.to_string_lossy().into_owned(),
+              })
+              .map(|x| *x)
+          }
+        }
       })
       .collect()
   }
 
-  pub fn get_eom(&self) -> Result<Box<[FnEoM]>> {
+  pub fn get_inner_prod_fn(&self) -> Result<ExFn4> {
+    unsafe {
+      self
+        .dylib_handle
+        .get::<ExFn4>(METRIC_SYM)
+        .map_err(|_err| Error::MissingSymbol {
+          symbol: METRIC_SYM.to_vec(),
+          lib_path: self.path.to_string_lossy().into_owned(),
+        })
+        .map(|x| *x)
+    }
+  }
+
+  pub fn get_eom(&self) -> Result<Box<[ExFn3]>> {
     (0..self.n_fields())
       .map(|fidx| unsafe {
-        let mut symbol = Vec::new();
+        let mut symbol = Vec::with_capacity(EOM_SYM.len());
         symbol.extend_from_slice(EOM_SYM);
         symbol.extend_from_slice(format!("{fidx}").as_bytes());
         self
-          .lib
-          .get::<FnEoM>(&symbol)
+          .dylib_handle
+          .get::<ExFn3>(&symbol)
           .map_err(|_err| Error::MissingSymbol {
             symbol,
             lib_path: self.path.to_string_lossy().into_owned(),
@@ -217,11 +270,11 @@ impl InflatoxDylib {
       .collect()
   }
 
-  pub fn get_hubble_constraint(&self) -> Result<FnEoM> {
+  pub fn get_hubble_constraint(&self) -> Result<ExFn3> {
     unsafe {
       self
-        .lib
-        .get::<FnEoM>(HUBBLE_CONSTRAINT_SYM)
+        .dylib_handle
+        .get::<ExFn3>(HUBBLE_CONSTRAINT_SYM)
         .map_err(|_err| Error::MissingSymbol {
           symbol: HUBBLE_CONSTRAINT_SYM.to_vec(),
           lib_path: self.path.to_string_lossy().into_owned(),
@@ -231,12 +284,12 @@ impl InflatoxDylib {
   }
 
   #[inline(always)]
-  pub const fn grad_square(&self) -> ExFn {
+  pub const fn grad_square(&self) -> ExFn2 {
     self.grad_square
   }
 
   #[inline(always)]
-  pub const fn potential(&self) -> ExFn {
+  pub const fn potential(&self) -> ExFn2 {
     self.potential
   }
 
@@ -252,7 +305,7 @@ impl InflatoxDylib {
     &self,
     symbol: &[u8],
   ) -> std::result::Result<libloading::Symbol<T>, libloading::Error> {
-    self.lib.get(symbol)
+    self.dylib_handle.get(symbol)
   }
 
   #[inline(always)]

@@ -1,3 +1,6 @@
+use std::marker::PhantomData;
+use std::mem::zeroed;
+
 /*
   Copyright© 2023 Raúl Wolters(*)
 
@@ -20,7 +23,7 @@
 */
 use ndarray as nd;
 
-use crate::dylib::{ExFn, InflatoxDylib};
+use crate::dylib::{ExFn2, ExVecFn, InflatoxDylib};
 use crate::PANIC_BADGE;
 
 type Error = crate::err::LibInflxRsErr;
@@ -28,9 +31,14 @@ type Result<T> = std::result::Result<T, Error>;
 
 pub struct Potential<'a> {
   lib: &'a InflatoxDylib,
-  potential: ExFn,
-  grad: Box<[ExFn]>,
-  grad_square: ExFn,
+  potential: ExFn2,
+  grad: ExVecFn,
+  grad_square: ExFn2,
+}
+
+pub struct Basis<'a, const N: usize> {
+  vecs: [ExVecFn; N],
+  _phantom: PhantomData<&'a u8>,
 }
 
 impl<'a> Potential<'a> {
@@ -39,7 +47,8 @@ impl<'a> Potential<'a> {
     Ok(Potential {
       lib,
       potential: lib.potential(),
-      grad: lib.get_grad_cmp()?,
+      // 0th basis function is always the normalised gradient
+      grad: lib.get_basis_fn(0)?,
       grad_square: lib.grad_square(),
     })
   }
@@ -53,7 +62,7 @@ impl<'a> Potential<'a> {
   pub fn potential(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    (self.potential)(x.as_ptr(), p.as_ptr())
+    unsafe { (self.potential)(x.as_ptr(), p.as_ptr()) }
   }
 
   /// Calculate scalar potential all field-space coordinates in the array `x`,
@@ -79,7 +88,7 @@ impl<'a> Potential<'a> {
       field_space_point.clear();
       field_space_point
         .extend((0..self.lib.n_fields()).map(|i| idx[i] as f64 * spacings[i] + offsets[i]));
-      *val = (self.potential)(field_space_point.as_ptr(), p.as_ptr());
+      *val = unsafe { (self.potential)(field_space_point.as_ptr(), p.as_ptr()) };
     }
   }
 
@@ -89,10 +98,11 @@ impl<'a> Potential<'a> {
   /// # Panics
   /// Panics the length of ` x` is smaller than the number of fields or if the lenght of `p` is
   /// smaller than the number of parameters.
-  pub fn grad_component(&self, x: &[f64], p: &[f64], idx: usize) -> f64 {
+  pub fn grad(&self, x: &[f64], p: &[f64], out: &mut [f64]) {
     assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    self.grad[idx](x.as_ptr(), p.as_ptr())
+    assert!(out.len() <= self.lib.n_fields(), "{}", *PANIC_BADGE);
+    unsafe { (self.grad)(x.as_ptr(), p.as_ptr(), out.as_mut_ptr()) };
   }
 
   #[inline(always)]
@@ -104,13 +114,13 @@ impl<'a> Potential<'a> {
   pub fn grad_square(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    (self.grad_square)(x.as_ptr(), p.as_ptr())
+    unsafe { (self.grad_square)(x.as_ptr(), p.as_ptr()) }
   }
 }
 
 pub struct Hesse<'a> {
   lib: &'a InflatoxDylib,
-  hesse: nd::Array2<ExFn>,
+  hesse: nd::Array2<ExFn2>,
 }
 
 impl<'a> Hesse<'a> {
@@ -130,7 +140,7 @@ impl<'a> Hesse<'a> {
   pub fn hesse(&self, x: &[f64], p: &[f64]) -> nd::Array2<f64> {
     assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    self.hesse.mapv(|func| func(x.as_ptr(), p.as_ptr()))
+    self.hesse.mapv(|func| unsafe { func(x.as_ptr(), p.as_ptr()) })
   }
 
   /// Calculate the projected hesse matrix at a number of field-space coordinates.
@@ -182,7 +192,7 @@ impl<'a> Hesse<'a> {
           // Calculate the ijth matrix element
           let x_ptr = field_space_point.as_ptr();
           let p_ptr = p.as_ptr();
-          *val = (self.hesse[(i, j)])(x_ptr, p_ptr);
+          *val = unsafe { (self.hesse[(i, j)])(x_ptr, p_ptr) };
         })
       });
     });
@@ -192,7 +202,7 @@ impl<'a> Hesse<'a> {
 
 pub struct Hesse2D<'a> {
   lib: &'a InflatoxDylib,
-  fns: [ExFn; 4],
+  fns: [ExFn2; 4],
 }
 
 impl<'a> Hesse2D<'a> {
@@ -211,20 +221,20 @@ impl<'a> Hesse2D<'a> {
   pub fn v00(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    self.fns[0](x.as_ptr(), p.as_ptr())
+    unsafe { self.fns[0](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
   pub fn v10(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    self.fns[2](x.as_ptr(), p.as_ptr())
+    unsafe { self.fns[2](x.as_ptr(), p.as_ptr()) }
   }
 
   #[inline(always)]
   pub fn v11(&self, x: &[f64], p: &[f64]) -> f64 {
     assert!(x.len() == self.lib.n_fields(), "{}", *PANIC_BADGE);
     assert!(p.len() == self.lib.n_pars(), "{}", *PANIC_BADGE);
-    self.fns[3](x.as_ptr(), p.as_ptr())
+    unsafe { self.fns[3](x.as_ptr(), p.as_ptr()) }
   }
 }

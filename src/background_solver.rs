@@ -24,7 +24,7 @@ use numpy::{PyReadonlyArray1, PyReadwriteArray2};
 use pyo3::{pyfunction, PyRef, PyResult};
 
 use crate::{
-  dylib::{FnEoM, InflatoxDylib},
+  dylib::{ExFn3, InflatoxDylib},
   PANIC_BADGE,
 };
 
@@ -35,7 +35,7 @@ type Result<T> = std::result::Result<T, Error>;
 struct EoM<'a> {
   lib: &'a InflatoxDylib,
   pars: &'a [f64],
-  eqs: Box<[FnEoM]>,
+  eqs: Box<[ExFn3]>,
 }
 
 impl<'a> EoM<'a> {
@@ -60,12 +60,12 @@ impl<'a> EoM<'a> {
 
   #[cfg(test)]
   pub fn test_instance(lib: &'a InflatoxDylib) -> Self {
-    extern "C" fn test_eom(x: *const f64, xdot: *const f64, _pars: *const f64) -> f64 {
+    unsafe extern "C" fn test_eom(x: *const f64, xdot: *const f64, _pars: *const f64) -> f64 {
       23.0
     }
-    let eqs = Vec::from([test_eom]);
+    let eqs = vec![test_eom as ExFn3].into_boxed_slice();
     let pars = Box::<[_; 0]>::leak(Box::new([]));
-    EoM { lib, pars, eqs: eqs.into_boxed_slice() }
+    EoM { lib, pars, eqs }
   }
 }
 
@@ -278,7 +278,7 @@ pub fn solve_eom_rk4(
   // The hubble paramter is as-of-yet undefined. We use the constraint equation to initialise it
   let (hubble, rest) = previous_step.split_last_mut().unwrap();
   let (x, xdot) = rest.split_at_mut(lib.n_fields());
-  *hubble = (lib.get_hubble_constraint()?)(x.as_ptr(), xdot.as_ptr(), p.as_ptr());
+  *hubble = unsafe { (lib.get_hubble_constraint()?)(x.as_ptr(), xdot.as_ptr(), p.as_ptr()) };
 
   for mut row in out.axis_iter_mut(nd::Axis(0)).into_iter() {
     // Copy previous row into this one
@@ -316,7 +316,7 @@ pub fn solve_eom_rkf(
   // The hubble paramter is as-of-yet undefined. We use the constraint equation to initialise it
   let (hubble, rest) = previous_step.split_last_mut().unwrap();
   let (x, xdot) = rest.split_at_mut(lib.n_fields());
-  *hubble = (lib.get_hubble_constraint()?)(x.as_ptr(), xdot.as_ptr(), p.as_ptr());
+  *hubble = unsafe { (lib.get_hubble_constraint()?)(x.as_ptr(), xdot.as_ptr(), p.as_ptr()) };
 
   for mut row in out.axis_iter_mut(nd::Axis(0)).into_iter() {
     // Copy previous row into this one
