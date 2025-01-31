@@ -142,8 +142,8 @@ mod ops {
   #[inline(always)]
   pub fn consistency_only(x: [f64; 2], p: &[f64], h: &Hesse2D<'_>) -> f64 {
     let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
-    let lhs = v11 / v - 3.;
-    let rhs = 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
+    let lhs = v11 / v;
+    let rhs = 3. + 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
     (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
   }
