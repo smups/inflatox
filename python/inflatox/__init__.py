@@ -11,27 +11,28 @@
 #  A PARTICULAR PURPOSE. See the European Union Public License for more details.
 #
 #  You should have received a copy of the EUPL in an/all official language(s) of
-#  the European Union along with Inflatox.  If not, see
+#  the European Union along with Inflatox.  If not, see 
 #  <https://ec.europa.eu/info/european-union-public-licence_en/>.
 #
 #  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
 #  licensee subject to Dutch law as per article 15 of the EUPL.
 
-from .compiler import CompilationArtifact, Compiler
+from .compiler import (
+  CompilationArtifact,
+  Compiler
+)
 
-from .symbolic import InflationModel, InflationModelBuilder
-
-from .version import __version__
+from .symbolic import (
+  SymbolicOutput,
+  SymbolicCalculation
+)
 
 from . import consistency_conditions
-from . import background
 
 __all__ = [
-    "CompilationArtifact",
-    "Compiler",
-    "InflationModel",
-    "InflationModelBuilder",
-    "consistency_conditions",
-    "background",
-    "__version__",
+  'CompilationArtifact',
+  'Compiler',
+  'SymbolicOutput',
+  'SymbolicCalculation',
+  'consistency_conditions'
 ]

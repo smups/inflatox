@@ -25,16 +25,13 @@ use pyo3::exceptions::PyException;
 
 use crate::inflatox_version::InflatoxVersion;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibInflxRsErr {
   Io { lib_path: String, msg: String },
   MissingSymbol { symbol: Vec<u8>, lib_path: String },
   Version(InflatoxVersion),
   Rayon(String),
   Shape { expected: Vec<usize>, got: Vec<usize>, msg: String },
-  FieldDim { expected: u32, got: u32, msg: String },
-  BasisNorm { norm: f64, vector: u32, point: Vec<f64> },
-  BasisOth { inner_prod: f64, vectors: (u32, u32), point: Vec<f64> },
 }
 
 impl std::fmt::Display for LibInflxRsErr {
@@ -51,10 +48,7 @@ impl std::fmt::Display for LibInflxRsErr {
       },
       Version(v) => write!(f, "Cannot load Inflatox Compilation Artefact compiled for Inflatox ABI {v} using current Inflatox installation ({})", crate::V_INFLX_ABI),
       Rayon(msg) => write!(f, "Could not initialise threadpool. Error: \"{msg}\""),
-      Shape { expected, got, msg } => write!(f, "Expected array with shape {expected:?}, received array with shape {got:?}. Context: {msg}"),
-      FieldDim { expected, got, msg } => write!(f, "Field-space index {got} out of range for {expected}-dimensional model. Context: {msg}"),
-      BasisNorm { norm, vector, point } => write!(f, "Expected basis vector {vector} to be normalised everywhere in the models domain. Instead, found norm {norm} at {point:#.03?}."),
-      BasisOth { inner_prod, vectors: (v1, v2), point } => write!(f, "Expected basis vectors w{v1} and w{v2} to be orthogonal everywhere in the model's domain. Instead, found inner product {inner_prod} at {point:#.03?}.")
+      Shape { expected, got, msg } => write!(f, "Expected array with shape {expected:?}, received array with shape {got:?}. Context: {msg}")
     }
   }
 }
@@ -68,7 +62,7 @@ impl From<LibInflxRsErr> for pyo3::PyErr {
     match err {
       Io { .. } => PyIOError::new_err(msg),
       MissingSymbol { .. } | Version(_) | Rayon(_) => PySystemError::new_err(msg),
-      _ => PyException::new_err(msg),
+      Shape { .. } => PyException::new_err(msg),
     }
   }
 }
@@ -96,7 +90,7 @@ pub unsafe extern "C" fn rust_panic_handler(
   let cyan = console::Style::new().cyan();
   let msg = cyan.apply_to("Error message:");
 
-  println!("{}a GSL exception ocurred {}", *super::BADGE_PANIC, errcode);
+  println!("{}a GSL exception ocurred {}", *super::PANIC_BADGE, errcode);
   println!("{msg} {reason_str:#?}");
   println!("In {file_str:#?} line number {lineno}");
   panic!();

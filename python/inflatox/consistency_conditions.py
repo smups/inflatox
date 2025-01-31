@@ -35,19 +35,9 @@ class InflationCondition:
     into the Rust API or C ABI.
     """
 
-    def __init__(self, compiled_artifact: CompilationArtifact, validate_basis: bool = True):
-        """Passes compiled model to lib_inflx_rs.
-
-        ### Args:
-        - `compiled_artifact` (`CompilationArtifact`): output of `Compiler` (see its docs)
-        - `validate_basis` (`bool`, optional): if `True`, lib_inflx_rs will check that the
-          field-space basis defined in the `CompilationArtifact` is orthonormal
-          at some number of random field-space points for with random parameter values. It will
-          throw an exception if this is not the case. You may disable this if inflatox picks
-          random points outside the domain of your model.
-        """
+    def __init__(self, compiled_artifact: CompilationArtifact):
         self.artifact = compiled_artifact
-        self.dylib = open_inflx_dylib(compiled_artifact.shared_object_path, validate_basis)
+        self.dylib = open_inflx_dylib(compiled_artifact.shared_object_path)
 
     def calc_V(self, x: np.ndarray, args: np.ndarray) -> float:
         """calculates the scalar potential at field-space coordinates `x` with
@@ -94,7 +84,9 @@ class InflationCondition:
         coordinates
         """
         n_fields = self.artifact.n_fields
-        start_stop = np.array([[float(start), float(stop)] for (start, stop) in zip(start, stop)])
+        start_stop = np.array(
+            [[float(start), float(stop)] for (start, stop) in zip(start, stop)]
+        )
         N = N if N is not None else (8000 for _ in range(n_fields))
         x = np.zeros(N)
         self.dylib.potential_array(x, args, start_stop)
@@ -153,7 +145,9 @@ class InflationCondition:
             [[float(x0_start), float(x0_stop)], [float(x1_start), float(x1_stop)]]
         )
         N = N if N is not None else (8000 for _ in range(n_fields))
-        return self.dylib.hesse_array(np.array(n_fields, dtype=np.int64), args, start_stop)
+        return self.dylib.hesse_array(
+            np.array(n_fields, dtype=np.int64), args, start_stop
+        )
 
 
 class GeneralisedAL(InflationCondition):
@@ -629,7 +623,9 @@ class GeneralisedAL(InflationCondition):
         threads = threads if threads is not None else 1
 
         # evaluate and return
-        consistency_rapidturn_only_on_trajectory(self.dylib, args, x, out, progress, threads)
+        consistency_rapidturn_only_on_trajectory(
+            self.dylib, args, x, out, progress, threads
+        )
         return out
 
     def epsilon_v_ot(
