@@ -30,14 +30,17 @@ use numpy::{
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-use crate::hesse_bindings::{Grad, Hesse2D, InflatoxDylib};
-use crate::{BADGE, PANIC_BADGE};
+use crate::{
+  dylib::InflatoxDylib,
+  hesse_bindings::{Hesse2D, Potential},
+  BADGE_INFO, BADGE_PANIC,
+};
 
 type Error = crate::err::LibInflxRsErr;
 type Result<T> = std::result::Result<T, Error>;
 
 fn set_pbar(len: usize) -> ProgressBar {
-  const PBAR_REFRESH: u8 = 5;
+  const PBAR_REFRESH: u8 = 2;
   const PBAR_STYLE: &str =
     "Time to completion: {eta:<.0}\nOperations/s: {per_sec}\n{bar:40.magenta/gray} {percent}%";
   let style = ProgressStyle::default_bar().template(PBAR_STYLE).unwrap();
@@ -49,27 +52,27 @@ fn set_pbar(len: usize) -> ProgressBar {
 #[inline]
 /// Parses `lib` into `Hesse2D` and `Grad` structs if possible. Returns an error (read: model is
 /// incompatible with the AL consistency condition) otherwise.
-fn validate_lib(lib: &InflatoxDylib) -> Result<(Hesse2D<'_>, Grad<'_>)> {
+fn validate_lib(lib: &InflatoxDylib) -> Result<(Hesse2D<'_>, Potential<'_>)> {
   // The AL condition only works for 2-field models.
-  if !lib.get_n_fields() == 2 {
+  if !lib.n_fields() == 2 {
     return Err(Error::Shape {
       expected: vec![2],
-      got: vec![lib.get_n_fields()],
+      got: vec![lib.n_fields()],
       msg: "the Anguelova & Lazaroiu consistency condition requires a 2-field model.".to_string(),
     });
   }
-  Ok((Hesse2D::new(lib), Grad::new(lib)))
+  Ok((Hesse2D::new(lib)?, Potential::new(lib)?))
 }
 
 #[inline]
 /// Checks if the length of the paramter array `p` equals the number of paramters expected by the
 /// model
 fn validiate_p(lib: &InflatoxDylib, p: &[f64]) -> Result<()> {
-  if p.len() != lib.get_n_params() {
+  if p.len() != lib.n_pars() {
     return Err(Error::Shape {
       expected: vec![2],
       got: vec![p.len()],
-      msg: format!("model \"{}\" has {} paramters", lib.name(), lib.get_n_params()),
+      msg: format!("model \"{}\" has {} paramters", lib.name(), lib.n_pars()),
     });
   }
   Ok(())
@@ -97,8 +100,14 @@ mod ops {
   use super::*;
 
   #[inline(always)]
-  pub fn complete_analysis(x: [f64; 2], val: &mut [f64], h: &Hesse2D<'_>, g: &Grad<'_>, p: &[f64]) {
-    let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
+  pub fn complete_analysis(
+    x: [f64; 2],
+    val: &mut [f64],
+    h: &Hesse2D<'_>,
+    g: &Potential<'_>,
+    p: &[f64],
+  ) {
+    let (v, v11, v10, v00) = (g.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
     //(1) Calculate consistency condition
     let consistency = {
       let lhs = v11 / v;
@@ -126,13 +135,18 @@ mod ops {
   }
 
   #[inline(always)]
-  pub fn epsilon_v_only(x: [f64; 2], p: &[f64], h: &Hesse2D<'_>, g: &Grad<'_>) -> f64 {
-    0.5 * g.grad_square(&x, p) / h.potential(&x, p).powi(2)
+  pub fn epsilon_v_only(x: [f64; 2], p: &[f64], _: &Hesse2D<'_>, g: &Potential<'_>) -> f64 {
+    0.5 * g.grad_square(&x, p) / g.potential(&x, p).powi(2)
   }
 
   #[inline(always)]
-  pub fn consistency_rapidturn_only(x: [f64; 2], p: &[f64], h: &Hesse2D<'_>) -> f64 {
-    let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
+  pub fn consistency_rapidturn_only(
+    x: [f64; 2],
+    p: &[f64],
+    h: &Hesse2D<'_>,
+    g: &Potential<'_>,
+  ) -> f64 {
+    let (v, v11, v10, v00) = (g.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
     let lhs = v11 / v;
     let rhs = 3. * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
@@ -144,13 +158,16 @@ mod ops {
     let (v, v11, v10, v00) = (h.potential(&x, p), h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
     let lhs = v11 / v;
     let rhs = 3. + 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
+    
     //Return left-hand-side / right-hand-side minus one
     (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
   }
 
   #[inline(always)]
-  pub fn flag_quantum_diff(x: [f64; 2], p: &[f64], accuracy: f64, g: &Grad<'_>) -> bool {
-    (g.cmp(&x, p, 0).abs() <= accuracy) & (g.cmp(&x, p, 1).abs() <= accuracy)
+  pub fn flag_quantum_diff(x: [f64; 2], p: &[f64], accuracy: f64, g: &Potential<'_>) -> bool {
+    let mut out = [0f64; 2];
+    g.grad(&x, &p, &mut out);
+    out.iter().all(|&x| x <= accuracy)
   }
 }
 
@@ -172,19 +189,19 @@ pub fn consistency_only(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, _) = validate_lib(lib)?;
+  let (h, g) = validate_lib(lib)?;
   validiate_p(lib, p)?;
 
   //(3) Convert start-stop
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("{}Calculating consistency condition ONLY using {num_threads} threads.", *BADGE);
+  eprintln!("{}Calculating consistency condition ONLY using {num_threads} threads.", *BADGE_INFO);
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -193,7 +210,7 @@ pub fn consistency_only(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -210,9 +227,9 @@ pub fn consistency_only(
       //(2b) convert array index into field-space point
       .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
     if progress {
-      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
+      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h, &g));
     } else {
-      iter.for_each(|(x, val)| *val = op(x, p, &h));
+      iter.for_each(|(x, val)| *val = op(x, p, &h, &g));
     }
   } else {
     //Multi-threaded mode
@@ -227,15 +244,15 @@ pub fn consistency_only(
         //(2b) convert array index into field-space point
         .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
       if progress {
-        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h, &g));
       } else {
-        iter.for_each(|(x, val)| *val = op(x, p, &h));
+        iter.for_each(|(x, val)| *val = op(x, p, &h, &g));
       }
     });
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -259,12 +276,12 @@ pub fn consistency_rapidturn_only(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
   //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
-  let (h, _) = validate_lib(lib)?;
+  let (h, g) = validate_lib(lib)?;
   validiate_p(lib, p)?;
 
   //(3) Convert start-stop
@@ -273,7 +290,7 @@ pub fn consistency_rapidturn_only(
   //(4) Say hello
   eprintln!(
     "{}Calculating consistency condition ONLY assuming rapid-turn using {num_threads} threads.",
-    *BADGE
+    *BADGE_INFO
   );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
@@ -283,7 +300,7 @@ pub fn consistency_rapidturn_only(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -300,9 +317,9 @@ pub fn consistency_rapidturn_only(
       //(2b) convert array index into field-space point
       .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
     if progress {
-      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
+      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h, &g));
     } else {
-      iter.for_each(|(x, val)| *val = op(x, p, &h));
+      iter.for_each(|(x, val)| *val = op(x, p, &h, &g));
     }
   } else {
     //Multi-threaded mode
@@ -317,15 +334,15 @@ pub fn consistency_rapidturn_only(
         //(2b) convert array index into field-space point
         .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
       if progress {
-        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h, &g));
       } else {
-        iter.for_each(|(x, val)| *val = op(x, p, &h));
+        iter.for_each(|(x, val)| *val = op(x, p, &h, &g));
       }
     });
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -347,7 +364,7 @@ pub fn epsilon_v_only(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -361,7 +378,7 @@ pub fn epsilon_v_only(
   //(4) Say hello
   eprintln!(
     "{}Calculating potential slow-roll parameter ε_V ONLY using {num_threads} threads.",
-    *BADGE
+    *BADGE_INFO
   );
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
@@ -371,7 +388,7 @@ pub fn epsilon_v_only(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   //(5a) Define the calculation
@@ -413,7 +430,7 @@ pub fn epsilon_v_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -442,7 +459,7 @@ pub fn complete_analysis(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut out = out.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -461,7 +478,7 @@ pub fn complete_analysis(
   let start_stop = crate::convert_start_stop(start_stop, 2)?;
 
   //(4) Say hello
-  eprintln!("{}Calculating full analysis using {num_threads} threads.", *BADGE);
+  eprintln!("{}Calculating full analysis using {num_threads} threads.", *BADGE_INFO);
   let _ = std::io::stderr().flush();
   let start = std::time::Instant::now();
 
@@ -470,7 +487,7 @@ pub fn complete_analysis(
   let shape = &[out.shape()[0], out.shape()[1]];
   let out = out
     .as_slice_mut()
-    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
 
   // shorthand for the actual calculation
@@ -512,7 +529,7 @@ pub fn complete_analysis(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -551,7 +568,7 @@ pub fn flag_quantum_dif_py(
   let lib = &lib.0;
   let p = p
     .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
   let mut x = x.as_array_mut();
   let start_stop = start_stop.as_array();
 
@@ -565,7 +582,7 @@ pub fn flag_quantum_dif_py(
   //(4) Say hello
   eprintln!(
     "{}Calculating zeros of the potential gradient using {} threads.",
-    *BADGE,
+    *BADGE_INFO,
     rayon::current_num_threads()
   );
   let _ = std::io::stderr().flush();
@@ -584,7 +601,7 @@ pub fn flag_quantum_dif_py(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE, indicatif::HumanDuration(start.elapsed()));
+  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
 
   Ok(())
 }
@@ -626,7 +643,7 @@ pub mod on_trajectory {
     let lib = &lib.0;
     let p = p
       .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x = x.as_array();
     let mut out = out.as_array_mut();
 
@@ -649,7 +666,7 @@ pub mod on_trajectory {
       })?
     }
 
-    eprintln!("{}Calculating full analysis on trajectory using {num_threads} threads.", *BADGE);
+    eprintln!("{}Calculating full analysis on trajectory using {num_threads} threads.", *BADGE_INFO);
     let _ = std::io::stderr().flush();
     let start = std::time::Instant::now();
 
@@ -658,9 +675,9 @@ pub mod on_trajectory {
     let len = out.shape()[0];
     let out = out
       .as_slice_mut()
-      .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x =
-      x.as_slice().unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      x.as_slice().unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     if threads == 1 {
       //Single-threaded mode
@@ -686,7 +703,7 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculation finished. Took {}.",
-      *BADGE,
+      *BADGE_INFO,
       indicatif::HumanDuration(start.elapsed())
     );
 
@@ -711,173 +728,11 @@ pub mod on_trajectory {
     let lib = &lib.0;
     let p = p
       .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
     let x = x.as_array();
     let out = out
       .as_slice_mut()
-      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
-
-    // validate that the input slices are all the correct shape etc.
-    let (h, _) = validate_lib(lib)?;
-    validiate_p(lib, p)?;
-    if out.len() != x.shape()[0] {
-      Err(Error::Shape {
-        expected: vec![x.shape()[0]],
-        got: vec![out.len()],
-        msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
-          .to_string(),
-      })?
-    }
-
-    eprintln!(
-      "{}Calculating consistency condition ONLY on trajectory using {num_threads} threads.",
-      *BADGE
-    );
-    let _ = std::io::stderr().flush();
-    let start = std::time::Instant::now();
-
-    let op = ops::consistency_only;
-
-    let len = out.len();
-    let x = x
-      .as_slice()
-      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
-
-    if threads == 1 {
-      //Single-threaded mode
-      let iter = x.chunks_exact(2).zip(out.iter_mut());
-      if progress {
-        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-      } else {
-        iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-      }
-    } else {
-      //Multi-threaded mode
-      let threadpool =
-        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
-      threadpool.install(move || {
-        let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
-        if progress {
-          iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-        } else {
-          iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-        }
-      });
-    }
-
-    eprintln!(
-      "{}Calculation finished. Took {}.",
-      *BADGE,
-      indicatif::HumanDuration(start.elapsed())
-    );
-
-    Ok(())
-  }
-
-  #[pyfunction]
-  #[pyo3(name = "consistency_rapidturn_only_on_trajectory")]
-  /// TODO: add docs
-  pub fn consistency_rapidturn_only(
-    lib: PyRef<crate::InflatoxPyDyLib>,
-    p: PyReadonlyArray1<f64>,
-    x: PyReadonlyArray2<f64>,
-    mut out: PyReadwriteArray1<f64>,
-    progress: bool,
-    threads: usize,
-  ) -> PyResult<()> {
-    // get number of threads: 0 == rayon default
-    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
-
-    // convert arguments to pure rust types
-    let lib = &lib.0;
-    let p = p
-      .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
-    let x = x.as_array();
-    let out = out
-      .as_slice_mut()
-      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
-
-    // validate that the input slices are all the correct shape etc.
-    let (h, _) = validate_lib(lib)?;
-    validiate_p(lib, p)?;
-    if out.len() != x.shape()[0] {
-      Err(Error::Shape {
-        expected: vec![x.shape()[0]],
-        got: vec![out.len()],
-        msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
-          .to_string(),
-      })?
-    }
-
-    eprintln!(
-      "{}Calculating consistency condition (rapid turn approx.) ONLY on trajectory using {num_threads} threads.",
-      *BADGE
-    );
-    let _ = std::io::stderr().flush();
-    let start = std::time::Instant::now();
-
-    let op = ops::consistency_rapidturn_only;
-
-    let len = out.len();
-    let x = x
-      .as_slice()
-      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
-
-    if threads == 1 {
-      //Single-threaded mode
-      let iter = x.chunks_exact(2).zip(out.iter_mut());
-      if progress {
-        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-      } else {
-        iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-      }
-    } else {
-      //Multi-threaded mode
-      let threadpool =
-        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
-      threadpool.install(move || {
-        let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
-        if progress {
-          iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-        } else {
-          iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h));
-        }
-      });
-    }
-
-    eprintln!(
-      "{}Calculation finished. Took {}.",
-      *BADGE,
-      indicatif::HumanDuration(start.elapsed())
-    );
-
-    Ok(())
-  }
-
-  #[pyfunction]
-  #[pyo3(name = "epsilon_v_only_on_trajectory")]
-  /// TODO: add docs
-  pub fn epsilon_v_only(
-    lib: PyRef<crate::InflatoxPyDyLib>,
-    p: PyReadonlyArray1<f64>,
-    x: PyReadonlyArray2<f64>,
-    mut out: PyReadwriteArray1<f64>,
-    progress: bool,
-    threads: usize,
-  ) -> PyResult<()> {
-    // get number of threads: 0 == rayon default
-    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
-
-    // convert arguments to pure rust types
-    let lib = &lib.0;
-    let p = p
-      .as_slice()
-      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
-    let x = x.as_array();
-    let out = out
-      .as_slice_mut()
-      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     // validate that the input slices are all the correct shape etc.
     let (h, g) = validate_lib(lib)?;
@@ -892,18 +747,18 @@ pub mod on_trajectory {
     }
 
     eprintln!(
-      "{}Calculating potential slow-roll parameter ε_V ONLY on trajectory using {num_threads} threads.",
-      *BADGE
+      "{}Calculating consistency condition ONLY on trajectory using {num_threads} threads.",
+      *BADGE_INFO
     );
     let _ = std::io::stderr().flush();
     let start = std::time::Instant::now();
 
-    let op = ops::epsilon_v_only;
+    let op = ops::consistency_only;
 
     let len = out.len();
     let x = x
       .as_slice()
-      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *PANIC_BADGE));
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
 
     if threads == 1 {
       //Single-threaded mode
@@ -929,7 +784,169 @@ pub mod on_trajectory {
 
     eprintln!(
       "{}Calculation finished. Took {}.",
-      *BADGE,
+      *BADGE_INFO,
+      indicatif::HumanDuration(start.elapsed())
+    );
+
+    Ok(())
+  }
+
+  #[pyfunction]
+  #[pyo3(name = "consistency_rapidturn_only_on_trajectory")]
+  /// TODO: add docs
+  pub fn consistency_rapidturn_only(
+    lib: PyRef<crate::InflatoxPyDyLib>,
+    p: PyReadonlyArray1<f64>,
+    x: PyReadonlyArray2<f64>,
+    mut out: PyReadwriteArray1<f64>,
+    progress: bool,
+    threads: usize,
+  ) -> PyResult<()> {
+    // get number of threads: 0 == rayon default
+    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
+
+    // convert arguments to pure rust types
+    let lib = &lib.0;
+    let p = p
+      .as_slice()
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+    let x = x.as_array();
+    let out = out
+      .as_slice_mut()
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+
+    // validate that the input slices are all the correct shape etc.
+    let (h, g) = validate_lib(lib)?;
+    validiate_p(lib, p)?;
+    if out.len() != x.shape()[0] {
+      Err(Error::Shape {
+        expected: vec![x.shape()[0]],
+        got: vec![out.len()],
+        msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
+          .to_string(),
+      })?
+    }
+
+    eprintln!(
+      "{}Calculating consistency condition (rapid turn approx.) ONLY on trajectory using {num_threads} threads.",
+      *BADGE_INFO
+    );
+    let _ = std::io::stderr().flush();
+    let start = std::time::Instant::now();
+
+    let op = ops::consistency_rapidturn_only;
+
+    let len = out.len();
+    let x = x
+      .as_slice()
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+
+    if threads == 1 {
+      //Single-threaded mode
+      let iter = x.chunks_exact(2).zip(out.iter_mut());
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+      } else {
+        iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+      }
+    } else {
+      //Multi-threaded mode
+      let threadpool =
+        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
+      threadpool.install(move || {
+        let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
+        if progress {
+          iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+        } else {
+          iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+        }
+      });
+    }
+
+    eprintln!(
+      "{}Calculation finished. Took {}.",
+      *BADGE_INFO,
+      indicatif::HumanDuration(start.elapsed())
+    );
+
+    Ok(())
+  }
+
+  #[pyfunction]
+  #[pyo3(name = "epsilon_v_only_on_trajectory")]
+  /// TODO: add docs
+  pub fn epsilon_v_only(
+    lib: PyRef<crate::InflatoxPyDyLib>,
+    p: PyReadonlyArray1<f64>,
+    x: PyReadonlyArray2<f64>,
+    mut out: PyReadwriteArray1<f64>,
+    progress: bool,
+    threads: usize,
+  ) -> PyResult<()> {
+    // get number of threads: 0 == rayon default
+    let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
+
+    // convert arguments to pure rust types
+    let lib = &lib.0;
+    let p = p
+      .as_slice()
+      .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+    let x = x.as_array();
+    let out = out
+      .as_slice_mut()
+      .unwrap_or_else(|_| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+
+    // validate that the input slices are all the correct shape etc.
+    let (h, g) = validate_lib(lib)?;
+    validiate_p(lib, p)?;
+    if out.len() != x.shape()[0] {
+      Err(Error::Shape {
+        expected: vec![x.shape()[0]],
+        got: vec![out.len()],
+        msg: "Lenght of output array should equal the length of Axis(1) of the field-space array"
+          .to_string(),
+      })?
+    }
+
+    eprintln!(
+      "{}Calculating potential slow-roll parameter ε_V ONLY on trajectory using {num_threads} threads.",
+      *BADGE_INFO
+    );
+    let _ = std::io::stderr().flush();
+    let start = std::time::Instant::now();
+
+    let op = ops::epsilon_v_only;
+
+    let len = out.len();
+    let x = x
+      .as_slice()
+      .unwrap_or_else(|| panic!("{}FIELD-SPACE ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+
+    if threads == 1 {
+      //Single-threaded mode
+      let iter = x.chunks_exact(2).zip(out.iter_mut());
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+      } else {
+        iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+      }
+    } else {
+      //Multi-threaded mode
+      let threadpool =
+        rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
+      threadpool.install(move || {
+        let iter = x.par_chunks_exact(2).zip(out.par_iter_mut());
+        if progress {
+          iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+        } else {
+          iter.for_each(|(x, val)| *val = op([x[0], x[1]], p, &h, &g));
+        }
+      });
+    }
+
+    eprintln!(
+      "{}Calculation finished. Took {}.",
+      *BADGE_INFO,
       indicatif::HumanDuration(start.elapsed())
     );
 

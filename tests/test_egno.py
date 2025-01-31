@@ -49,17 +49,11 @@ def test_egno():
     superfields = [Phi, S]
     superfields_conjugate = [Phi_Bar, S_Bar]
     metric = [
-        [
-            sympy.diff(sympy.diff(K, superfields[b]), superfields_conjugate[a])
-            for a in range(0, 2)
-        ]
+        [sympy.diff(sympy.diff(K, superfields[b]), superfields_conjugate[a]) for a in range(0, 2)]
         for b in range(0, 2)
     ]
     metric = [
-        [
-            g.subs({Phi: r + 1j * θ, Phi_Bar: r - 1j * θ}).nsimplify().simplify()
-            for g in gb
-        ]
+        [g.subs({Phi: r + 1j * θ, Phi_Bar: r - 1j * θ}).nsimplify().simplify() for g in gb]
         for gb in metric
     ]
     metric = [[g.subs({S: 0, S_Bar: 0}).simplify() for g in gb] for gb in metric]
@@ -70,17 +64,11 @@ def test_egno():
         / (a**2 * (2 * r - c * (1 - 2 * r) ** 4) ** (3 * alpha))
     ).nsimplify()
 
-    hesse = inflatox.SymbolicCalculation.new_from_list(
-        fields,
-        real_metric,
-        potential,
-        model_name=model,
-        simplify_for="length",
-        simplification_depth=1,
-        silent=True,
-    ).execute([[0, 1]])
+    model = inflatox.InflationModelBuilder.new(
+        fields, real_metric, potential, model_name=model, silent=True, simplify=False
+    ).build()
 
-    out = inflatox.Compiler(hesse, silent=False).compile()
+    out = inflatox.Compiler(model, silent=False).compile()
     anguelova = GeneralisedAL(out)
 
     alpha = 1.0
