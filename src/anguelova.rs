@@ -251,7 +251,11 @@ pub fn consistency_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
+  eprintln!(
+    "{}Calculation finished. Took {}.",
+    *BADGE_INFO,
+    indicatif::HumanDuration(start.elapsed())
+  );
 
   Ok(())
 }
@@ -341,7 +345,11 @@ pub fn consistency_rapidturn_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
+  eprintln!(
+    "{}Calculation finished. Took {}.",
+    *BADGE_INFO,
+    indicatif::HumanDuration(start.elapsed())
+  );
 
   Ok(())
 }
@@ -429,7 +437,11 @@ pub fn epsilon_v_only(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
+  eprintln!(
+    "{}Calculation finished. Took {}.",
+    *BADGE_INFO,
+    indicatif::HumanDuration(start.elapsed())
+  );
 
   Ok(())
 }
@@ -528,7 +540,11 @@ pub fn complete_analysis(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
+  eprintln!(
+    "{}Calculation finished. Took {}.",
+    *BADGE_INFO,
+    indicatif::HumanDuration(start.elapsed())
+  );
 
   Ok(())
 }
@@ -600,7 +616,11 @@ pub fn flag_quantum_dif_py(
   }
 
   //(6) Report how long we took, and return.
-  eprintln!("{}Calculation finished. Took {}.", *BADGE_INFO, indicatif::HumanDuration(start.elapsed()));
+  eprintln!(
+    "{}Calculation finished. Took {}.",
+    *BADGE_INFO,
+    indicatif::HumanDuration(start.elapsed())
+  );
 
   Ok(())
 }
@@ -665,7 +685,10 @@ pub mod on_trajectory {
       })?
     }
 
-    eprintln!("{}Calculating full analysis on trajectory using {num_threads} threads.", *BADGE_INFO);
+    eprintln!(
+      "{}Calculating full analysis on trajectory using {num_threads} threads.",
+      *BADGE_INFO
+    );
     let _ = std::io::stderr().flush();
     let start = std::time::Instant::now();
 

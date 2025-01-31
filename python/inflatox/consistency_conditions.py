@@ -155,6 +155,46 @@ class InflationCondition:
         N = N if N is not None else (8000 for _ in range(n_fields))
         return self.dylib.hesse_array(np.array(n_fields, dtype=np.int64), args, start_stop)
 
+    def validate_basis_on_domain(
+        self,
+        args: list[float] | np.ndarray,
+        start: list[float] | np.ndarray,
+        stop: list[float] | np.ndarray,
+        N: list[int] | int = 100,
+        accuracy: float = 1e-3,
+    ) -> None:
+        """checks if basis is orthonormal at all points in the interval [start, stop].
+
+        If `start` and `stop` are arrays/lists, they will be interpreted as start/stop values along
+        each axis. The number of samples along each axis is specified with the `N` argument.
+
+        At each point, the basis defined in the model is constructed and it is verified that:
+            1. All vectors are normalised in the sense that (g_ab v^a v^a - 1) < accuracy.
+            2. All vectors are orthogonal in the sense that |g_ab v^a v^b| < accuracy.
+
+        ### Args
+        - `args` (`list[float] | np.ndarray`): values of the model-dependent
+        parameters. See `CompilationArtifact.print_sym_lookup_table()` for an
+        overview of which sympy symbols were mapped to which args index.
+        - `start` (`list[float] | np.ndarray`): list of minimum values for
+        each axis of the to-be-constructed array in field space.
+        - `stop` (`list[float] | np.ndarray`): list of maximum values for each
+        axis of the to-be-constructed array in field space.
+        - `N` (`int | list[int]`, optional): list of the number of samples along each axis in field
+        space. If set to a single `int`, the same number of samples will be used along each axis.
+        Defaults to 100.
+        - `accuracy` (float, optional): tolerance to within basis must be orthonormal. Defaults to
+        1e-3.
+
+        ### Returns
+        `None`. May throw an exception if the basis is malformed.
+        """
+        n_fields = self.artifact.n_fields
+        start_stop = np.array([[float(start), float(stop)] for (start, stop) in zip(start, stop)])
+        if N is int:
+            N = N * np.ones(n_fields)
+        self.dylib.validate_basis_on_domain(N, args, start_stop, accuracy)
+
 
 class GeneralisedAL(InflationCondition):
     """This class extends the generic `InflationCondition` with the generalised rapid-turn (ω>>ε^½)

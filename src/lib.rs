@@ -194,7 +194,7 @@ impl InflatoxPyDyLib {
 impl InflatoxPyDyLib {
   fn validate_basis_on_domain(
     &self,
-    x: PyReadonlyArrayDyn<f64>,
+    num_points: PyReadonlyArray1<u32>,
     p: PyReadonlyArray1<f64>,
     start_stop: PyReadonlyArray2<f64>,
     accuracy: f64,
@@ -205,15 +205,15 @@ impl InflatoxPyDyLib {
       *BADGE_INFO
     );
     let p = p.as_array();
-    let x = x.as_array();
+    let num_points = num_points.as_array();
     let start_stop = start_stop.as_array();
 
     // Make sure that the number of supplied fields matches the number
     // specified by the dynamic lib
-    if x.shape().len() != self.0.n_fields() {
+    if num_points.len() != self.0.n_fields() {
       return Err(Error::Shape {
         expected: Vec::new(),
-        got: x.shape().to_vec(),
+        got: num_points.shape().to_vec(),
         msg:
           "expected an array with with the same number of axes as there are field-space coordinates"
             .to_string(),
@@ -239,32 +239,27 @@ impl InflatoxPyDyLib {
     let inner_prod = self.0.get_inner_prod_fn()?;
     let basis_fns = self.0.get_basis_fns()?;
 
-    let (spacings, offsets) = start_stop
-      .iter()
-      .zip(x.shape().iter())
-      .map(|([start, stop], &axis_len)| ((stop - start) / axis_len as f64, *start))
-      .unzip::<_, _, Vec<_>, Vec<_>>();
-    let mut point = Vec::with_capacity(x.shape().len());
-
-    let num_points = x.len();
+    let point = start_stop.iter().map(|start_stop| start_stop[0]).collect::<Vec<_>>();
     let mut failed = 0;
-    for (idx, _) in x.indexed_iter() {
-      point
-        .iter_mut()
-        .enumerate()
-        .for_each(|(i, coord_cmp)| *coord_cmp = idx[i] as f64 * spacings[i] + offsets[i]);
+    for (axis_idx, &axis_len) in num_points.into_iter().enumerate() {
+      let [start, stop] = start_stop[axis_idx];
+      let spacing = (stop - start) / axis_len as f64;
+      (0..axis_len).into_iter().map(|idx| {
+        let mut point = point.clone();
+        point[axis_idx] = stop + spacing * idx as f64;
+        point
+      }).try_for_each(|point| {
       let mut encountered_nan = false;
       for i in 0..self.0.n_fields() {
         for j in i..self.0.n_fields() {
           // compute v1 and v2
-          unsafe { (basis_fns[i])(x.as_ptr(), p.as_ptr(), vi.as_mut_ptr()) };
-          unsafe { (basis_fns[j])(x.as_ptr(), p.as_ptr(), vj.as_mut_ptr()) };
-          let inner_prod = unsafe { inner_prod(x.as_ptr(), p.as_ptr(), vi.as_ptr(), vj.as_ptr()) };
-
+          unsafe { (basis_fns[i])(point.as_ptr(), p.as_ptr(), vi.as_mut_ptr()) };
+          unsafe { (basis_fns[j])(point.as_ptr(), p.as_ptr(), vj.as_mut_ptr()) };
+          let inner_prod = unsafe { inner_prod(point.as_ptr(), p.as_ptr(), vi.as_ptr(), vj.as_ptr()) };
           if i == j {
             if !inner_prod.is_normal() {
               eprintln!(
-                "{}Norm of basisvector {i} is {inner_prod} at field-space point {x:.03?}. v{i}={vi:.03?}\nAre we outside the model's domain?",
+                "{}Norm of basisvector {i} is {inner_prod} at field-space point {point:.03?}. v{i}={vi:.03?}\nAre we outside the model's domain?",
                 *BADGE_WARN
               );
               encountered_nan = true;
@@ -273,7 +268,7 @@ impl InflatoxPyDyLib {
             }
           } else {
             if !inner_prod.is_normal() && inner_prod != 0.0 {
-              eprintln!("{}w{i}•w{j} = {inner_prod} at field-space point {x:.03?}.\nv{i}={vi:.03?}\nv{j}={vj:.03?}\nAre we outside the model's domain?", *BADGE_WARN);
+              eprintln!("{}w{i}•w{j} = {inner_prod} at field-space point {point:.03?}.\nv{i}={vi:.03?}\nv{j}={vj:.03?}\nAre we outside the model's domain?", *BADGE_WARN);
               encountered_nan = true;
             } else if inner_prod.abs() >= accuracy {
               return Err(Error::BasisOth { inner_prod, vectors: (i as _, j as _), point });
@@ -285,10 +280,15 @@ impl InflatoxPyDyLib {
       if encountered_nan {
         failed += 1;
       }
-    }
 
-    if failed != 0 {
-      eprintln!("{}Inflatox was unable to verify basis orthonormality at {failed} out of {num_points} tested points.\nThis could be indicative of a defective model.\nUsed parameter values: p={p:.03?}", *BADGE_WARN);
+      Ok(())})?;
+
+      if failed != 0 {
+        eprintln!("{}Inflatox was unable to verify basis orthonormality at {failed} out of {} tested points.\nThis could be indicative of a defective model.\nUsed parameter values: p={p:.03?}",
+          *BADGE_WARN,
+          num_points.iter().fold(1., |acc, &num_points| acc * num_points as f64)
+        );
+      }
     }
 
     Ok(())
