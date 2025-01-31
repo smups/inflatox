@@ -282,7 +282,7 @@ class GeneralisedAL(InflationCondition):
           ||lhs| - |rhs||/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
-          rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)²
+          rhs = 3 + 3 (Vvv/Vvw)² + (Vvv/V) (Vvw/Vvv)²
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
@@ -392,7 +392,7 @@ class GeneralisedAL(InflationCondition):
           ||lhs| - |rhs||/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
-          rhs = 3 (Vvw/Vvv)²
+          rhs = 3 (Vvv/Vvw)²
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
@@ -558,7 +558,7 @@ class GeneralisedAL(InflationCondition):
           ||lhs| - |rhs||/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
-          rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)²
+          rhs = 3 + 3 (Vvv/Vvw)² + (Vvv/V) (Vvw/Vvv)²
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
@@ -600,7 +600,7 @@ class GeneralisedAL(InflationCondition):
           ||lhs| - |rhs||/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
-          rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)²
+          rhs = 3 + 3 (Vvv/Vvw)² + (Vvv/V) (Vvw/Vvv)²
 
         ### Args:
         - `args` (`np.ndarray`): values of the model-dependent parameters.
