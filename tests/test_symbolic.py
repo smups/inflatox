@@ -19,7 +19,7 @@
 
 import pytest
 import sympy
-from inflatox import InflationModelBuilder
+from inflatox import SymbolicCalculation
 
 
 @pytest.fixture
@@ -29,7 +29,9 @@ def angular_model():
     v = (alpha / 2) * ((m1 * f1) ** 2 + (m2 * f2) ** 2)
     diag = 6 * alpha / ((1 - f1**2 - f2**2) ** 2)
     metric = [[diag, 0], [0, diag]]
-    return InflationModelBuilder.new([f1, f2], metric, v, "[test] angular inflation model")
+    return SymbolicCalculation.new(
+        [f1, f2], metric, v, "[test] angular inflation model"
+    )
 
 
 @pytest.fixture
@@ -38,7 +40,9 @@ def trivial_model():
     m1, m2 = sympy.symbols("m_1 m_2")
     v = (m1 * f1) ** 2 + (m2 * f2) ** 2
     metric = [[1, 0], [0, 1]]
-    return InflationModelBuilder.new([f1, f2], metric, v, "[test] trivial inflation model")
+    return SymbolicCalculation.new(
+        [f1, f2], metric, v, "[test] trivial inflation model"
+    )
 
 
 def test_inner_prod(trivial_model):
@@ -56,17 +60,19 @@ def test_normalize(trivial_model):
 
 def test_trivial_christoffels(trivial_model):
     Gamma = trivial_model.christoffels()
-    for a in range(trivial_model.dim):
-        for b in range(trivial_model.dim):
-            for c in range(trivial_model.dim):
+    dim = len(trivial_model.coords)
+    for a in range(dim):
+        for b in range(dim):
+            for c in range(dim):
                 assert sympy.Eq(Gamma[a][b][c], 0).simplify()
 
 
 def test_angular_christoffels(angular_model):
     Gamma = angular_model.christoffels()
-    for a in range(angular_model.dim):
-        for b in range(angular_model.dim):
-            for c in range(angular_model.dim):
+    dim = len(angular_model.coords)
+    for a in range(dim):
+        for b in range(dim):
+            for c in range(dim):
                 assert sympy.Eq(Gamma[a][b][c], Gamma[a][c][b]).simplify()
 
 

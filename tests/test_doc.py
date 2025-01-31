@@ -23,35 +23,35 @@ import sympy as sp
 
 
 def test_doc_example():
-    # define model
-    r, θ, m = sp.symbols("r θ m")
-    fields = [r, θ]
+    sp.init_printing()
 
-    V = (1 / 2 * m**2 * (θ**2 - 2 / (3 * r**2))).nsimplify()
-    g = [[0.5, 0], [0, 0.5 * r**2]]
+    # define model
+    φ, θ, L, m, φ0 = sp.symbols("φ θ L m φ0")
+    fields = [φ, θ]
+
+    V = (1 / 2 * m**2 * (φ - φ0) ** 2).nsimplify()
+    g = [[1, 0], [0, L**2 * sp.sinh(φ / L) ** 2]]
 
     # symbolic calculation
-    model = inflatox.InflationModelBuilder.new(fields, g, V).build()
+    calc = inflatox.SymbolicCalculation.new(fields, g, V)
+    hesse = calc.execute()
 
     # run the compiler
-    out = inflatox.Compiler(model).compile()
-    out.print_sym_lookup_table()
+    out = inflatox.Compiler(hesse).compile()
 
     # evaluate the compiled potential and Hesse matrix
     from inflatox.consistency_conditions import GeneralisedAL
 
     anguelova = GeneralisedAL(out)
 
-    params = np.array([1.0])
+    params = np.array([1.0, 1.0, 1.0])
     x = np.array([2.0, -2.0])
-    assert anguelova.calc_V(x, params) == 1.9166666666666667
+    assert anguelova.calc_V(x, params) == 0.5
     assert np.allclose(
-        anguelova.calc_H(x, params), np.array([[0.10368764, -0.1483731], [-0.1483731, 0.03007954]])
+        anguelova.calc_H(x, params), np.array([[1.0, 0.0], [0.0, 13.6449586]])
     )
 
-    extent = [0.0, 2.5, 0.0, np.pi]
-    consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = anguelova.complete_analysis(
-        params, *extent
+    extent = [-1.0, 1.0, -1.0, 1.0]
+    consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = (
+        anguelova.complete_analysis(params, *extent)
     )
-
-    assert np.nanmax(consistency_condition) <= 1

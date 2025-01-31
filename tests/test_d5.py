@@ -34,7 +34,7 @@ trajectory_dir = f"{os.path.dirname(os.path.abspath(__file__))}/trajectories/"
 
 
 def test_egno():
-    model_name = "d5"
+    model = "d5"
 
     # setup model
     r, θ = sympy.symbols("r θ2")
@@ -50,7 +50,11 @@ def test_egno():
     rho = r / (3 * u)
 
     H = (
-        ((sympy.pi * N * gs * ls**4) / (12 * u**4) * (2 / rho**2 - 2 * sympy.ln(1 / rho**2 + 1)))
+        (
+            (sympy.pi * N * gs * ls**4)
+            / (12 * u**4)
+            * (2 / rho**2 - 2 * sympy.ln(1 / rho**2 + 1))
+        )
         .nsimplify()
         .collect([u, r])
         .expand()
@@ -79,7 +83,9 @@ def test_egno():
         .powsimp()
     )
     g11 = (
-        collect_sqrt((4 / 6) * sympy.pi * p * T5 * sqrtF * (r**2 + 6 * u**2), evaluate=True)
+        collect_sqrt(
+            (4 / 6) * sympy.pi * p * T5 * sqrtF * (r**2 + 6 * u**2), evaluate=True
+        )
         .nsimplify()
         .collect([r, u])
         .expand()
@@ -128,17 +134,17 @@ def test_egno():
     )
     potential = potential.nsimplify().collect([ls, gs]).expand().powsimp()
 
-    model = inflatox.InflationModelBuilder.new(
+    hesse = inflatox.SymbolicCalculation.new_from_list(
         fields,
         metric,
         potential,
-        model_name=model_name,
         assertions=False,
+        model_name=model,
+        simplification_depth=1,
         silent=True,
-        simplify=False,
-    ).build()
+    ).execute([[0, 1]])
 
-    out = inflatox.Compiler(model, cleanup=False).compile()
+    out = inflatox.Compiler(hesse, cleanup=False).compile()
     anguelova = GeneralisedAL(out)
 
     V0 = -1.17e-8

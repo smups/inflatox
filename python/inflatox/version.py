@@ -16,7 +16,6 @@
 #
 #  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
 #  licensee subject to Dutch law as per article 15 of the EUPL.
-import importlib.metadata
 
-__version__ = importlib.metadata.version("inflatox")
-__abi_version__ = "5.0.0"
+__version__ = "0.9.1"
+__abi_version__ = "4.0.0"
