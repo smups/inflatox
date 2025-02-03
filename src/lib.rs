@@ -71,6 +71,8 @@ fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
   use anguelova::*;
   pymod.add_class::<InflatoxPyDyLib>()?;
   pymod.add_function(wrap_pyfunction!(open_inflx_dylib, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(log_info, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(log_warn, pymod)?)?;
 
   pymod.add_function(wrap_pyfunction!(flag_quantum_dif_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(consistency_only, pymod)?)?;
@@ -87,6 +89,16 @@ fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(background_solver::solve_eom_rkf, pymod)?)?;
 
   Ok(())
+}
+
+#[pyfunction]
+fn log_info<'py>(msg: Bound<'py, pyo3::types::PyString>) {
+  eprintln!("{}{}", *BADGE_INFO, msg.to_string());
+}
+
+#[pyfunction]
+fn log_warn<'py>(msg: Bound<'py, pyo3::types::PyString>) {
+  eprintln!("{}{}", *BADGE_WARN, msg.to_string());
 }
 
 #[pyclass]

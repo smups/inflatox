@@ -20,6 +20,8 @@
 import numpy as np
 import sympy
 from interruptingcow import timeout
+import os
+from . import libinflx_rs
 from joblib import Parallel, cpu_count, delayed
 from sympy.simplify import sqrtdenest
 from sympy.vector import Gradient
@@ -140,6 +142,9 @@ class InflationModelBuilder:
         This class will automatically derive names for the derivatives of the fields (these are
         used by other inflatox components when solving the equations of motion).
 
+        Simplifications are currently disabled on windows due to their time-out system relying on
+        UNIX signals.
+
         ### Args
         - `fields` (`list[sympy.Symbol]`): list of sympy symbols that should be
           interpreted as fields (coordinates on the scalar manifold).
@@ -156,7 +161,9 @@ class InflationModelBuilder:
         - `assertions` (`bool`, *optional*): if False, expensive intermediate
           assertions will be disabled. Defaults to False.
         - `simplify` (`bool`, *optional*): When `True` `sympy`'s simplify method will be used.
-          Defaults to `True`.
+          Due to the time-out system for simplifications relying on UNIX signals, simplifications
+          cannot be turned on on Windows. If you set `simplify` to `True` on Windows it will be
+          ignored. Defaults to `True` (except on Windows platforms).
         - `simplify_timeout` (`float`, *optional*): time-out time in seconds for simplification
           steps.
 
@@ -166,6 +173,21 @@ class InflationModelBuilder:
         """
         if init_sympy_printing:
             sympy.init_printing()
+
+        if simplify == True and os.name == "nt":
+            libinflx_rs.log_warn(
+                "cannot use simplifications on Windows. Continuing without simplifications."
+            )
+            return cls(
+                fields=fields,
+                field_metric=field_metric,
+                potential=potential,
+                model_name=model_name if model_name is not None else "generic model",
+                silent=silent,
+                assertions=assertions,
+                simplify=False,
+                simplify_timeout=0.0,
+            )
 
         return cls(
             fields=fields,
@@ -208,7 +230,7 @@ class InflationModelBuilder:
 
     def simplify_expr(self, expr: sympy.Expr) -> sympy.Expr:
         """simplifies expression"""
-        if not self.simplify:
+        if not self.simplify or os.name == "nt":
             return expr
         try:
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
@@ -220,7 +242,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
 
     def expand_and_factor_expr(self, expr: sympy.Expr) -> sympy.Expr:
         """`sympy.expand` followed by `sympy.factor` with a time-out"""
-        if not self.simplify:
+        if not self.simplify or os.name == "nt":
             return expr
         try:
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
@@ -232,7 +254,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
 
     def sqrt_and_denest_expr(self, expr: sympy.Expr) -> sympy.Expr:
         """returns denested square root of expr (with timeout)"""
-        if not self.simplify:
+        if not self.simplify or os.name == "nt":
             return sympy.sqrt(expr)
         try:
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
@@ -527,6 +549,8 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
         for a in range(dim):
             for b in range(dim):
                 out += metric_inv[a, b] * gradient[a] * gradient[b]
+        if os.name == "nt":
+            return self.simplify_expr(out)
         try:
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 out = sympy.factor(sympy.expand(out))
@@ -599,6 +623,9 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             xdoty = self.inner_prod(x, y)
             for a in range(dim):
                 y[a] -= xdoty * x[a]
+        # Disable simplification if we're on Windows
+        if os.name == "nt":
+            return [self.simplify_expr(yi) for yi in self.normalize(y)]
         try:
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 y = [sympy.factor(sympy.expand(yi)) for yi in y]
