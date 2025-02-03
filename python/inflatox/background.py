@@ -1,4 +1,4 @@
-#  Copyright© 2023 Raúl Wolters(1)
+#  Copyright© 2024 Raúl Wolters(1)
 #
 #  This file is part of Inflatox.
 #
@@ -16,7 +16,34 @@
 #
 #  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
 #  licensee subject to Dutch law as per article 15 of the EUPL.
-import importlib.metadata
 
-__version__ = importlib.metadata.version("inflatox")
-__abi_version__ = "5.0.0"
+# External imports
+import numpy as np
+
+# Internal imports
+from .compiler import CompilationArtifact
+from .libinflx_rs import open_inflx_dylib, solve_eom_rk4, solve_eom_rkf
+
+__all__ = ["solve_eom"]
+
+
+def solve_eom(
+    artifact: CompilationArtifact,
+    pars: np.ndarray[float],
+    steps: int,
+    fields_init: list[float],
+    derivatives_init: list[float],
+    max_err: float = 1e-6,
+    solver: str = "rk4",
+):
+    n = artifact.n_fields
+    out = np.zeros((steps, n * 2 + 1))
+    out[0, 0:n] = np.array(fields_init)
+    out[0, n : 2 * n] = np.array(derivatives_init)
+
+    dylib = open_inflx_dylib(artifact.shared_object_path)
+    if solver == "rk4":
+        solve_eom_rk4(dylib, pars, out, max_err)
+    else:
+        solve_eom_rkf(dylib, pars, out, max_err)
+    return out
