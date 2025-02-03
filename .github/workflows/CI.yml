@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches:
-      - main
-      - master
+      - release
+      - dev
     tags:
       - '*'
   pull_request:
@@ -161,7 +161,7 @@ jobs:
   pypi-publish:
     name: Release
     runs-on: ubuntu-latest
-    if: "startsWith(github.ref_name, 'master')"
+    if: "startsWith(github.ref_name, 'release')"
     needs: [linux, windows, macos, sdist]
     permissions:
       id-token: write
