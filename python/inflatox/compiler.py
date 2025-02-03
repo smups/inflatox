@@ -405,10 +405,13 @@ class Compiler:
             if not self.silent:
                 print(f"Found {len(cse_list[0])} common subexpressions")
             for cse_symbol, cse_definition in cse_list[0]:
-                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};\n"
-            out += f"    return {printer.doprint(cse_list[1])}{';\n}\n'}"
+                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};"
+                out += "\n"
+            out += f"    return {printer.doprint(cse_list[1])};"
+            out += "\n}\n"
         else:
-            out += f"    return {printer.doprint(body)}{';\n}\n'}"
+            out += f"    return {printer.doprint(body)};"
+            out += "\n}\n"
         return out + "\n"
 
     def _generate_c_function_for_vector(
@@ -424,7 +427,8 @@ class Compiler:
             if not self.silent:
                 print(f"Found {len(cse_list[0])} common subexpressions")
             for cse_symbol, cse_definition in cse_list[0]:
-                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};\n"
+                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};"
+                out += "\n"
             for output_expr in cse_list[1]:
                 ordered_output_expr.append(output_expr)
         else:
@@ -432,7 +436,8 @@ class Compiler:
 
         # Assign each element of the output vector to a component of the vector
         for i, output_cmp in enumerate(ordered_output_expr):
-            out += f"    v_out[{i}] = {printer.doprint(output_cmp)};\n"
+            out += f"    v_out[{i}] = {printer.doprint(output_cmp)};"
+            out += "\n"
         out += "    return;\n}\n\n"
 
         return out
@@ -446,7 +451,8 @@ class Compiler:
         if self.cse:
             cse_list = sympy.cse(flattened_metric, symbols=self._new_cse_generator(), list=True)
             for cse_symbol, cse_definition in cse_list[0]:
-                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};\n"
+                out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};"
+                out += "\n"
             flattened_metric = cse_list[1]
 
         # Write function for outer product
@@ -458,9 +464,11 @@ class Compiler:
                 symbol_str = printer.doprint(flattened_metric[n])
                 if symbol_str == "0" or symbol_str == "0.0":
                     continue
-                out += f"    const double g{i}{j} = {symbol_str};\n"
+                out += f"    const double g{i}{j} = {symbol_str};"
+                out += "\n"
                 return_expr += f" + (g{i}{j} * v1[{i}] * v2[{j}])"
-        out += f"    return {return_expr};\n}}\n\n"
+        out += f"    return {return_expr};"
+        out += "\n}\n\n"
         return out
 
     def _generate_c_file(self):
