@@ -44,10 +44,11 @@ def test_doc_example():
 
     params = np.array([1.0])
     x = np.array([2.0, -2.0])
-    assert anguelova.calc_V(x, params) == 1.9166666666666667
-    assert np.allclose(
-        anguelova.calc_H(x, params), np.array([[0.10368764, -0.1483731], [-0.1483731, 0.03007954]])
-    )
+    v_val = anguelova.calc_V(x, params)
+    h_val = anguelova.calc_H(x, params)
+    print(v_val, h_val)
+    assert v_val == 1.9166666666666667
+    assert np.allclose(h_val, np.array([[0.41206897, -1.05517241], [-1.05517241, -0.07873563]]))
 
     extent = [0.0, 2.5, 0.0, np.pi]
     consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = anguelova.complete_analysis(

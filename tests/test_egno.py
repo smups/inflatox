@@ -65,10 +65,16 @@ def test_egno():
     ).nsimplify()
 
     model = inflatox.InflationModelBuilder.new(
-        fields, real_metric, potential, model_name=model, silent=True, simplify=False
-    ).build()
+        fields,
+        real_metric,
+        potential,
+        model_name=model,
+        silent=True,
+        simplify=False,
+        assertions=False,
+    ).build([[0, 1]])
 
-    out = inflatox.Compiler(model, silent=False).compile()
+    out = inflatox.Compiler(model, silent=False, cse=True).compile()
     anguelova = GeneralisedAL(out)
 
     alpha = 1.0

@@ -136,7 +136,7 @@ def test_egno():
         assertions=False,
         silent=True,
         simplify=False,
-    ).build()
+    ).build([[1, 0]])
 
     out = inflatox.Compiler(model, cleanup=False).compile()
     anguelova = GeneralisedAL(out)

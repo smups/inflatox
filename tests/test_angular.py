@@ -57,7 +57,7 @@ def test_angular():
         silent=True,
     ).build()
 
-    out = inflatox.Compiler(hesse, cleanup=False).compile()
+    out = inflatox.Compiler(hesse, cleanup=False, cse=True).compile()
     anguelova = GeneralisedAL(out)
 
     a = 1 / 600
