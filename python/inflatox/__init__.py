@@ -25,6 +25,7 @@ from .version import __version__
 
 from . import consistency_conditions
 from . import background
+from .libinflx_rs import log_info, log_warn
 
 __all__ = [
     "CompilationArtifact",
@@ -32,6 +33,8 @@ __all__ = [
     "InflationModel",
     "InflationModelBuilder",
     "consistency_conditions",
+    "log_info",
+    "log_warn",
     "background",
     "__version__",
 ]

@@ -3,8 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - main
-      - master
+      - release
     tags:
       - '*'
   pull_request:
@@ -114,9 +113,9 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: macos-12
+          - runner: macos-13
             target: x86_64
-          - runner: macos-14
+          - runner: macos-latest
             target: aarch64
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +160,7 @@ jobs:
   pypi-publish:
     name: Release
     runs-on: ubuntu-latest
-    if: "startsWith(github.ref_name, 'master')"
+    if: "startsWith(github.ref_name, 'release')"
     needs: [linux, windows, macos, sdist]
     permissions:
       id-token: write
