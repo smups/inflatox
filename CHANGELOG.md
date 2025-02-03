@@ -1,5 +1,26 @@
 # Inflatox Changelog
 
+## v0.10.0 (💣BREAKING CHANGES💣)
+Features
+- Added common subexpression elimination (cse) option for compiler
+- Equations of motion are now computed and compiled in addition to the consistency condition
+- Reworked symbolic simplification system
+- Added automatic numerical verification of basis orthonormality
+
+Breaking Changes
+- Renamed `SymbolicCalculation` to `InflationModelBuilder`
+- Renamed `SymbolicOutput` to `InflationModel`
+
+Non-breaking behaviour changes
+- `InflationModelBuilder`'s constructor now has `assertions=True` by default
+- `InflationCondition`'s constructor now has `verify_basis=True` by default
+
+Bugfixes
+- fixed bug in documentation (thanks to TJMarchand)
+- fixed CRITICAL bug in definition of gradient (discovered by TJMarchand)
+- fixed bug in shortcut definition of second basis vector in 2-field inflation models (discovered
+  by TJMarchand)
+
 ### v0.9.1 bugfixes
 General
 - Added unit tests
