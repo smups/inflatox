@@ -95,7 +95,7 @@ class InflationCondition:
         """
         n_fields = self.artifact.n_fields
         start_stop = np.array([[float(start), float(stop)] for (start, stop) in zip(start, stop)])
-        N = N if N is not None else (8000 for _ in range(n_fields))
+        N = N if N is not None else [8000 for _ in range(n_fields)]
         x = np.zeros(N)
         self.dylib.potential_array(x, args, start_stop)
         return x
@@ -152,8 +152,8 @@ class InflationCondition:
         start_stop = np.array(
             [[float(x0_start), float(x0_stop)], [float(x1_start), float(x1_stop)]]
         )
-        N = N if N is not None else (8000 for _ in range(n_fields))
-        return self.dylib.hesse_array(np.array(n_fields, dtype=np.int64), args, start_stop)
+        N = N if N is not None else [8000 for _ in range(n_fields)]
+        return self.dylib.hesse_array(np.array(N, dtype=np.uintp), args, start_stop)
 
     def validate_basis_on_domain(
         self,
