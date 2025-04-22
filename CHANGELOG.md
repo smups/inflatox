@@ -1,5 +1,9 @@
 # Inflatox Changelog
 
+### v0.10.1 bugfix
+Bugfixes
+- fixed bug in `calc_H_array` python binding (discovered by @yr-chen2000)
+
 ## v0.10.0 (💣BREAKING CHANGES💣)
 Features
 - Added common subexpression elimination (cse) option for compiler

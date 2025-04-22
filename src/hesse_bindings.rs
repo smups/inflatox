@@ -154,8 +154,8 @@ impl<'a> Hesse<'a> {
     start_stop: &[[f64; 2]],
   ) -> nd::ArrayD<f64> {
     let n_fields = self.lib.n_fields();
-    assert!(x_shape.len() == n_fields, "{}", *BADGE_PANIC);
-    assert!(p.len() == self.lib.n_fields(), "{}", *BADGE_PANIC);
+    assert!(x_shape.len() == n_fields, "{} x_shape.len() != n_fields", *BADGE_PANIC);
+    assert!(p.len() == self.lib.n_pars(), "{} p.len() != lib.n_pars()", *BADGE_PANIC);
 
     // Convert start-stop ranges
     let (spacings, offsets) = start_stop
