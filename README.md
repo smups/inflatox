@@ -48,44 +48,41 @@ pip install --upgrade inflatox
 The following code example shows how `inflatox` can be used to calculate the
 potential and components of the Hesse matrix for a two-field hyperinflation model.
 ```python
-#import inflatox
 import inflatox
-import sympy as sp
 import numpy as np
-from IPython.display import display
-sp.init_printing()
+import sympy as sp
 
-#define model
-φ, θ, L, m, φ0 = sp.symbols('φ θ L m φ0')
-fields = [φ, θ]
+# define model
+r, θ, m = sp.symbols("r θ m")
+fields = [r, θ]
 
-V = (1/2*m**2*(φ-φ0)**2).nsimplify()
-g = [
-  [1, 0],
-  [0, L**2 * sp.sinh(φ/L)**2]
-]
+V = (1 / 2 * m**2 * (θ**2 - 2 / (3 * r**2))).nsimplify()
+g = [[0.5, 0], [0, 0.5 * r**2]]
 
-#print metric and potential
-display(g, V)
+# symbolic calculation
+model = inflatox.InflationModelBuilder.new(fields, g, V).build()
 
-#symbolic calculation
-calc = inflatox.SymbolicCalculation.new(fields, g, V)
-hesse = calc.execute()
+# run the compiler
+compiled_model = inflatox.Compiler(model).compile()
+compiled_model.print_sym_lookup_table()
 
-#run the compiler
-out = inflatox.Compiler(hesse).compile()
-
-#evaluate the compiled potential and Hesse matrix
+# evaluate the compiled potential and Hesse matrix at the point x
 from inflatox.consistency_conditions import GeneralisedAL
-anguelova = GeneralisedAL(out)
 
-params = np.array([1.0, 1.0, 1.0])
+params = np.array([1.0])
 x = np.array([2.0, -2.0])
-print(anguelova.calc_V(x, params))
-print(anguelova.calc_H(x, params))
 
-extent = [-1., 1., -1., 1.]
-consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = anguelova.complete_analysis(params, *extent)
+anguelova_condition = GeneralisedAL(compiled_model)
+
+potential = anguelova_condition.calc_V(x, params)
+hesse_mtrx = anguelova_condition.calc_H(x, params)
+print(potential, hesse_mtrx)
+
+# evaluate the consistency condition over a range of field-space coords (extent)
+extent = [0.0, 2.5, 0.0, np.pi]
+consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = (
+    anguelova_condition.complete_analysis(params, *extent)
+)
 ```
 
 ## Special function support

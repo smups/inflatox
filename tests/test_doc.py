@@ -17,12 +17,12 @@
 #  (1) Resident of the Kingdom of the Netherlands; agreement between licensor and
 #  licensee subject to Dutch law as per article 15 of the EUPL.
 
-import inflatox
-import numpy as np
-import sympy as sp
-
 
 def test_doc_example():
+    import inflatox
+    import numpy as np
+    import sympy as sp
+
     # define model
     r, θ, m = sp.symbols("r θ m")
     fields = [r, θ]
@@ -34,25 +34,29 @@ def test_doc_example():
     model = inflatox.InflationModelBuilder.new(fields, g, V).build()
 
     # run the compiler
-    out = inflatox.Compiler(model).compile()
-    out.print_sym_lookup_table()
+    compiled_model = inflatox.Compiler(model).compile()
+    compiled_model.print_sym_lookup_table()
 
-    # evaluate the compiled potential and Hesse matrix
+    # evaluate the compiled potential and Hesse matrix at the point x
     from inflatox.consistency_conditions import GeneralisedAL
-
-    anguelova = GeneralisedAL(out)
 
     params = np.array([1.0])
     x = np.array([2.0, -2.0])
-    v_val = anguelova.calc_V(x, params)
-    h_val = anguelova.calc_H(x, params)
-    print(v_val, h_val)
-    assert v_val == 1.9166666666666667
-    assert np.allclose(h_val, np.array([[0.41206897, -1.05517241], [-1.05517241, -0.07873563]]))
 
+    anguelova_condition = GeneralisedAL(compiled_model)
+
+    potential = anguelova_condition.calc_V(x, params)
+    hesse_mtrx = anguelova_condition.calc_H(x, params)
+    print(potential, hesse_mtrx)
+    assert potential == 1.9166666666666667
+    assert np.allclose(
+        hesse_mtrx, np.array([[0.41206897, -1.05517241], [-1.05517241, -0.07873563]])
+    )
+
+    # evaluate the consistency condition over a range of field-space coords (extent)
     extent = [0.0, 2.5, 0.0, np.pi]
-    consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = anguelova.complete_analysis(
-        params, *extent
+    consistency_condition, epsilon_V, epsilon_H, eta_H, delta, omega = (
+        anguelova_condition.complete_analysis(params, *extent)
     )
 
     assert np.nanmax(consistency_condition) <= 1
