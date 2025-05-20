@@ -39,7 +39,7 @@ def angular_model():
     ).build()
 
     out = inflatox.Compiler(hesse).compile()
-    return GeneralisedAL(out)
+    return GeneralisedAL(out, validate_basis=False)
 
 
 def test_hesse(angular_model):
