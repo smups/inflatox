@@ -1,6 +1,14 @@
 # Inflatox Changelog
 
-### v0.10.1 bugfix
+### v0.10.2
+Features
+- Added option to disable basis checking when creating an instance of a `GeneralisedAL` condition
+- Improved logging consistency
+
+Bugfixes
+- Fixed example in readme using old naming convention
+
+### v0.10.1
 Bugfixes
 - fixed bug in `calc_H_array` python binding (discovered by @yr-chen2000)
 
@@ -25,7 +33,7 @@ Bugfixes
 - fixed bug in shortcut definition of second basis vector in 2-field inflation models (discovered
   by TJMarchand)
 
-### v0.9.1 bugfixes
+### v0.9.1
 General
 - Added unit tests
 - Added integration tests for models from arXiv:2405:11628
@@ -55,14 +63,14 @@ General
 Bugfixes
 - fixed assertions
 
-### v0.8.2 printing bugfix
+### v0.8.2
 General
 - added assertion error messages
 
 Bugfixes
 - fixed bug with printing sympy expressions outside IPython environments
 
-### v0.8.1 Synchronise
+### v0.8.1 Version shenanigans
 Version 0.8.1 is identical to version 0.8.0. It has come to our attention that a duplicate 0.8.0
 published in March 2024 (rather than the May 2024 _real_ 0.8.0) was unintentionally published to
 PyPi. Version 0.8.1 should remedy this issue.
@@ -73,7 +81,7 @@ General
   usage of `std`'s `typing` lib), but not reflected in the package manifest.
 - Improved and updated documentation where necessary
 - Added `docs.md` documentation file
-- Added `builds.md` wiht build instructions
+- Added `builds.md` with build instructions
 
 Mathematical changes
 - Moved away from the $\kappa=3$ paradigm to a more sensible calculation for 
@@ -94,7 +102,7 @@ Mathematical changes
 
 API changes
 - Renamed `AnguelovaLazaroiuCondition` to `GeneralisedAL`
-- `SymbolicCalculation` no longer requires the vector $w \perp \nabla V$ to be speficied by default
+- `SymbolicCalculation` no longer requires the vector $w \perp \nabla V$ to be specified by default
   (it is still possible to do so as an option)
 
 Upgrades
