@@ -76,6 +76,7 @@ fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
 
   pymod.add_function(wrap_pyfunction!(flag_quantum_dif_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(consistency_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(hesse_determinant, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(consistency_rapidturn_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(epsilon_v_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(complete_analysis, pymod)?)?;
@@ -86,7 +87,6 @@ fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(on_trajectory::epsilon_v_only, pymod)?)?;
 
   pymod.add_function(wrap_pyfunction!(background_solver::solve_eom_rk4, pymod)?)?;
-  pymod.add_function(wrap_pyfunction!(background_solver::solve_eom_rkf, pymod)?)?;
 
   Ok(())
 }

@@ -435,7 +435,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Exact formulation of calculated quantities
         This function returns:
-          ||lhs| - |rhs||/(|lhs| + |rhs|)
+          |lhs - rhs|/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
           rhs = 3 (Vvw/Vvv)²
@@ -521,7 +521,64 @@ class GeneralisedAL(InflationCondition):
         # evaluate and return
         flag_quantum_dif_py(self.dylib, args, x, start_stop, progress, accuracy)
         return x
+    
+    def hesse_determinant(
+        self,
+        args: np.ndarray,
+        x0_start: float,
+        x0_stop: float,
+        x1_start: float,
+        x1_stop: float,
+        N_x0: int = 1_000,
+        N_x1: int = 1_000,
+        progress: bool = True,
+        threads: None | int = None,
+    ) -> np.ndarray:
+        """returns array filled with the normalised difference between one and the
+        quotient of the left-hand-side (lhs) and right-hand-side (rhs) of
+        consistency condition of the determinant of hesse matrix.
 
+        ### Exact formulation of calculated quantities
+        This function returns:
+          |lhs - rhs|/(|lhs| + |rhs|)
+        Where
+          lhs = Vww*Vvv
+          rhs = Vvw*Vwv
+
+        ### Args:
+        - `args` (`np.ndarray`): values of the model-dependent parameters.
+        - `x0_start` (`float`): minimum value of first field `x[0]`.
+        - `x0_stop` (`float`): maximum value of first field `x[0]`.
+        - `x1_start` (`float`): minimum value of second field `x[1]`.
+        - `y_stop` (`float`): maximum value of second field `x[1]`.
+        - `N_x` (`int`, optional): number of steps along `x[0]` axis. Defaults to 10_000.
+        - `x1_stop` (`int`, optional): number of steps along `x[1]` axis. Defaults to 10_000.
+        - `progress` (`bool`, optional): whether to render a progressbar or not. Showing the
+          progressbar may slightly degrade performance. Defaults to True.
+        - `threads` (`None | int`, optional): number of threads to use for calculation.
+          When set to `None`, inflatox will choose the optimum number (usually equal
+          to the number of CPU's). When set to 1, a single-threaded implementation
+          will be used.
+
+        ### Returns:
+        `np.ndarray`: array filled with consistency condition
+        of the determinant of hesse matrix.
+        """
+
+        # set up args for anguelova's condition
+        out = np.zeros((N_x0, N_x1), dtype=float)
+
+        start_stop = np.array(
+            [[float(x0_start), float(x0_stop)], [float(x1_start), float(x1_stop)]]
+        )
+
+        # calculate
+        threads = threads if threads is not None else 0
+
+        # evaluate and return
+        hesse_determinant(self.dylib, args, out, start_stop, progress, threads)
+        return out
+    
     #########################
     # On_trajectory methods #
     #########################
@@ -601,7 +658,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Exact formulation of calculated quantities
         This function returns:
-          ||lhs| - |rhs||/(|lhs| + |rhs|)
+          |lhs - rhs|/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
           rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)²
@@ -643,7 +700,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Exact formulation of calculated quantities
         This function returns:
-          ||lhs| - |rhs||/(|lhs| + |rhs|)
+          |lhs - rhs|/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
           rhs = 3 + 3 (Vvw/Vvv)² + (Vvv/V) (Vvw/Vvv)²
@@ -685,7 +742,7 @@ class GeneralisedAL(InflationCondition):
 
         ### Exact formulation of calculated quantities
         This function returns:
-          ||lhs| - |rhs||/(|lhs| + |rhs|)
+          |lhs - rhs|/(|lhs| + |rhs|)
         Where
           lhs = Vww/V
           rhs = 3 (Vvw/Vvv)²
