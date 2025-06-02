@@ -87,6 +87,7 @@ fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
   pymod.add_function(wrap_pyfunction!(on_trajectory::epsilon_v_only, pymod)?)?;
 
   pymod.add_function(wrap_pyfunction!(background_solver::solve_eom_rk4, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(background_solver::solve_eom_rkf, pymod)?)?;
 
   Ok(())
 }

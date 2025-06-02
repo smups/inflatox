@@ -22,7 +22,7 @@ import numpy as np
 
 # Internal imports
 from .compiler import CompilationArtifact
-from .libinflx_rs import open_inflx_dylib, solve_eom_rk4
+from .libinflx_rs import open_inflx_dylib, solve_eom_rk4, solve_eom_rkf
 
 __all__ = ["solve_eom"]
 
@@ -38,7 +38,9 @@ class solve_eom:
         steps: int,
         fields_init: list[float],
         derivatives_init: list[float],
-        delta_t: float,
+        delta_t: float = 1e-5,
+        max_err: float = 1e-6,
+        solver: str = "rk4",
     ) -> np.ndarray:
         
         n = self.n_fields
@@ -47,6 +49,9 @@ class solve_eom:
         out[0, n : 2 * n] = np.array(derivatives_init)
 
         dylib = open_inflx_dylib(self.shared_object_path, True)
-        solve_eom_rk4(dylib, pars, out, delta_t)
+        if solver == "rk4":
+            solve_eom_rk4(dylib, pars, out, delta_t)
+        else:
+            solve_eom_rkf(dylib, pars, out, max_err, delta_t)
         
         return out
