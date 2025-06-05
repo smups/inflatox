@@ -26,32 +26,24 @@ from .libinflx_rs import open_inflx_dylib, solve_eom_rk4, solve_eom_rkf
 
 __all__ = ["solve_eom"]
 
-class solve_eom:
-    def __init__(self, artifact: CompilationArtifact):
-        self.artifact = artifact
-        self.n_fields = artifact.n_fields
-        self.shared_object_path = artifact.shared_object_path
 
-    def calc_eom_array(
-        self,
-        pars: np.ndarray[float],
-        steps: int,
-        fields_init: list[float],
-        derivatives_init: list[float],
-        delta_t: float = 1e-5,
-        max_err: float = 1e-6,
-        solver: str = "rk4",
-    ) -> np.ndarray:
-        
-        n = self.n_fields
-        out = np.zeros((steps, n * 2 + 1))
-        out[0, 0:n] = np.array(fields_init)
-        out[0, n : 2 * n] = np.array(derivatives_init)
+def solve_eom(
+    artifact: CompilationArtifact,
+    pars: np.ndarray[float],
+    steps: int,
+    fields_init: list[float],
+    derivatives_init: list[float],
+    max_err: float = 1e-6,
+    solver: str = "rk4",
+):
+    n = artifact.n_fields
+    out = np.zeros((steps, n * 2 + 1))
+    out[0, 0:n] = np.array(fields_init)
+    out[0, n : 2 * n] = np.array(derivatives_init)
 
-        dylib = open_inflx_dylib(self.shared_object_path, True)
-        if solver == "rk4":
-            solve_eom_rk4(dylib, pars, out, delta_t)
-        else:
-            solve_eom_rkf(dylib, pars, out, max_err, delta_t)
-        
-        return out
+    dylib = open_inflx_dylib(artifact.shared_object_path)
+    if solver == "rk4":
+        solve_eom_rk4(dylib, pars, out, max_err)
+    else:
+        solve_eom_rkf(dylib, pars, out, max_err)
+    return out

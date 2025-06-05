@@ -69,174 +69,7 @@ impl<'a> EoM<'a> {
   }
 }
 
-
-// RK4
-
-
-struct RK4Solver<'a, const ORDER: usize> {
-  eom: EoM<'a>,
-  dt: f64,
-  a: &'static [&'static [f64]; ORDER],
-  k: Vec<[f64; ORDER]>,
-  phi_dot: Vec<[f64; ORDER]>,
-  l: [f64; ORDER],
-  scratch1: Vec<f64>,
-  scratch2: Vec<f64>,
-}
-
-impl<'a, const ORDER: usize> RK4Solver<'a, ORDER> {
-
-  fn phi_bar_n(&mut self, n: usize, phi_idx: usize, x: &[f64], xdot: &[f64]) -> (f64, f64) {
-    if n == 0 {
-      return (xdot[phi_idx], x[phi_idx]);
-    }
-
-    let mut phi_bar_dot = xdot[phi_idx];
-    let k_row = &self.k[phi_idx];
-    for m in 0..n {
-      phi_bar_dot += self.dt * self.a[n][m] * k_row[m];
-    }
-   
-    let mut phi_bar = x[phi_idx];
-    self.phi_dot[phi_idx][n] = phi_bar_dot;
-    for m in 0..n {
-        phi_bar += self.dt * self.a[n][m] * self.phi_dot[phi_idx][m];
-    }
-
-    (phi_bar_dot, phi_bar)
-  }
-
-
-  fn h_bar_n(&mut self, n: usize, hubble: f64) -> f64 {
-    // eprintln!("Computing hbar{n}");
-    if n == 0 {
-      return hubble;
-    }
-    let mut h_bar = hubble;
-    for m in 0..n {
-      h_bar += self.dt * self.a[n][m] * self.l[m];
-    }
-    h_bar
-  }
-
-  fn update_kn_ln(&mut self, n: usize, x: &[f64], xdot: &[f64], hubble: f64) {
-    self.scratch1.fill(0.);
-    self.scratch2.fill(0.);
-
-    for a in 0..self.scratch2.len() {
-      unsafe {
-        (*self.scratch2.get_unchecked_mut(a), *self.scratch1.get_unchecked_mut(a)) =
-          self.phi_bar_n(n, a, x, xdot);
-      }
-      self.phi_dot[a][n] = self.scratch2[a];
-    }
-
-    let hubble_bar = self.h_bar_n(n, hubble);
-
-    for (idx, k) in self.k.iter_mut().enumerate() {
-      k[n] = unsafe { self.eom.f(idx, &self.scratch1, &self.scratch2, hubble_bar) };
-    }
-
-    self.l[n] = unsafe { self.eom.g(&self.scratch1, hubble_bar) };
-
-
-  }
-
-  pub fn step_rk4(&mut self, x: &mut [f64], xdot: &mut [f64], hubble: &mut f64) -> bool {
-    // First compute all the ki's
-    self.k.iter_mut().for_each(|v| v.fill(0.));
-    self.phi_dot.iter_mut().for_each(|v| v.fill(0.));
-    self.l.fill(0.);
-    (0..4).for_each(|n| self.update_kn_ln(n, x, xdot, *hubble));
-
-    // Compute two candidates for the next step (for error estimation)
-    self.scratch1.fill(0.);
-    self.scratch2.fill(0.);
-
-    let w = [1.0/6.0, 1.0/3.0, 1.0/3.0, 1.0/6.0];
-    for a in 0..self.eom.lib.n_fields() {
-        let dphi = w.iter().enumerate().map(|(i,wi)| wi*self.phi_dot[a][i]).sum::<f64>() * self.dt;
-        let dpi  = w.iter().enumerate().map(|(i,wi)| wi*self.k[a][i]).sum::<f64>() * self.dt;
-        x[a]    += dphi;
-        xdot[a] += dpi;
-    }
-    *hubble += w.iter().enumerate().map(|(i,wi)| wi*self.l[i]).sum::<f64>() * self.dt;
- 
-
-    return false;
-  }
-
-  
-
-  pub fn new_rk4(eom: EoM<'a>, dt: f64) -> RK4Solver<'a, 4> {
-    const A1: [f64; 4] = [0., 0., 0., 0.];
-    const A2: [f64; 4] = [0.5, 0., 0., 0.];
-    const A3: [f64; 4] = [0., 0.5, 0., 0.];
-    const A4: [f64; 4] = [0., 0., 1., 0.];
-
-    RK4Solver {
-      k: vec![[0.; 4]; eom.lib.n_fields()],
-      phi_dot: vec![[0.; 4]; eom.lib.n_fields()],
-      l: [0.; 4],
-      a: &[&A1, &A2, &A3, &A4],
-      scratch1: vec![0.; eom.lib.n_fields()],
-      scratch2: vec![0.; eom.lib.n_fields()],
-      eom,
-      dt,
-    }
-  }
-}
-
-#[pyfunction]
-pub fn solve_eom_rk4(
-  lib: PyRef<crate::InflatoxPyDyLib>,
-  p: PyReadonlyArray1<f64>,
-  mut out: PyReadwriteArray2<f64>,
-  dt: f64,
-) -> PyResult<()> {
-  let p = p
-    .as_slice()
-    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
-  let lib = &lib.0;
-  let eom = EoM::new(lib, &p)?;
-  let mut out = out.as_array_mut();
-  let mut solver = RK4Solver::<4>::new_rk4(eom, dt);
-  let mut previous_step = out.slice(nd::s![0, 0..]).as_slice().unwrap().to_vec();
-
-  // The hubble paramter is as-of-yet undefined. We use the constraint equation to initialise it
-  let (hubble, rest) = previous_step.split_last_mut().unwrap();
-  let (x, xdot) = rest.split_at_mut(lib.n_fields());
-  *hubble = unsafe { (lib.get_hubble_constraint()?)(x.as_ptr(), xdot.as_ptr(), p.as_ptr()) };
-
-  {
-    let mut row0_view = out.slice_mut(nd::s![0, ..]);
-    let row0 = row0_view.as_slice_mut().unwrap();
-    row0.copy_from_slice(&previous_step);
-  }
-
-
-  for mut row in out.axis_iter_mut(nd::Axis(0)).skip(1) {
-    // Copy previous row into this one
-    let row = row.as_slice_mut().unwrap();
-    row.copy_from_slice(&previous_step);
-
-    // Update the next row
-    let (hubble, rest) = row.split_last_mut().unwrap();
-    let (x, xdot) = rest.split_at_mut(lib.n_fields());
-    while solver.step_rk4(x, xdot, hubble) {}
-
-    // Make the previous row the current row
-    previous_step.copy_from_slice(row);
-  }
-
-  Ok(())
-}
-
-
-// RKF
-
-
-struct RKFSolver<'a, const ORDER: usize> {
+struct RKNSolver<'a, const ORDER: usize> {
   eom: EoM<'a>,
   dt: f64,
   max_err: f64,
@@ -247,7 +80,6 @@ struct RKFSolver<'a, const ORDER: usize> {
   bbar: &'static [f64; ORDER],
   c: &'static [f64; ORDER],
   k: Vec<[f64; ORDER]>,
-  phi_dot: Vec<[f64; ORDER]>,
   l: [f64; ORDER],
   scratch1: Vec<f64>,
   scratch2: Vec<f64>,
@@ -255,7 +87,7 @@ struct RKFSolver<'a, const ORDER: usize> {
   scratch4: Vec<f64>,
 }
 
-impl<'a, const ORDER: usize> RKFSolver<'a, ORDER> {
+impl<'a, const ORDER: usize> RKNSolver<'a, ORDER> {
   fn phi_bar_n(&mut self, n: usize, phi_idx: usize, x: &[f64], xdot: &[f64]) -> (f64, f64) {
     if n == 0 {
       return (xdot[phi_idx], x[phi_idx]);
@@ -264,10 +96,10 @@ impl<'a, const ORDER: usize> RKFSolver<'a, ORDER> {
     let k = &self.k[phi_idx];
     let mut phi_bar_dot = xdot[phi_idx];
     let mut phi_bar = x[phi_idx];
-    for m in 0..n {
+    for m in 0..n - 1 {
       phi_bar_dot += self.dt * self.a[n][m] * k[m];
       phi_bar += self.dt * self.c[m] * xdot[phi_idx];
-      for o in 0..n{
+      for o in 0..n - 1 {
         phi_bar += self.dt.powi(2) * self.a[m][o] * k[o];
       }
     }
@@ -281,7 +113,7 @@ impl<'a, const ORDER: usize> RKFSolver<'a, ORDER> {
       return hubble;
     }
     let mut h_bar = hubble;
-    for m in 0..n{
+    for m in 0..n - 1 {
       h_bar += self.dt * self.a[n][m] * self.l[m];
     }
     h_bar
@@ -296,22 +128,21 @@ impl<'a, const ORDER: usize> RKFSolver<'a, ORDER> {
         (*self.scratch2.get_unchecked_mut(a), *self.scratch1.get_unchecked_mut(a)) =
           self.phi_bar_n(n, a, x, xdot);
       }
-      self.phi_dot[a][n] = self.scratch2[a];
     }
     let hubble_bar = self.h_bar_n(n, hubble);
 
     for (idx, k) in self.k.iter_mut().enumerate() {
-      k[n] = unsafe { self.eom.f(idx, &self.scratch1, &self.scratch2, hubble_bar) };
+      k[n] = unsafe { self.eom.f(idx, &self.scratch2, &self.scratch1, hubble_bar) };
     }
 
-    self.l[n] = unsafe { self.eom.g(&self.scratch1, hubble_bar) };
-
+    for li in &mut self.l {
+      *li = unsafe { self.eom.g(&self.scratch2, hubble) };
+    }
   }
 
   pub fn step(&mut self, x: &mut [f64], xdot: &mut [f64], hubble: &mut f64) -> bool {
     // First compute all the ki's
     self.k.iter_mut().for_each(|v| v.fill(0.));
-    self.phi_dot.iter_mut().for_each(|v| v.fill(0.));
     self.l.fill(0.);
     (0..ORDER).for_each(|n| self.update_kn_ln(n, x, xdot, *hubble));
 
@@ -369,7 +200,35 @@ impl<'a, const ORDER: usize> RKFSolver<'a, ORDER> {
     return false;
   }
 
-  pub fn new_rkf(eom: EoM<'a>, max_err: f64, dt: f64) -> RKFSolver<'a, 6> {
+  pub fn new_rk4(eom: EoM<'a>, max_err: f64) -> RKNSolver<'a, 4> {
+    const A1: [f64; 4] = [0., 0., 0., 0.];
+    const A2: [f64; 4] = [0.5, 0., 0., 0.];
+    const A3: [f64; 4] = [0., 0.5, 0., 0.];
+    const A4: [f64; 4] = [0., 0., 1., 0.];
+    const B: [f64; 4] = [1. / 6., 1. / 3., 1. / 3., 1. / 6.];
+    const BBAR: [f64; 4] = B;
+    const C: [f64; 4] = [0., 0.5, 0.5, 1.];
+
+    RKNSolver {
+      k: vec![[0.; 4]; eom.lib.n_fields()],
+      l: [0.; 4],
+      a: &[&A1, &A2, &A3, &A4],
+      b: &B,
+      bbar: &BBAR,
+      c: &C,
+      scratch1: vec![0.; eom.lib.n_fields()],
+      scratch2: vec![0.; eom.lib.n_fields()],
+      scratch3: vec![0.; eom.lib.n_fields()],
+      scratch4: vec![0.; eom.lib.n_fields()],
+      phi_err: vec![0.; eom.lib.n_fields()],
+      phidot_err: vec![0.; eom.lib.n_fields()],
+      eom,
+      dt: 1e-10,
+      max_err,
+    }
+  }
+
+  pub fn new_rkf(eom: EoM<'a>, max_err: f64) -> RKNSolver<'a, 6> {
     const A1: [f64; 5] = [0.; 5];
     const A2: [f64; 5] = [0.25, 0., 0., 0., 0.];
     const A3: [f64; 5] = [3. / 32., 9. / 32., 0., 0., 0.];
@@ -380,9 +239,8 @@ impl<'a, const ORDER: usize> RKFSolver<'a, ORDER> {
     const B2: [f64; 6] = [25. / 216., 0., 1408. / 2565., 2197. / 4104., -1. / 5., 0.];
     const C: [f64; 6] = [0., 0.25, 3. / 8., 12. / 13., 1., 0.5];
 
-    RKFSolver {
+    RKNSolver {
       k: vec![[0.; 6]; eom.lib.n_fields()],
-      phi_dot: vec![[0.; 6]; eom.lib.n_fields()],
       l: [0.; 6],
       a: &[&A1, &A2, &A3, &A4, &A5, &A6],
       b: &B1,
@@ -395,10 +253,48 @@ impl<'a, const ORDER: usize> RKFSolver<'a, ORDER> {
       phi_err: vec![0.; eom.lib.n_fields()],
       phidot_err: vec![0.; eom.lib.n_fields()],
       eom,
-      dt,
+      dt: 1e-10,
       max_err,
     }
   }
+}
+
+#[pyfunction]
+pub fn solve_eom_rk4(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut out: PyReadwriteArray2<f64>,
+  max_err: f64,
+) -> PyResult<()> {
+  let p = p
+    .as_slice()
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+  let lib = &lib.0;
+  let eom = EoM::new(lib, &p)?;
+  let mut out = out.as_array_mut();
+  let mut solver = RKNSolver::<0>::new_rk4(eom, max_err);
+  let mut previous_step = out.slice(nd::s![0, 0..]).as_slice().unwrap().to_vec();
+
+  // The hubble paramter is as-of-yet undefined. We use the constraint equation to initialise it
+  let (hubble, rest) = previous_step.split_last_mut().unwrap();
+  let (x, xdot) = rest.split_at_mut(lib.n_fields());
+  *hubble = unsafe { (lib.get_hubble_constraint()?)(x.as_ptr(), xdot.as_ptr(), p.as_ptr()) };
+
+  for mut row in out.axis_iter_mut(nd::Axis(0)).into_iter() {
+    // Copy previous row into this one
+    let row = row.as_slice_mut().unwrap();
+    row.copy_from_slice(&previous_step);
+
+    // Update the next row
+    let (hubble, rest) = row.split_last_mut().unwrap();
+    let (x, xdot) = rest.split_at_mut(lib.n_fields());
+    while solver.step(x, xdot, hubble) {}
+
+    // Make the previous row the current row
+    previous_step.copy_from_slice(row);
+  }
+
+  Ok(())
 }
 
 #[pyfunction]
@@ -407,7 +303,6 @@ pub fn solve_eom_rkf(
   p: PyReadonlyArray1<f64>,
   mut out: PyReadwriteArray2<f64>,
   max_err: f64,
-  dt: f64, 
 ) -> PyResult<()> {
   let p = p
     .as_slice()
@@ -415,19 +310,15 @@ pub fn solve_eom_rkf(
   let lib = &lib.0;
   let eom = EoM::new(lib, &p)?;
   let mut out = out.as_array_mut();
-  let mut solver = RKFSolver::<0>::new_rkf(eom, max_err, dt);
+  let mut solver = RKNSolver::<0>::new_rkf(eom, max_err);
   let mut previous_step = out.slice(nd::s![0, 0..]).as_slice().unwrap().to_vec();
 
   // The hubble paramter is as-of-yet undefined. We use the constraint equation to initialise it
   let (hubble, rest) = previous_step.split_last_mut().unwrap();
   let (x, xdot) = rest.split_at_mut(lib.n_fields());
   *hubble = unsafe { (lib.get_hubble_constraint()?)(x.as_ptr(), xdot.as_ptr(), p.as_ptr()) };
-  {
-      let mut row0_view = out.slice_mut(nd::s![0, ..]);
-      let row0 = row0_view.as_slice_mut().unwrap();
-      row0.copy_from_slice(&previous_step);
-    }
-  for mut row in out.axis_iter_mut(nd::Axis(0)).skip(1)  {
+
+  for mut row in out.axis_iter_mut(nd::Axis(0)).into_iter() {
     // Copy previous row into this one
     let row = row.as_slice_mut().unwrap();
     row.copy_from_slice(&previous_step);
