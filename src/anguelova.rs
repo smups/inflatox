@@ -150,7 +150,7 @@ mod ops {
     let lhs = v11 / v;
     let rhs = 3. * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
-    (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
+    (lhs - rhs).abs() / (lhs.abs() + rhs.abs())
   }
 
   #[inline(always)]
@@ -159,7 +159,7 @@ mod ops {
     let lhs = v11 / v - 3.;
     let rhs = 3. * (v00 / v10).powi(2) + (v00 / v) * (v10 / v00).powi(2);
     //Return left-hand-side / right-hand-side minus one
-    (lhs.abs() - rhs.abs()).abs() / (lhs.abs() + rhs.abs())
+    (lhs - rhs).abs() / (lhs.abs() + rhs.abs())
   }
 
   #[inline(always)]
@@ -167,6 +167,18 @@ mod ops {
     let mut out = [0f64; 2];
     g.grad(&x, &p, &mut out);
     out.iter().all(|&x| x <= accuracy)
+  }
+  #[inline(always)]
+  pub fn hesse_determinant(
+    x: [f64; 2],
+    p: &[f64],
+    h: &Hesse2D<'_>,
+  ) -> f64 {
+    let ( v11, v10, v00) = ( h.v11(&x, p), h.v10(&x, p), h.v00(&x, p));
+    let lhs = v11*v00;
+    let rhs = v10*v10;
+    //Return left-hand-side / right-hand-side minus one
+    (lhs- rhs).abs() / (lhs.abs() + rhs.abs())
   }
 }
 
@@ -353,6 +365,97 @@ pub fn consistency_rapidturn_only(
 
   Ok(())
 }
+
+
+#[pyfunction]
+/// Evaluate the determinant of the hesse matrix
+pub fn hesse_determinant(
+  lib: PyRef<crate::InflatoxPyDyLib>,
+  p: PyReadonlyArray1<f64>,
+  mut out: PyReadwriteArray2<f64>,
+  start_stop: PyReadonlyArray2<f64>,
+  progress: bool,
+  threads: usize,
+) -> PyResult<()> {
+  //(0) Set number of threads to use
+  let num_threads = if threads != 0 { threads } else { rayon::current_num_threads() };
+
+  //(1) Convert the PyArrays to nd::Arrays
+  let lib = &lib.0;
+  let p = p
+    .as_slice()
+    .unwrap_or_else(|_| panic!("{}PARAMETER ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+  let mut out = out.as_array_mut();
+  let start_stop = start_stop.as_array();
+
+  //(2) Validate that the input is usable for evaluating Anguelova-Lazaroiu's condition
+  let (h, _) = validate_lib(lib)?;
+  validiate_p(lib, p)?;
+
+  //(3) Convert start-stop
+  let start_stop = crate::convert_start_stop(start_stop, 2)?;
+
+  //(4) Say hello
+  eprintln!("{}Calculating the determinant of the hesse matrix ONLY using {num_threads} threads.", *BADGE_INFO);
+  let _ = std::io::stderr().flush();
+  let start = std::time::Instant::now();
+
+  //(5) Fill output array
+  let len = out.len();
+  let shape = &[out.shape()[0], out.shape()[1]];
+  let out = out
+    .as_slice_mut()
+    .unwrap_or_else(|| panic!("{}OUTPUT ARRAY SHOULD BE C-CONTIGUOUS", *BADGE_PANIC));
+  let (x_spacing, y_spacing, x_ofst, y_ofst) = convert_ranges(&start_stop, shape);
+
+  //(5a) Define the calculation
+  let op = ops::hesse_determinant;
+
+  //(5b) setup the threadpool (if necessary)
+  if threads == 1 {
+    //Single-threaded mode
+    let iter = out
+      .iter_mut()
+      .enumerate()
+      //(2a) convert flat index into array index
+      .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+      //(2b) convert array index into field-space point
+      .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+    if progress {
+      iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
+    } else {
+      iter.for_each(|(x, val)| *val = op(x, p, &h));
+    }
+  } else {
+    //Multi-threaded mode
+    let threadpool =
+      rayon::ThreadPoolBuilder::new().num_threads(num_threads).build().map_err(Error::from)?;
+    threadpool.install(move || {
+      let iter = out
+        .into_par_iter()
+        .enumerate()
+        //(2a) convert flat index into array index
+        .map(|(idx, val)| ([(idx / shape[1]) as f64, (idx % shape[1]) as f64], val))
+        //(2b) convert array index into field-space point
+        .map(move |(idx, val)| ([idx[0] * x_spacing + x_ofst, idx[1] * y_spacing + y_ofst], val));
+      if progress {
+        iter.progress_with(set_pbar(len)).for_each(|(x, val)| *val = op(x, p, &h));
+      } else {
+        iter.for_each(|(x, val)| *val = op(x, p, &h));
+      }
+    });
+  }
+
+  //(6) Report how long we took, and return.
+  eprintln!(
+    "{}Calculation finished. Took {}.",
+    *BADGE_INFO,
+    indicatif::HumanDuration(start.elapsed())
+  );
+
+  Ok(())
+}
+
 
 #[pyfunction]
 /// Calculate the potential slow-roll parameter ε_V only
