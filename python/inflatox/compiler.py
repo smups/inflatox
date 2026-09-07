@@ -32,6 +32,7 @@ from sympy.printing.c import C99CodePrinter
 # Internal imports
 from .symbolic import InflationModel
 from .version import __abi_version__, __version__
+from .libinflx_rs import log_warn, log_info
 
 
 class CInflatoxPrinter(C99CodePrinter):
@@ -403,7 +404,7 @@ class Compiler:
         if self.cse:
             cse_list = sympy.cse(body, symbols=self._new_cse_generator(), order="none", list=False)
             if not self.silent:
-                print(f"Found {len(cse_list[0])} common subexpressions")
+                log_info(f"Found {len(cse_list[0])} common subexpressions")
             for cse_symbol, cse_definition in cse_list[0]:
                 out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};"
                 out += "\n"
@@ -425,7 +426,7 @@ class Compiler:
         if self.cse:
             cse_list = sympy.cse(vector, symbols=self._new_cse_generator(), list=True)
             if not self.silent:
-                print(f"Found {len(cse_list[0])} common subexpressions")
+                log_info(f"Found {len(cse_list[0])} common subexpressions")
             for cse_symbol, cse_definition in cse_list[0]:
                 out += f"    const double {printer.doprint(cse_symbol)} = {printer.doprint(cse_definition)};"
                 out += "\n"
@@ -483,7 +484,7 @@ class Compiler:
         )
 
         if not self.silent and self.cse:
-            print("Converting sympy to C using common subexpression elimination...")
+            log_info("Converting sympy to C using common subexpression elimination...")
         contents = ""
 
         # Write potential
@@ -506,7 +507,6 @@ class Compiler:
         # Output functions for each of the basis vectors
         for idx in range(self.symbolic_out.dim):
             vector = self.symbolic_out.basis[idx]
-            print(vector)
             name = "v" if idx == 0 else f"w{idx}"
             signature = f"void {name}(const double x[], const double args[], double v_out[])"
             contents += self._generate_c_function_for_vector(signature, vector, printer)
@@ -592,7 +592,7 @@ const char USE_GSL = {1 if self.gsl else 0};
                 break
             out += line
             if not self.silent:
-                print(line.decode("utf-8"), end=None)
+                log_info(line.decode("utf-8"), end=None)
 
         exitcode = process.wait()
         return (source_path, lib_path, (out, exitcode))
@@ -620,7 +620,7 @@ const char USE_GSL = {1 if self.gsl else 0};
         """
         # (0) Say hello
         if not self.silent:
-            print("Compiling model...")
+            log_info("Compiling model...")
 
         # (1) generate the actual C-source
         self._generate_c_file()
@@ -635,9 +635,9 @@ const char USE_GSL = {1 if self.gsl else 0};
         # (4) print output
         if exitcode != 0:
             if self.silent:
-                print(output.decode("utf-8"))
+                log_warn(output.decode("utf-8"))
 
-            print(f'Problematic source file located at: "{source_path}"')
+            log_warn(f'Problematic source file located at: "{source_path}"')
             raise Exception("Zig compiler error (see previous output)")
 
         # (R) return compilation artifact

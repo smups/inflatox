@@ -19,7 +19,7 @@
 
 [project]
 name = "inflatox"
-version = "0.10.1"
+version = "0.10.2"
 authors = [
   { name="Raúl Wolters", email="r.wolters@uu.nl" },
 ]
@@ -37,7 +37,8 @@ dependencies = [
   "sympy > 1",
   "joblib > 1",
   "interruptingcow >= 0.8",
-  "ziglang >= 0.10"
+  "ziglang >= 0.10",
+  "pytest>=8.3.5",
 ]
 
 [project.urls]

@@ -174,7 +174,7 @@ class InflationModelBuilder:
         if init_sympy_printing:
             sympy.init_printing()
 
-        if simplify == True and os.name == "nt":
+        if simplify is True and os.name == "nt":
             libinflx_rs.log_warn(
                 "cannot use simplifications on Windows. Continuing without simplifications."
             )
@@ -236,7 +236,7 @@ class InflationModelBuilder:
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 return sympy.simplify(expr, ratio=1, inverse=True)
         except SimplificationTimeOut:
-            print(f"""Simplification step timed out (>{self.simplify_timeout}s)!
+            libinflx_rs.log_warn(f"""Simplification step timed out (>{self.simplify_timeout}s)!
 Consider increasing the simpliciation time-out time or turning off simplifications.""")
             return expr
 
@@ -248,7 +248,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 return sympy.factor(sympy.expand(expr))
         except SimplificationTimeOut:
-            print(f"""Simplification step timed out (>{self.simplify_timeout}s)!
+            libinflx_rs.log_warn(f"""Simplification step timed out (>{self.simplify_timeout}s)!
 Consider increasing the simpliciation time-out time or turning off simplifications.""")
             return expr
 
@@ -260,14 +260,14 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 return sqrtdenest(sympy.sqrt(expr))
         except SimplificationTimeOut:
-            print(f"""Simplification step timed out (>{self.simplify_timeout}s)!
+            libinflx_rs.log_warn(f"""Simplification step timed out (>{self.simplify_timeout}s)!
 Consider increasing the simpliciation time-out time or turning off simplifications.""")
             return sympy.sqrt(expr)
 
-    def print(self, msg: str) -> None:
-        """prints msg to stdout if self.silent is not True"""
+    def print_info(self, msg: str) -> None:
+        """prints msg to stdout via libinflx_rs if self.silent is not True"""
         if not self.silent:
-            print(msg)
+            libinflx_rs.log_info(msg)
 
     def display(self, expr: sympy.Expr, lhs: str | None = None) -> None:
         """displays sympy expression if self.silent is not True. If lhs is not None,
@@ -314,8 +314,8 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
 
         # Calculate an orthonormal basis
         # ...starting with a vector parallel to the potential gradient
-        self.print("Calculating orthonormal basis...")
-        self.print("Computing normalised potential gradient...")
+        self.print_info("Calculating orthonormal basis...")
+        self.print_info("Computing normalised potential gradient...")
         basis = [self.calc_v()]
         self.display(sympy.Matrix(basis[0]), lhs=sympy.symbols("v"))
 
@@ -342,12 +342,12 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
                 for b in range(a, self.dim):
                     try:
                         if a == b:
-                            print(f"Testing if |w{a}|^2 = 1")
+                            self.print_info(f"Testing if |w{a}|^2 = 1")
                             assert sympy.Eq(1, self.inner_prod(basis[a], basis[b])).simplify(), (
                                 f"normalisation error: |w{a}|^2 does not equal 1"
                             )
                         else:
-                            print(f"Testing if w{a}•w{b} = 0")
+                            self.print_info(f"Testing if w{a}•w{b} = 0")
                             assert sympy.Eq(0, self.inner_prod(basis[a], basis[b])).simplify(), (
                                 f"orthogonality error: w{a}•w{b} does not equal 0"
                             )
@@ -359,7 +359,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
                         )
 
         # Calculate the components of the covariant Hesse Matrix
-        self.print("Calculating covariant Hesse matrix...")
+        self.print_info("Calculating covariant Hesse matrix...")
         H = self.calc_hesse()
         self.display(sympy.Matrix(H), lhs=sympy.symbols("H"))
 
@@ -371,7 +371,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
                     Hab = Hab + H[x][y] * basis[a][x] * basis[b][y]
             return ([a, b], self.simplify_expr(Hab))
 
-        self.print("Projecting the Hesse matrix on the vielbein basis...")
+        self.print_info("Projecting the Hesse matrix on the vielbein basis...")
         H_proj = [[0 for _ in range(self.dim)] for _ in range(self.dim)]
         results = Parallel(n_jobs=cpu_count())(
             delayed(process)(a, b) for a in range(self.dim) for b in range(self.dim)
@@ -388,12 +388,12 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             self.display(component, lhs=sympy.symbols(f"H_{{{a}{b}}}"))
 
         # calculate the size of the gradient
-        self.print("Calculating the norm of the gradient...")
+        self.print_info("Calculating the norm of the gradient...")
         gradnorm = self.calc_gradient_square()
         self.display(gradnorm, lhs=Gradient(sympy.symbols("V")) ** 2)
 
         # compute the equations of motion
-        self.print("Computing the equations of motion...")
+        self.print_info("Computing the equations of motion...")
         eoms = self.compute_eom()
         for idx, eom in enumerate(eoms):
             self.display(sympy.symbols(f"\\ddot{{{sympy.latex(self.fields[idx])}}}") + eom, lhs=0)
@@ -555,7 +555,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 out = sympy.factor(sympy.expand(out))
         except SimplificationTimeOut:
-            print(f"""Simplification step timed out (>{self.simplify_timeout}s)!
+            libinflx_rs.log_warn(f"""Simplification step timed out (>{self.simplify_timeout}s)!
 Consider increasing the simpliciation time-out time or turning off simplifications.""")
         return self.simplify_expr(out)
 
@@ -630,7 +630,7 @@ Consider increasing the simpliciation time-out time or turning off simplificatio
             with timeout(self.simplify_timeout, exception=SimplificationTimeOut):
                 y = [sympy.factor(sympy.expand(yi)) for yi in y]
         except SimplificationTimeOut:
-            print(f"""Simplification step timed out (>{self.simplify_timeout}s)!
+            libinflx_rs.log_warn(f"""Simplification step timed out (>{self.simplify_timeout}s)!
 Consider increasing the simpliciation time-out time or turning off simplifications.""")
 
         return [self.simplify_expr(yi) for yi in self.normalize(y)]

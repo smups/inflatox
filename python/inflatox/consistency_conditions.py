@@ -220,8 +220,17 @@ class GeneralisedAL(InflationCondition):
     `.complete_analysis()` method.
     """
 
-    def __init__(self, compiled_artifact: CompilationArtifact):
-        super().__init__(compiled_artifact)
+    def __init__(self, compiled_artifact: CompilationArtifact, validate_basis: bool = True):
+        """
+        ### Args:
+        - `compiled_artifact` (`CompilationArtifact`): output of `Compiler` (see its docs)
+        - `validate_basis` (`bool`, optional): if `True`, lib_inflx_rs will check that the
+          field-space basis defined in the `CompilationArtifact` is orthonormal
+          at some number of random field-space points for with random parameter values. It will
+          throw an exception if this is not the case. You may disable this if inflatox picks
+          random points outside the domain of your model.
+        """
+        super().__init__(compiled_artifact, validate_basis)
 
     def complete_analysis(
         self,
