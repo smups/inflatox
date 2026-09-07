@@ -6,6 +6,7 @@ Features
 - Improved logging consistency
 
 Breaking Changes
+- Removed ubuntu x86 pre-built wheels
 - Removed MacOS x86_64 pre-built wheels
 
 Bugfixes
