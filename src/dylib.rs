@@ -44,7 +44,7 @@ const GSL_INIT_SYM: &[u8; 9] = b"err_setup";
 pub type ExFn2 = unsafe extern "C" fn(*const f64, *const f64) -> f64;
 pub type ExFn3 = unsafe extern "C" fn(*const f64, *const f64, *const f64) -> f64;
 pub type ExFn4 = unsafe extern "C" fn(*const f64, *const f64, *const f64, *const f64) -> f64;
-pub type ExVecFn = unsafe extern "C" fn(*const f64, *const f64, *mut f64) -> std::ffi::c_void;
+pub type ExVecFn = unsafe extern "C" fn(*const f64, *const f64, *mut f64);
 type ExInitFn = unsafe extern "C" fn(crate::err::GslErrHandler);
 
 type Error = crate::err::LibInflxRsErr;
@@ -64,7 +64,7 @@ impl InflatoxDylib {
   /// Try to open an Inflatox compilation artefact at file location `lib_path`.
   /// Returns an error if compilation artefact is incomplete, invalid, or built
   /// for a different inflatox ABI.
-  pub fn open<P: AsRef<OsStr>>(ref lib_path: P) -> Result<Self> {
+  pub fn open<P: AsRef<OsStr> + libloading::AsFilename>(lib_path: P) -> Result<Self> {
     // Convert library path to something more usable
     let libp_string = lib_path.as_ref().to_string_lossy().to_string();
 
@@ -152,7 +152,7 @@ impl InflatoxDylib {
     Ok(InflatoxDylib {
       dylib_handle: lib,
       model_name,
-      path: PathBuf::from(lib_path),
+      path: libp_string.into(),
       n_fields,
       n_param,
       potential,
@@ -202,7 +202,7 @@ impl InflatoxDylib {
     } else {
       let mut symbol = Vec::new();
       symbol.write_fmt(format_args!("w{idx}")).unwrap();
-      unsafe { self.dylib_handle.get::<ExVecFn>(&symbol) }
+      unsafe { self.dylib_handle.get::<ExVecFn>(symbol.as_slice()) }
         .map_err(|_err| Error::MissingSymbol {
           symbol,
           lib_path: self.path.to_string_lossy().into_owned(),
@@ -227,7 +227,7 @@ impl InflatoxDylib {
           unsafe {
             self
               .dylib_handle
-              .get::<ExVecFn>(&symbol)
+              .get::<ExVecFn>(symbol.as_slice())
               .map_err(|_err| Error::MissingSymbol {
                 symbol,
                 lib_path: self.path.to_string_lossy().into_owned(),
@@ -260,7 +260,7 @@ impl InflatoxDylib {
         symbol.extend_from_slice(format!("{fidx}").as_bytes());
         self
           .dylib_handle
-          .get::<ExFn3>(&symbol)
+          .get::<ExFn3>(symbol.as_slice())
           .map_err(|_err| Error::MissingSymbol {
             symbol,
             lib_path: self.path.to_string_lossy().into_owned(),
