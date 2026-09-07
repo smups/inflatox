@@ -5,6 +5,9 @@ Features
 - Added option to disable basis checking when creating an instance of a `GeneralisedAL` condition
 - Improved logging consistency
 
+Breaking Changes
+- Removed MacOS x86_64 pre-built wheels
+
 Bugfixes
 - Fixed example in readme using old naming convention
 
