@@ -24,10 +24,6 @@ jobs:
             target: x86
           - runner: ubuntu-24.04-arm
             target: aarch64
-          # - runner: ubuntu-latest
-          #   target: armv7
-          # - runner: ubuntu-latest
-          #   target: ppc64le
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -45,18 +41,18 @@ jobs:
         with:
           name: wheels-linux-${{ matrix.platform.target }}
           path: dist
-      - name: pytest
-        if: ${{ startsWith(matrix.platform.target, 'x86_64') }}
+      - name: pytest (native)
+        if: ${{ matrix.platform.target == 'x86_64' || matrix.platform.target == 'aarch64' }}
         shell: bash
         run: |
           set -e
           python3 -m venv .venv
           source .venv/bin/activate
-          pip install inflatox --find-links dist --force-reinstall
+          pip install inflatox --no-index --find-links dist --force-reinstall
           pip install pytest
           pytest
-      - name: pytest
-        if: ${{ !startsWith(matrix.platform.target, 'x86') && matrix.platform.target != 'ppc64' }}
+      - name: pytest (emulated)
+        if: ${{ matrix.platform.target == 'x86' }}
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: ${{ matrix.platform.target }}
@@ -68,7 +64,7 @@ jobs:
             pip3 install -U pip pytest
           run: |
             set -e
-            pip3 install inflatox --find-links dist --force-reinstall
+            pip3 install inflatox --no-index --find-links dist --force-reinstall
             pytest
 
   windows:
