@@ -304,7 +304,7 @@ impl InflatoxDylib {
   pub unsafe fn get_symbol<T>(
     &self,
     symbol: &[u8],
-  ) -> std::result::Result<libloading::Symbol<T>, libloading::Error> {
+  ) -> std::result::Result<libloading::Symbol<'_, T>, libloading::Error> {
     self.dylib_handle.get(symbol)
   }
 
