@@ -76,6 +76,7 @@ fn libinflx_rs(_py: Python<'_>, pymod: &Bound<PyModule>) -> PyResult<()> {
 
   pymod.add_function(wrap_pyfunction!(flag_quantum_dif_py, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(consistency_only, pymod)?)?;
+  pymod.add_function(wrap_pyfunction!(hesse_determinant, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(consistency_rapidturn_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(epsilon_v_only, pymod)?)?;
   pymod.add_function(wrap_pyfunction!(complete_analysis, pymod)?)?;
